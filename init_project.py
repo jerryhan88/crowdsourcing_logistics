@@ -6,9 +6,10 @@ dpath['raw'] = opath.join(taxi_data_home, 'raw')
 dpath['geo'] = opath.join(taxi_data_home, 'geo')
 # --------------------------------------------------------------
 dpath['home'] = opath.join(taxi_data_home, 'crowdsourcingLogistics')
+dpath['dayInstance'] = opath.join(dpath['home'], 'dayInstance')
 
 
-for dn in ['home',
+for dn in ['home', 'dayInstance'
            ]:
     try:
         if not opath.exists(dpath[dn]):

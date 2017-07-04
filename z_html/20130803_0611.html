@@ -1,0 +1,46 @@
+<html>
+  <head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      google.charts.load('current', {'packages':['sankey']});
+      google.charts.setOnLoadCallback(drawChart);
+
+      function drawChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'fromDistrict');
+        data.addColumn('string', 'toDistrict');
+        data.addColumn('number', 'NumberTrips');
+        data.addRows([
+['from center', 'to center', 55714],
+['from center', 'to east', 28672],
+['from center', 'to north', 7196],
+['from center', 'to west', 13029],
+['from east', 'to center', 102013],
+['from east', 'to east', 66006],
+['from east', 'to north', 10143],
+['from east', 'to west', 9900],
+['from north', 'to center', 38891],
+['from north', 'to east', 20025],
+['from north', 'to north', 22916],
+['from north', 'to west', 17470],
+['from west', 'to center', 33086],
+['from west', 'to east', 11116],
+['from west', 'to north', 10391],
+['from west', 'to west', 24764],
+        ]);
+
+        // Sets chart options.
+        var options = {
+          width: 600,
+        };
+
+        // Instantiates and draws our chart, passing in some options.
+        var chart = new google.visualization.Sankey(document.getElementById('sankey_basic'));
+        chart.draw(data, options);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="sankey_basic" style="width: 900px; height: 300px;"></div>
+  </body>
+</html>

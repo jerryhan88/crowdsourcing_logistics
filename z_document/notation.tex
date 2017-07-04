@@ -1,0 +1,59 @@
+\documentclass{article}
+
+\usepackage{multicol}
+\usepackage[a4paper, margin=2cm]{geometry}
+\usepackage{supertabular}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}
+
+\begin{document}
+\begin{multicols}{2}
+
+\setcounter{secnumdepth}{0} %% no numbering
+
+\section{Inputs}
+
+\vspace{0.2cm}
+\renewcommand{\arraystretch}{1.5}
+\begin{supertabular}{L{0.58cm} L{7.2cm}}
+	$o$ 		& Number of bundles. \\
+	$B$ 		& Set of all bundles, $|B| = o$. \\
+	$\lambda$ 	& Maximum volume allowed in a bundle. \\
+	$\delta$ 	& Threshold for extra detour travel time. \\
+	$n$ 		& Number of tasks. \\
+	$P$ 		& Set of pickup nodes, where $P = \{1,...,n\}$. \\
+	$D$ 		& Set of delivery nodes, where $D = \{n+1,...,2n\}$. \\
+	$N$ 		& Set of pickup and delivery nodes, where $N = P \cup D$. \\
+	$r_i$ 		& Reward for finishing task $i$. \\
+	$v_i$ 		& Volume for task $i$. \\
+	$m$ 		& Number of paths. \\
+	$K$ 		& Set of all paths, where $|K| = m$. \\
+	$\Omega$ 	& Set of origin nodes, where $\Omega = \{2n+1,...,2n+m\}$. \\
+	$\Pi$ 		& Set of destination nodes, where $\Pi = \{2n+m+1,...,2n+2m\}$. \\
+	$\omega_k$ 	& Origin node index of path $k$, $\omega_k = 2n + k,~k \in K$. \\
+	$\pi_k$ 	& Destination node index of path $k$, $\pi_k = 2n + m + k,~k \in K$. \\
+	$f_k$ 		& Flow along path $k \in K$. \\
+	$w_k$ 		& Weight of path $k \in K$. \\
+	$V$ 		& Set of the whole nodes, where $V = N \cup \Omega \cup \Pi$. \\	
+	$t_{ij}$ 	& Travel time from node $i$ to node $j$, where $i, j \in V$. \\
+\end{supertabular}
+
+\vfill\null
+
+\columnbreak
+
+\section{Decision variables}
+\renewcommand{\arraystretch}{1.5}
+\begin{supertabular}{L{0.58cm} L{7.2cm}}
+
+	$x_{i,j}^{b,k}$ & Binary variable, $x_{i,j}^{b,k}=1$ if the edge between node $i$ and $j$ is used for path $k$ when trying to satisfy bundle $b$, where $i,j \in V$, $b \in B$, $k \in K$. \\
+	$y^{b,k}$ & Binary variable, $y^{b,k}=1$ when the \textit{bundle-path} combination is feasible, i.e. a worker in path $k$ can perform the tasks in bundle $b$ without violating the detour travel time threshold. \\
+	$z_i ^b$ & Binary variable, $z_i ^b=1$ when task $i$ is in bundle $b$. \\
+	$\mathcal{R}^b$ & Combined reward for tasks in bundle $b$. \\
+	$d_j^{b, k}$ & Accumulates travel time accumulated till node $j \in N \cup \Pi$ in a \textit{bundle-path} combination. The time is accumulated \textit{forward} from node to node, based on sequence specified by $x_{i, j}^{b, k}$. The value of $d_{\pi_k}^{b, k}$ will then give the total travel time incurred for a \textit{bundle-path}. \\
+
+\end{supertabular}
+\end{multicols}
+\end{document}

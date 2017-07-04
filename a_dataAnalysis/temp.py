@@ -1,36 +1,32 @@
 import __init__
 from init_project import *
 #
-from _utils.geoFunctions import get_districts
+import pandas as pd
+
+day_flow = {}
+
+
+for ft, tt in [(6, 11), (12, 17), (18, 23)]:
+    df = pd.read_csv(opath.join(dpath['dayInstance'], 'dayInstance-D%02d-%02d-%02d.csv' % (1, ft, tt)))
+    df = df.groupby(['fromDistrict', 'toDistrict']).count().reset_index()
+    for fromDistrict, toDistrict, num, _, _ in df.values:
+        k = (fromDistrict, toDistrict)
+        if not day_flow.has_key(k):
+            day_flow[k] = 0
+        day_flow[k] += num
+
+count = 0
+for (fromDistrict, toDistrict), num in day_flow.iteritems():
+    print "['from %s', 'to %s', %d]," % (fromDistrict, toDistrict, num)
+    count += num
+
+print count
+
+
+# df = pd.read_csv(opath.join(dpath['dayInstance'], 'dayInstance-D%02d-%02d-%02d.csv' % (3, 6, 11)))
 #
-from shapely.geometry import Point
-import webbrowser
-import folium
-import csv
+# df = df.groupby(['fromDistrict', 'toDistrict']).count().reset_index()
+#
+# for fromDistrict, toDistrict, num, _, _ in df.values:
+#     print "['from %s', 'to %s', %d]," % (fromDistrict, toDistrict, num)
 
-def run():
-    fpath = opath.join(dpath['geo'], 'all_stations.csv')
-    dist_poly = get_districts()
-    dist_stations = {k: [] for k in dist_poly.iterkeys()}
-    with open(fpath, 'rb') as r_csvfile:
-        reader = csv.reader(r_csvfile)
-        header = reader.next()
-        hid = {h: i for i, h in enumerate(header)}
-        for row in reader:
-            locName = row[hid['location_name']]
-            lon, lat = map(eval, [row[hid[cn]] for cn in 'lon lat'.split()])
-            p = Point(lon, lat)
-            for distName, poly in dist_poly.iteritems():
-                if p.within(poly):
-                    dist_stations[distName] += [[locName, lon, lat]]
-                    break
-    print dist_stations
-
-
-
-# Point(*coordinate)
-# return p.within(self)
-
-
-if __name__ == '__main__':
-    run()
