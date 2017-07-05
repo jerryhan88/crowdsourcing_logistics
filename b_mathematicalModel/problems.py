@@ -19,10 +19,10 @@ def ex1():
     #
     # Inputs related to bundles
     #
-    _o = 4
+    _o = 3
     B = range(_o)
-    _lambda = 3
-    _delta = 4
+    _lambda = 5
+    _delta = 100
     #
     # Inputs related to tasks
     #   Define tasks and their pickup and delivery points
@@ -34,8 +34,9 @@ def ex1():
            3, 1, 2, 1, 2]
     v_i = [1, 1, 1, 1, 1,
            1, 1, 1, 1, 1]
-    P = list(range(1, _n + 1))
-    D = list(range(_n + 1, 2 * _n + 1))
+    T = list(range(_n))
+    P = list(range(_n))
+    D = list(range(_n, 2 * _n))
     N = P + D
     #
     # Inputs related to paths
@@ -44,10 +45,10 @@ def ex1():
     paths = [(i, j) for i in xrange(len(points)) for j in xrange(len(points)) if i != j]
     _m = len(paths)
     K = range(_m)
-    Omega = list(range(2 * _n + 1, 2 * _n + _m + 1))
-    Phi = list(range(2 * _n + _m + 1, 2 * _n + 2 * _m + 1))
+    Omega = list(range(2 * _n, 2 * _n + _m))
+    Pi = list(range(2 * _n + _m, 2 * _n + 2 * _m))
     omega_k = [Omega[k] for k in K]
-    phi_k = [Phi[k] for k in K]
+    pi_k = [Pi[k] for k in K]
     f_k = [
         [0, 1, 2, 1, 1, 2, 3, 2, 0],
         [0, 0, 2, 1, 2, 1, 1, 2, 1],
@@ -61,34 +62,117 @@ def ex1():
     ]
     sum_f_k = sum(f_k[i][j] for i in xrange(len(f_k)) for j in xrange(len(f_k)))
     w_k = [f_k[i][j] / float(sum_f_k) for i, j in paths]
-    V = N + Omega + Phi
+    V = N + Omega + Pi
     t_ij = {}
     for i in V:
         p0 = None
         if i in set(P):
-            p0 = tasks[i - 1][0]
+            p0 = tasks[i][0]
         elif i in set(D):
-            p0 = tasks[i - (_n + 1)][1]
+            p0 = tasks[i - _n][1]
         elif i in set(Omega):
-            p0 = paths[i - (2 * _n + 1)][0]
-        elif i in set(Phi):
-            p0 = paths[i - (2 * _n + _m + 1)][1]
+            p0 = paths[i - 2 * _n][0]
+        elif i in set(Pi):
+            p0 = paths[i - (2 * _n + _m)][1]
         assert p0 != None
         for j in V:
             p1 = None
             if j in set(P):
-                p1 = tasks[j - 1][0]
+                p1 = tasks[j][0]
             elif j in set(D):
-                p1 = tasks[j - (_n + 1)][1]
+                p1 = tasks[j - _n][1]
             elif j in set(Omega):
-                p1 = paths[j - (2 * _n + 1)][0]
-            elif j in set(Phi):
-                p1 = paths[j - (2 * _n + _m + 1)][1]
+                p1 = paths[j - 2 * _n][0]
+            elif j in set(Pi):
+                p1 = paths[j - (2 * _n + _m)][1]
             assert p1 != None
             t_ij[i, j] = distance[p0, p1]
     return _o, B, _lambda, _delta, \
-            _n, P, D, N, r_i, v_i, \
-            _m, K, Omega, Phi, omega_k, phi_k, f_k, w_k, \
+            _n, T, P, D, N, r_i, v_i, \
+            _m, K, Omega, Pi, omega_k, pi_k, f_k, w_k, \
+            V, t_ij
+
+
+def ex2():
+    #
+    # Define a network
+    #
+    points, distance = {}, {}
+    pid = 0
+    for i in range(2):
+        for j in range(2):
+            points[pid] = point(pid, i, j)
+            pid += 1
+    for p0 in points.itervalues():
+        for p1 in points.itervalues():
+            distance[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+    #
+    # Inputs related to bundles
+    #
+    _o = 1
+    B = range(_o)
+    _lambda = 10
+    _delta = 1000
+    #
+    # Inputs related to tasks
+    #   Define tasks and their pickup and delivery points
+    #
+    tasks = [(0, 2)]
+
+    r_i = [1]
+    v_i = [1]
+    _n = len(tasks)
+    T = list(range(_n))
+    P = list(range(_n))
+    D = list(range(_n, 2 * _n))
+    N = P + D
+    #
+    # Inputs related to paths
+    #   Define flows and calculate flows' weight
+    #
+    paths = [(i, j) for i in xrange(len(points)) for j in xrange(len(points)) if i != j]
+    _m = len(paths)
+    K = range(_m)
+    Omega = list(range(2 * _n, 2 * _n + _m))
+    Pi = list(range(2 * _n + _m, 2 * _n + 2 * _m))
+    omega_k = [Omega[k] for k in K]
+    pi_k = [Pi[k] for k in K]
+    f_k = [
+        [0, 1, 2, 1],
+        [0, 0, 2, 1],
+        [2, 1, 0, 2],
+        [1, 0, 3, 0],
+    ]
+    sum_f_k = sum(f_k[i][j] for i in xrange(len(f_k)) for j in xrange(len(f_k)))
+    w_k = [f_k[i][j] / float(sum_f_k) for i, j in paths]
+    V = N + Omega + Pi
+    t_ij = {}
+    for i in V:
+        p0 = None
+        if i in set(P):
+            p0 = tasks[i][0]
+        elif i in set(D):
+            p0 = tasks[i - _n][1]
+        elif i in set(Omega):
+            p0 = paths[i - 2 * _n][0]
+        elif i in set(Pi):
+            p0 = paths[i - (2 * _n + _m)][1]
+        assert p0 != None
+        for j in V:
+            p1 = None
+            if j in set(P):
+                p1 = tasks[j][0]
+            elif j in set(D):
+                p1 = tasks[j - _n][1]
+            elif j in set(Omega):
+                p1 = paths[j - 2 * _n][0]
+            elif j in set(Pi):
+                p1 = paths[j - (2 * _n + _m)][1]
+            assert p1 != None
+            t_ij[i, j] = distance[p0, p1]
+    return _o, B, _lambda, _delta, \
+            _n, T, P, D, N, r_i, v_i, \
+            _m, K, Omega, Pi, omega_k, pi_k, f_k, w_k, \
             V, t_ij
 
 

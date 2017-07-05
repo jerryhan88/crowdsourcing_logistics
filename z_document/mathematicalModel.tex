@@ -13,8 +13,8 @@
 \subsubsection{Objective}
 
 \begin{equation}
-	\max_x \sum_{b \in B} \sum_{k \in K} w_k \cdot y^{b,k} \cdot \mathcal{R}^b
-	\label{eq:objective}	
+	\max_x \sum_{ b \in B} \sum_{k \in K} w_k \cdot y^{b,k} \cdot \mathcal{R}^b
+	\label{eq:maxExpectedReward}	
 \end{equation}
 \vspace{0.5cm}
 
@@ -24,84 +24,76 @@
 Bundling
 
 \begin{equation}
-	\mathcal{R}^b = \sum_{i \in P} z_i^b \cdot r_i,~~~~\forall b \in B
-	\label{eq:bundleReward}
-\end{equation}
-
-\begin{equation}
-	\sum_{b \in B} z_i^b = 1,~~~~\forall i \in P
+	\sum_{ b \in B} z_{i}^{b} = 1,~~~~\forall i \in T
 	\label{eq:taskMembership}
 \end{equation}
 
 \begin{equation}
-	\sum_{i \in P} z_i^b \cdot v_i \le \lambda,~~~~\forall b \in B.
-	\label{eq:volThreshold}
+	\mathcal{R}^b = \sum_{ i \in T} z_{i}^{b} \cdot r_i,~~~~\forall b \in B
+	\label{eq:bundleReward}
 \end{equation}
 
 \begin{equation}
-	\sum_{i \in V} x_{i,j}^{b,k} = z_j^b,~~~~\forall j \in P, b \in B, k \in K
-	\label{eq:enforce}
+	\sum_{ i \in T} z_{i}^{b} \cdot v_i \le \lambda,~~~~\forall b \in B
+	\label{eq:volThreshold}
 \end{equation}
 
 
 Flow conservation
 
 \begin{equation}
-	\sum_{j \in V} x_{i,j}^{b,k} - \sum_{j \in V} x_{j,i+n}^{b,k} = 0,~~~~\forall i \in P, b \in B, k \in K
-	\label{eq:dIfP}
+	\sum_{ j \in P \cup \{ \pi_k \} } x_{\omega_k, j}^{b, k} = 1,~~~~\forall k \in K ~\forall b \in B	
+	\label{eq:flowBegin}
 \end{equation}
 
 \begin{equation}
-	\sum_{i \in V} x_{i,j}^{b,k} - \sum_{i \in V} x_{j,i}^{b,k} = 0,~~~~\forall j \in N, b \in B, k \in K
-	\label{eq:consecutive}
+	\sum_{ i \in D \cup \{\omega_k\} } x_{i,\pi_k}^{b,k} = 1,~~~~\forall k \in K ~\forall b \in B	
+	\label{eq:flowEnd}
 \end{equation}
 
 \begin{equation}
-	\sum_{j \in P \cup \{\pi_k\}} x_{\omega_k,j}^{b,k} = 1,~~~~\forall b \in B, k \in K
-	\label{eq:beginTau1}
+	\sum_{ j \in N } x_{i,j}^{b,k} = z_{i}^{b},~~~~\forall i \in P,~\forall k \in K,~\forall b \in B
+	\label{eq:taskMembership_flowEnforcement}
 \end{equation}
 
 \begin{equation}
-	\sum_{i \in D \cup \{\omega_k\}} x_{i,\pi_k}^{b,k} = 1,~~~~\forall b \in B, k \in K
-	\label{eq:endTau1}
+	\sum_{ j \in N } x_{i,j}^{b,k} = \sum_{ j \in N } x_{j,i+n}^{b,k},~~~~\forall i \in P,~\forall k \in K,~\forall b \in B
+	\label{eq:pickupDeliveryConservation}
 \end{equation}
 
 \begin{equation}
-	\sum_{j \in P \cup \{\pi_k\}} x_{i,j}^{b,k} = 0,~~~~\forall i \in \Omega_k\ \setminus \{ \omega_k \}, b \in B, k \in K
-	\label{eq:beginTau2}
+	\sum_{ i \in N} x_{i,j}^{b,k} = \sum_{ i \in N} x_{j,i}^{b,k},~~~~\forall j \in N,~\forall k \in K,~\forall b \in B
+	\label{eq:flowConservation}
+\end{equation}
+
+
+Distance accumulation
+
+\begin{equation}
+	d_{\omega_k}^{b,k} = 0,~~~~\forall k \in K~\forall b \in B
+	\label{eq:initBeginningDistance}
 \end{equation}
 
 \begin{equation}
-	\sum_{i \in D \cup \{\omega_k\}} x_{i,j}^{b,k} = 0,~~~~\forall j \in \Pi \setminus \{\pi_k\}, b \in B, k \in K
-	\label{eq:endTau2}
+	d_{j}^{b,k} = \sum_{ i \in N \cup \omega_k} x_{i,j}^{b,k} \cdot \big( d_i^{b,k} + t_{i,j} \big),~~~~\forall j \in N \cup \{ \pi_{k} \},~\forall k \in K,~\forall b \in B
+	\label{eq:calcAccumulatedDistance}
 \end{equation}
-
 
 Feasibility of bundle-path
 
-\begin{equation}
-	d_{\omega_k}^{b,k} = 0,~~~~\forall b \in B, k \in K
-	\label{eq:computeDistance1}
-\end{equation}
-
-\begin{equation}
-	d_j^{b,k} = \sum_{i \in N \cup \omega_k} x_{i,j}^{b,k} \cdot \big( d_i^{b,k} + t_{i,j} \big),~~~~\forall j \in N \cup \pi_k, b \in B, k \in K
-	\label{eq:computeDistanceNonLinear2}
-\end{equation}
-
 \begin{equation} 
-	(d_{\pi_k}^{b, k} - t_{\omega_k, \pi_k} - \delta) - M (1 - y^{b, k}) \le 0,~~~~\forall b \in B, k \in K
-\label{eq:feasibility}
+	(d_{\pi_k}^{b, k} - t_{\omega_k, \pi_k} - \delta) \le M (1 - y^{b, k}),~~~~\forall k \in K~\forall b \in B
+	\label{eq:accumulatedDistanceFeasibility}
 \end{equation}
 
 
 \subsection{Linearization version}
 
-About Equation~\ref{eq:objective}, define $\alpha^{b,k} = y^{b,k} \cdot R^b$
+About Equation~\ref{eq:maxExpectedReward}
 
-\begin{equation} \tag{\ref{eq:objective}$^\prime$}
-	\max_x \sum_{b \in B} \sum_{k \in K} w_k \cdot \alpha^{b,k}
-	\label{eq:objective_linearization}
+\begin{equation} \tag{\ref{eq:maxExpectedReward}$^\prime$}
+	\max_x \sum_{ b \in B} \sum_{k \in K} w_k \cdot \alpha^{b,k}
+	\label{eq:maxExpectedReward_linearization}
 \end{equation}
 
 \begin{equation}
@@ -110,17 +102,17 @@ About Equation~\ref{eq:objective}, define $\alpha^{b,k} = y^{b,k} \cdot R^b$
       	\alpha^{b,k} \le M \cdot y^{b,k} \\
       	\alpha^{b,k} \le R^b
    	\end{cases}
-   	,~~~~\forall b \in B, k \in K
-   \label{eq:linearization_alpha}
+   	,~~~~\forall k \in K~\forall b \in B
+\label{eq:linearization_alpha}
 \end{equation}
 
 \vspace{0.5cm}
 
-About Equation~\ref{eq:computeDistanceNonLinear2}, define $\beta^{b,k}_{i,j} = x^{b,k}_{i,j} \cdot \big(d^{b,k}_{i} + t_{i,j}\big)$
+About Equation~\ref{eq:calcAccumulatedDistance}
 
-\begin{equation} \tag{\ref{eq:computeDistanceNonLinear2}$^\prime$}
-	d_j^{b,k} = \sum_{i \in N \cup \omega_k} \beta^{b,k}_{i,j},~~~~\forall j \in N \cup \pi_k, b \in B, k \in K
-	\label{eq:computeDistanceNonLinear2_linearization}
+\begin{equation} \tag{\ref{eq:calcAccumulatedDistance}$^\prime$}
+	d_j^{b,k} = \sum_{ i \in N \cup \omega_k} \beta^{b,k}_{i,j},~~~~\forall j \in \{ \omega_{k} \} \cup N \cup \{ \pi_{k} \},~\forall k \in K,~\forall b \in B
+	\label{eq:calcAccumulatedDistance_linearization}
 \end{equation}
 
 \begin{equation}
@@ -129,7 +121,7 @@ About Equation~\ref{eq:computeDistanceNonLinear2}, define $\beta^{b,k}_{i,j} = x
       	\beta^{b,k}_{i,j} \le M \cdot x^{b,k}_{i,j} \\
       	\beta^{b,k}_{i,j} \le d^{b,k}_{i} + t_{i,j}
    	\end{cases}
-   	,~~~~~~~~\forall i \in N \cup \omega_k, \forall j \in N \cup \pi_k, b \in B, k \in K
+   	,~~~~\forall j \in N \cup \{ \pi_{k} \},~\forall i \in \{ \omega_{k} \} \cup N,~\forall k \in K,~\forall b \in B
    \label{eq:linearization_beta}
 \end{equation}
 

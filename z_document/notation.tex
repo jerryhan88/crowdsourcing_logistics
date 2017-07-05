@@ -23,6 +23,7 @@
 	$\lambda$ 	& Maximum volume allowed in a bundle. \\
 	$\delta$ 	& Threshold for extra detour travel time. \\
 	$n$ 		& Number of tasks. \\
+	$T$ 		& Set of all tasks. \\
 	$P$ 		& Set of pickup nodes, where $P = \{1,...,n\}$. \\
 	$D$ 		& Set of delivery nodes, where $D = \{n+1,...,2n\}$. \\
 	$N$ 		& Set of pickup and delivery nodes, where $N = P \cup D$. \\
@@ -48,11 +49,13 @@
 \renewcommand{\arraystretch}{1.5}
 \begin{supertabular}{L{0.58cm} L{7.2cm}}
 
-	$x_{i,j}^{b,k}$ & Binary variable, $x_{i,j}^{b,k}=1$ if the edge between node $i$ and $j$ is used for path $k$ when trying to satisfy bundle $b$, where $i,j \in V$, $b \in B$, $k \in K$. \\
-	$y^{b,k}$ & Binary variable, $y^{b,k}=1$ when the \textit{bundle-path} combination is feasible, i.e. a worker in path $k$ can perform the tasks in bundle $b$ without violating the detour travel time threshold. \\
-	$z_i ^b$ & Binary variable, $z_i ^b=1$ when task $i$ is in bundle $b$. \\
-	$\mathcal{R}^b$ & Combined reward for tasks in bundle $b$. \\
-	$d_j^{b, k}$ & Accumulates travel time accumulated till node $j \in N \cup \Pi$ in a \textit{bundle-path} combination. The time is accumulated \textit{forward} from node to node, based on sequence specified by $x_{i, j}^{b, k}$. The value of $d_{\pi_k}^{b, k}$ will then give the total travel time incurred for a \textit{bundle-path}. \\
+	$x_{i,j}^{b,k}$ & Binary variable, $x_{i,j}^{b,k}=1$ if the edge between node $i$ and $j$ is used for path $k$ when trying to satisfy bundle $b$, where $b \in B$, $k \in K$, $i \in \{ \omega_k \} \cup N$, $j \in N \cup \{ \pi_k \}$. \\
+	$y^{b,k}$ & Binary variable, $y^{b,k}=1$ when the \textit{bundle-path} combination is feasible, i.e. a worker in path $k \in K$ can perform the tasks in bundle $b \in B$ without violating the detour travel time threshold. \\
+	$z_{i}^b$ & Binary variable, $z_i ^b=1$ when task $i \in T$ is in bundle $b \in B$. \\
+	$\mathcal{R}^b$ & Combined reward for tasks in bundle $b \in B$. \\
+	$d_{j}^{b, k}$ & Accumulates travel time accumulated till node $j \in \{ \omega_{k} \} \cup N \cup \{\pi_{k} \}$ in a \textit{bundle-path} combination. The time is accumulated \textit{forward} from node to node, based on sequence specified by $x_{i, j}^{b, k}$. The value of $d_{\pi_k}^{b, k}$ will then give the total travel time incurred for a \textit{bundle-path}. \\
+	$\alpha^{b,k}$ & $\alpha^{b,k} = y^{b,k} \cdot R^b$ \\
+	$\beta^{b,k}_{i,j}$ & $\beta^{b,k}_{i,j} = x^{b,k}_{i,j} \cdot \big(d^{b,k}_{i} + t_{i,j}\big)$ \\
 
 \end{supertabular}
 \end{multicols}
