@@ -106,6 +106,10 @@ def ex2():
     for p0 in points.itervalues():
         for p1 in points.itervalues():
             distance[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+    points = [0, 1, 2]
+    # distance = {(0, 1): }
+
+
     #
     # Inputs related to bundles
     #
