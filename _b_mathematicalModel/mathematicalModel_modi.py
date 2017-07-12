@@ -165,7 +165,7 @@ def mip(problem):
                     # eq:linearization_beta
                     #
                     m.addConstr(beta_bkij[b, k, i, j] >= d_bkj[b, k, i] + t_ij[i, j] - big_M * (1 - x_bkij[b, k, i, j]))
-                    m.addConstr(beta_bkij[b, k, i, j] <= big_M * (1 - x_bkij[b, k, i, j]))
+                    m.addConstr(beta_bkij[b, k, i, j] <= big_M * x_bkij[b, k, i, j])
                     m.addConstr(beta_bkij[b, k, i, j] <= d_bkj[b, k, i] + t_ij[i, j])
     #
     m.setParam(GRB.Param.DualReductions, 0)
