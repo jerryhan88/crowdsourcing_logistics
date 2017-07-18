@@ -203,48 +203,6 @@ def run_mip(problem):
 
     assert m.status == GRB.Status.OPTIMAL, 'Errors while optimization'
 
-    # print m.objVal
-    # print '-------------------------------z_bi'
-    # for b in B:
-    #     for i in P:
-    #         print b,i, z_bi[b, i].x
-    #
-    # print '-------------------------------y_bk'
-    # for b in B:
-    #     for k in K:
-    #         print b, k, y_bk[b, k].x
-    # print '-------------------------------R_b'
-    # for b in B:
-    #     print b, R_b[b].x
-    # print '-------------------------------obj'
-    # for b in B:
-    #     sum_w_k = 0
-    #     for k in K:
-    #         print '\t', b, k, w_k[k], y_bk[b, k].x
-    #         sum_w_k += w_k[k] * y_bk[b, k].x
-    #     print b, sum_w_k
-    # print '-------------------------------d_bkj'
-    # for b in B:
-    #     for k in K:
-    #         # for j in [omega_k[k]] + N + [pi_k[k]]:
-    #         print '(%d,%d,%d):' % (b, k, pi_k[k]),
-    #         print '\t', (d_bkj[b, k, pi_k[k]].x, t_ij[omega_k[k], pi_k[k]]), (d_bkj[b, k, pi_k[k]].x - t_ij[omega_k[k], pi_k[k]] - _lambda)
-    #
-    # print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    # k = 1
-    # print d_bkj[0, k, omega_k[k]].x, d_bkj[0, k, 0].x, d_bkj[0, k, 1].x, d_bkj[0, k, pi_k[k]].x
-    # print x_bkij[0, k, omega_k[k], 0].x, x_bkij[0, k, 0, 1].x, x_bkij[0, k, 1, pi_k[k]].x
-    #
-    # print x_bkij[0, k, omega_k[k], 1].x, x_bkij[0, k, 0, 1].x, x_bkij[0, k, 1, 1].x
-    #
-    # print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    # for k in K:
-    #     print k, [x_bkij[0, k, omega_k[k], j].x for j in N + [pi_k[k]]]
-
-
-
-
-
 
 def convert_input4MathematicalModel(points, travel_time, \
                                     flows, paths, \
