@@ -7,6 +7,7 @@ big_M = 100
 VALIDATION = False
 NO_LOG = False
 
+
 def run_mip(problem):
     _o, B, _lambda, _delta, \
     _n, T, P, D, N, r_i, v_i, \
