@@ -264,11 +264,255 @@ def convert_input4MathematicalModel(points, travel_time, \
 
 
 
+def run_mip_eliSubTour(problem):
+    _o, B, _lambda, _delta, \
+    _n, T, P, D, N, r_i, v_i, \
+    _m, K, Omega, Pi, omega_k, pi_k, w_k, \
+    V, t_ij = problem
+    #
+    m = Model('')
+    if NO_LOG:
+        m.setParam('OutputFlag', False)
+    #
+    # Define decision variables
+    #
+    x_bkij = {}
+    for b in B:
+        for k in K:
+            for i in [omega_k[k]] + N:
+                for j in N + [pi_k[k]]:
+                    x_bkij[b, k, i, j] = m.addVar(vtype=GRB.BINARY, name='x_(%d,%d,%d,%d)' % (b, k, i, j))
+    #
+    y_bk = {}
+    for b in B:
+        for k in K:
+            y_bk[b, k] = m.addVar(vtype=GRB.BINARY, name='y_(%d,%d)' % (b, k))
+    #
+    z_bi = {}
+    for b in B:
+        for i in P:
+            z_bi[b, i] = m.addVar(vtype=GRB.BINARY, name='z_(%d,%d)' % (b, i))
+    #
+    R_b = {}
+    for b in B:
+        R_b[b] = m.addVar(vtype=GRB.CONTINUOUS, name='R_(%d)' % b)
+    #
+    d_bkj = {}
+    for b in B:
+        for k in K:
+            for j in [omega_k[k]] + N + [pi_k[k]]:
+                d_bkj[b, k, j] = m.addVar(vtype=GRB.CONTINUOUS, name='d_(%d,%d,%d)' % (b, k, j))
+    #
+    #   Decision variables for linearization
+    #
+    alpha_bk = {}
+    for b in B:
+        for k in K:
+            alpha_bk[b, k] = m.addVar(vtype=GRB.CONTINUOUS, name='alpha_(%d,%d)' % (b, k))
+    #
+    beta_bkij = {}
+    for b in B:
+        for k in K:
+            for i in [omega_k[k]] + N:
+                for j in N + [pi_k[k]]:
+                    beta_bkij[b, k, i, j] = m.addVar(vtype=GRB.CONTINUOUS, name='beta_(%d,%d,%d,%d)' % (b, k, i, j))
+    m.update()
+    #
+    # Define objective
+    #
+    #   eq:maxExpectedReward^prime
+    obj = LinExpr()
+    for b in B:
+        for k in K:
+            obj += w_k[k] * alpha_bk[b, k]
+    m.setObjective(obj, GRB.MAXIMIZE)
+    #
+    # Define constrains
+    #
+    for i in T:
+        #
+        # eq:taskMembership
+        #
+        m.addConstr(quicksum(z_bi[b, i] for b in B) == 1)
+    #
+    for b in B:
+        #
+        # eq:bundleReward
+        #
+        m.addConstr(quicksum(z_bi[b, i] * r_i[i] for i in P) == R_b[b])
+    #
+    for b in B:
+        #
+        # eq:volThreshold
+        #
+        m.addConstr(quicksum(z_bi[b, i] * v_i[i] for i in P) <= _lambda)
+    #
+    for b in B:
+        for k in K:
+            #
+            # eq:flowBegin
+            #
+            m.addConstr(quicksum(x_bkij[b, k, omega_k[k], j] for j in P + [pi_k[k]]) == 1)
+    #
+    for b in B:
+        for k in K:
+            #
+            # eq:flowEnd
+            #
+            m.addConstr(quicksum(x_bkij[b, k, i, pi_k[k]] for i in D + [omega_k[k]]) == 1)
+    #
+    for b in B:
+        for k in K:
+            for i in P:
+                #
+                # eq:taskMembership_flowEnforcement
+                #
+                m.addConstr(quicksum(x_bkij[b, k, i, j] for j in N) == z_bi[b, i])
+    #
+    for b in B:
+        for k in K:
+            for i in P:
+                #
+                # eq:pickupDeliveryConservation
+                #
+                m.addConstr(quicksum(x_bkij[b, k, i, j] for j in N) == quicksum(x_bkij[b, k, j, i + _n] for j in N))
+    #
+    for b in B:
+        for k in K:
+            for j in P:
+                #
+                # eq:flowConservation
+                #
+                m.addConstr(
+                    quicksum(x_bkij[b, k, i, j] for i in [omega_k[k]] + N) == quicksum(x_bkij[b, k, j, i] for i in N + [pi_k[k]]))
+    #
+    for b in B:
+        for k in K:
+            for i in N:
+                #
+                # eq:zeroFlow
+                #
+                m.addConstr(x_bkij[b, k, i, i] == 0)
+    #
+    for b in B:
+        for k in K:
+            for i in P:
+                #
+                # eq:reverseFlow
+                #
+                m.addConstr(x_bkij[b, k, i + _n, i] == 0)
+
+    #
+    for b in B:
+        for k in K:
+            #
+            # eq:initBeginningDistance
+            #
+            m.addConstr(d_bkj[b, k, omega_k[k]] == 0)
+    #
+    for b in B:
+        for k in K:
+            #
+            # eq:calcAccumulatedDistance^prime
+            #
+            for j in N + [pi_k[k]]:
+                m.addConstr(d_bkj[b, k, j] == quicksum(beta_bkij[b, k, i, j] for i in [omega_k[k]] + N))
+    #
+    for b in B:
+        for k in K:
+            #
+            # eq:accumulatedDistanceFeasibility
+            #
+            m.addConstr((d_bkj[b, k, pi_k[k]] - t_ij[omega_k[k], pi_k[k]] - _delta) <= big_M * (1 - y_bk[b, k]))
+    #
+    for b in B:
+        for k in K:
+            #
+            # eq:linearization_alpha
+            #
+            m.addConstr(alpha_bk[b, k] >= R_b[b] - big_M * (1 - y_bk[b, k]))
+            m.addConstr(alpha_bk[b, k] <= big_M * y_bk[b, k])
+            m.addConstr(alpha_bk[b, k] <= R_b[b])
+    #
+    for b in B:
+        for k in K:
+            for i in [omega_k[k]] + N:
+                for j in N + [pi_k[k]]:
+                    #
+                    # eq:linearization_beta
+                    #
+                    m.addConstr(beta_bkij[b, k, i, j] >= d_bkj[b, k, i] + t_ij[i, j] - big_M * (1 - x_bkij[b, k, i, j]))
+                    m.addConstr(beta_bkij[b, k, i, j] <= big_M * x_bkij[b, k, i, j])
+                    m.addConstr(beta_bkij[b, k, i, j] <= d_bkj[b, k, i] + t_ij[i, j])
+    #
+    if VALIDATION:
+        m.write('model.mps')
+        m.write('model.rew')
+        m.write('model.lp')
+        m.computeIIS()
+        m.write('model.ilp')
+
+    m._B, m._K, m._N = B, K, N
+    m._x_bkij = x_bkij
+    #
+    m.setParam(GRB.Param.DualReductions, 0)
+    m.params.LazyConstraints = 1
+    m.optimize(subtourelim)
+
+    assert m.status == GRB.Status.OPTIMAL, 'Errors while optimization'
+
+
+
+def subtourelim(m, where):
+    if where == GRB.callback.MIPSOL:
+        for b in m._B:
+            for k in m._K:
+                selected = []
+                for i in m._N:
+                    sol = m.cbGetSolution([m._x_bkij[b, k, i, j] for j in m._N])
+                    selected += [(i, j) for j in m._N if sol[j] > 0.5]
+                min_subtour = get_min_subtour(selected, len(m._N))
+                if len(min_subtour) < len(m._N):
+                    expr = 0
+                    for i in min_subtour:
+                        for j in min_subtour:
+                            if i == j:
+                                continue
+                            expr += m._x_bkij[b, k, i, j]
+                    m.cbLazy(expr <= len(min_subtour) - 1)
+
+
+def get_min_subtour(edges, n):
+    cycles = []
+    visited, selected = [], []
+    for _ in xrange(n):
+        visited.append(False)
+        selected.append([])
+    for i, j in edges:
+        selected[i].append(j)
+    while True:
+        i = visited.index(False)
+        thiscycle = [i]
+        while True:
+            visited[i] = True
+            neighbors = [j for j in selected[i] if not visited[j]]
+            if len(neighbors) == 0:
+                break
+            i = neighbors[0]
+            thiscycle.append(i)
+        cycles.append(thiscycle)
+        if all(visited):
+            break
+    cycles.sort(key=lambda l: len(l))
+    return cycles[0]
+
 
 if __name__ == '__main__':
     from problems import *
     # run_mip(ex1)
-    run_mip(convert_input4MathematicalModel(*ex1()))
+    run_mip(convert_input4MathematicalModel(*ex0()))
+    # run_mip_eliSubTour(convert_input4MathematicalModel(*ex1()))
+    # run_mip(convert_input4MathematicalModel(*ex1()))
     # run_mip(convert_input4MathematicalModel(*ex2()))
     # points, travel_time, \
     # flows, paths, \
