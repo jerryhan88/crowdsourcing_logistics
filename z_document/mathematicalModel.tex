@@ -29,17 +29,17 @@ Bundling
 \end{equation}
 
 \begin{equation}
-	\mathcal{R}^b = \sum_{ i \in T} z_{i}^{b} \cdot r_i,~~~~\forall b \in B
+	\mathcal{R}^b = \sum_{ i \in P} z_{i}^{b} \cdot r_i,~~~~\forall b \in B
 	\label{eq:bundleReward}
 \end{equation}
 
 \begin{equation}
-	\sum_{ i \in T} z_{i}^{b} \cdot v_i \le \lambda,~~~~\forall b \in B
+	\sum_{ i \in P} z_{i}^{b} \cdot v_i \le \lambda,~~~~\forall b \in B
 	\label{eq:volThreshold}
 \end{equation}
 
 
-\noindent Flow conservation
+\noindent Flow conservation (routing)
 
 \begin{equation}
 	\sum_{ j \in P \cup \{ \pi_k \} } x_{\omega_k, j}^{b, k} = 1,~~~~\forall k \in K ~\forall b \in B	
@@ -65,6 +65,14 @@ Bundling
 	\sum_{ i \in \{ \omega_{k} \} \cup N} x_{i,j}^{b,k} = \sum_{ i \in N \cup \{ \pi_{k} \} } x_{j,i}^{b,k},~~~~\forall j \in N,~\forall k \in K,~\forall b \in B
 	\label{eq:flowConservation}
 \end{equation}
+
+
+\begin{equation}
+	\sum_{ i, j \in S, i \neq j } x_{i,j}^{b,k} \leq \left\vert{S}\right\vert -1 ,~~~~\forall S \subset N,~\forall k \in K,~\forall b \in B
+	\label{eq:subtourElimination}
+\end{equation}
+
+
 
 \begin{equation}
 	x_{i,i}^{b,k} = 0,~~~~\forall i \in N,~\forall k \in K,~\forall b \in B

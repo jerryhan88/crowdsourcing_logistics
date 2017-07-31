@@ -4,11 +4,11 @@ from random import randrange
 from math import ceil
 
 def input_validity(points, flows, paths, tasks, num_bundles, thVolume):
-    assert len(flows) == len(points)
+    # assert len(flows) == len(points)
     #
     for i, f in enumerate(flows):
         assert f[i] == 0
-        assert len(f) == len(points)
+        # assert len(f) == len(points)
     #
     assert len(paths) == len(flows) * (len(flows) - 1)
     #
@@ -102,9 +102,9 @@ def ex1():
     #
     # Inputs about bundles
     #
-    num_bundles = 4
-    volume_th = 6
-    detour_th = 20
+    num_bundles = 5
+    volume_th = 4
+    detour_th = 8
     #
     input_validity(points, flows, paths, tasks, num_bundles, volume_th)
     points = points.keys()
@@ -141,15 +141,16 @@ def ex2():
     #
     # Inputs about tasks
     #
-    tasks = [(0, 2)]
-    rewards = [1]
-    volumes = [1]
+    tasks = [(0, 2), (2, 3), (1, 2)]
+    rewards = [1, 2, 1]
+    volumes = [1, 1, 1]
     #
     # Inputs about bundles
     #
-    num_bundles = 1
-    volume_th = 1
-    detour_th = 1
+    num_bundles = 2
+    # volume_th = 2
+    volume_th = 3
+    detour_th = 3
     #
     input_validity(points, flows, paths, tasks, num_bundles, volume_th)
     points = points.keys()
@@ -157,6 +158,100 @@ def ex2():
            flows, paths, \
            tasks, rewards, volumes, \
            num_bundles, volume_th, detour_th
+
+
+
+def ex3():
+    #
+    # Define a network
+    #
+    points, travel_time = {}, {}
+    pid = 0
+    for i in range(2):
+        for j in range(2):
+            points[pid] = point(pid, i, j)
+            pid += 1
+    for p0 in points.itervalues():
+        for p1 in points.itervalues():
+            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+    #
+    # Define flows and paths
+    #
+
+    flows = [
+        [0, 1, 2, 1],
+        [1, 0, 2, 1],
+        [2, 1, 0, 2],
+        [1, 3, 3, 0],
+    ]
+    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    #
+    # Inputs about tasks
+    #
+    tasks = [(0, 2), (2, 3), (1, 2),
+             ]
+    rewards = [1, 2, 1]
+    volumes = [1, 1, 1]
+    #
+    # Inputs about bundles
+    #
+    num_bundles = 3
+    volume_th = 4
+    detour_th = 6
+    #
+    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    points = points.keys()
+    return points, travel_time, \
+           flows, paths, \
+           tasks, rewards, volumes, \
+           num_bundles, volume_th, detour_th
+
+
+
+def ex4():
+    #
+    # Define a network
+    #
+    points, travel_time = {}, {}
+    pid = 0
+    for i in range(2):
+        for j in range(2):
+            points[pid] = point(pid, i, j)
+            pid += 1
+    for p0 in points.itervalues():
+        for p1 in points.itervalues():
+            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+    #
+    # Define flows and paths
+    #
+
+    flows = [
+        [0, 1, 2],
+        [1, 0, 2],
+        [0, 1, 0],
+    ]
+    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    #
+    # Inputs about tasks
+    #
+    tasks = [(0, 2), (2, 0), (1, 2),
+             ]
+    rewards = [1, 2, 1]
+    volumes = [1, 1, 1]
+    #
+    # Inputs about bundles
+    #
+    num_bundles = 4
+    volume_th = 4
+    detour_th = 6
+    #
+    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    points = points.keys()
+    return points, travel_time, \
+           flows, paths, \
+           tasks, rewards, volumes, \
+           num_bundles, volume_th, detour_th
+
 
 
 class point(object):

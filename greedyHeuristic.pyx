@@ -1,9 +1,10 @@
 from init_project import *
 #
-
+from time import time
 
 def run_greedyHeuristic(problem):
     travel_time, tasks, paths, detour_th, volume_th, num_bundles = problem
+    startTime = time()
     def insert_task(b, t1, path_insertion_estimation=None):
         b.tasks[t1.tid] = t1
         path_ws = 0
@@ -174,7 +175,16 @@ def run_greedyHeuristic(problem):
                     new_candi_bundles += [b]
         candi_bundles = new_candi_bundles
     unassigned_tasks = tasks
-    return bundles, unassigned_tasks
+
+    # print bundles
+    # obj = 0
+    # for b in bundles:
+    #     print b, b.bundle_attr
+
+
+    return sum(b.bundle_attr for b in bundles), time() -  startTime
+    # return bundles, unassigned_tasks
+
 
 
 class bundle(object):
@@ -190,13 +200,6 @@ class bundle(object):
 
     def __repr__(self):
         return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.itervalues()]))
-
-
-
-
-
-
-
 
 
 class node(object):
@@ -247,15 +250,13 @@ def convert_input4greedyHeuristic(problem):
 
 
 if __name__ == '__main__':
-    from problems import ex1, random_problem
+    from problems import *
     # heuristic_bundles, unassigned_tasks = run_greedyHeuristic(convert_input4greedyHeuristic(ex1))
-    points, travel_time, \
-    flows, paths, \
-    tasks, rewards, volumes, \
-    numBundles, thVolume, thDetour = random_problem(2, 3, 3, 3, 1, 3, 1, 2, 4, 3.3, 1.5)
-    heuristic_bundles, unassigned_tasks = run_greedyHeuristic(convert_input4greedyHeuristic(ex1))
+    # points, travel_time, \
+    # flows, paths, \
+    # tasks, rewards, volumes, \
+    # numBundles, thVolume, thDetour = random_problem(2, 3, 3, 3, 1, 3, 1, 2, 4, 3.3, 1.5)
+    # heuristic_bundles, unassigned_tasks = run_greedyHeuristic(convert_input4greedyHeuristic(ex2))
+    print run_greedyHeuristic(convert_input4greedyHeuristic(ex2))
 
-    run_mip(convert_input4greedyHeuristic(points, travel_time, \
-                                            flows, paths, \
-                                            tasks, rewards, volumes, \
-                                            numBundles, thVolume, thDetour))
+
