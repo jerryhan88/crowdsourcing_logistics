@@ -6,7 +6,7 @@ from time import time
 big_M = 100
 #
 VALIDATION = False
-NO_LOG = True
+NO_LOG = False
 
 TimeLimit = 60 * 60
 numThreads = 1
