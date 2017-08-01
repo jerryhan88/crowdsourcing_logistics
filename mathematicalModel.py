@@ -78,7 +78,7 @@ def run_mip_eliSubTour(problem):
     #
     startTime = time()
     m = Model('')
-    ofpath = 'nt%d-np%d-nb%d-tv%d-td%d.log' % (_n, _m, _o, _lambda, _delta)
+    ofpath = opath.join(dpath['gurobiLog'], 'nt%d-np%d-nb%d-tv%d-td%d.log' % (_n, _m, _o, _lambda, _delta))
     m.setParam('LogFile', ofpath)
     if NO_LOG:
         m.setParam('OutputFlag', False)

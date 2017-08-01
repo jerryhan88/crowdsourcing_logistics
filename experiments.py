@@ -24,16 +24,18 @@ def run(processorID, num_workers=11):
         numTasks, numPaths = map(len, [tasks, paths])
         fn = 'nt%d-np%d-nb%d-tv%d-td%d.csv' % (numTasks, numPaths, numBundles, thVolume, thDetour)
         ofpath = opath.join(dpath['experiment'], fn)
+        if opath.exists(ofpath):
+            continue
         with open(ofpath, 'wt') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
             header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-                      'm_obj', 'h_obj', 'gap_obj', 'm_time', 'h_time', 'gap_time', ]
+                      'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
             writer.writerow(header)
         try:
             m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
             h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
             gap_obj = (m_obj - h_obj) / float(m_obj)
-            gap_time = (m_time - h_time) / float(m_time)
+            gap_time = (m_time - h_time)
             with open(ofpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
                 writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
