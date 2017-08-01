@@ -5,7 +5,7 @@ from mathematicalModel import run_mip_eliSubTour, convert_input4MathematicalMode
 from greedyHeuristic import run_greedyHeuristic, convert_input4greedyHeuristic
 #
 import csv
-
+import pickle
 
 def run(processorID, num_workers=11):
     maxFlow = 3
@@ -19,9 +19,11 @@ def run(processorID, num_workers=11):
         for numTasks in range(5, 50, 5):
             for j in range(1, 10):
                 bundleResidualProp = 1 + j / 10.0
-                inputs, fn = random_problem(numCols, numRows, maxFlow,
-                               numTasks, minReward, maxReward, minVolume, maxVolume,
-                               thVolume, bundleResidualProp, detourAlowProp)
+                fn = 'nt%d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+                ifpath = opath.join(dpath['problem'], fn)
+                inputs = None
+                with open(ifpath, 'rb') as fp:
+                    inputs = pickle.load(fp)
                 if jobID % num_workers != processorID:
                     continue
                 points, travel_time, \

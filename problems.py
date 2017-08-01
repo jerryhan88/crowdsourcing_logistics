@@ -365,14 +365,15 @@ if __name__ == '__main__':
     minVolume, maxVolume = 1, 2
     thVolume = 3
     detourAlowProp = 0.5
-    for numTasks in range(5, 50, 5):
-        for i in range(3, 8):
-            numCols = numRows = i
+    jobID = 0
+    for i in range(2, 9):
+        numCols = numRows = i
+        for numTasks in range(5, 50, 5):
             for j in range(1, 10):
                 bundleResidualProp = 1 + j / 10.0
-                random_problem(numCols, numRows, maxFlow,
-                               numTasks, minReward, maxReward, minVolume, maxVolume,
-                               thVolume, bundleResidualProp, detourAlowProp)
+                inputs, fn = random_problem(numCols, numRows, maxFlow,
+                                            numTasks, minReward, maxReward, minVolume, maxVolume,
+                                            thVolume, bundleResidualProp, detourAlowProp)
 
 
 
