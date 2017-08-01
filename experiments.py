@@ -85,4 +85,5 @@ def single_run(fn):
 
 
 if __name__ == '__main__':
-    run(0)
+    single_run('nt6-np72-nb3-tv3-td4.pkl')
+    # run(0)
