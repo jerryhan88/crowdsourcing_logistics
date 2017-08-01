@@ -88,7 +88,7 @@ def local_run():
     points, travel_time, \
     flows, paths, \
     tasks, rewards, volumes, \
-    numBundles, thVolume, thDetour = ex5()
+    numBundles, thVolume, thDetour = ex8()
     inputs = [points, travel_time,
                 flows, paths,
                 tasks, rewards, volumes,
