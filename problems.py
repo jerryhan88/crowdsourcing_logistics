@@ -366,9 +366,9 @@ if __name__ == '__main__':
     thVolume = 3
     detourAlowProp = 0.5
     jobID = 0
-    for i in range(2, 9):
+    for i in range(2, 5):
         numCols = numRows = i
-        for numTasks in range(5, 50, 5):
+        for numTasks in range(2, 10, 2):
             for j in range(1, 10):
                 bundleResidualProp = 1 + j / 10.0
                 inputs, fn = random_problem(numCols, numRows, maxFlow,
