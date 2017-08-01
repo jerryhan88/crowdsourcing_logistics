@@ -458,6 +458,55 @@ def ex6():
     save_problem(inputs)
     return inputs
 
+
+
+def ex7():
+    #
+    # Define a network
+    #
+    points, travel_time = {}, {}
+    pid = 0
+    for i in range(3):
+        for j in range(3):
+            points[pid] = point(pid, i, j)
+            pid += 1
+    for p0 in points.itervalues():
+        for p1 in points.itervalues():
+            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+    #
+    # Define flows and paths
+    #
+    flows = [
+            [0, 1, 2, 1, 1],
+            [0, 0, 2, 1, 2],
+            [2, 1, 0, 2, 1],
+            [1, 0, 3, 0, 1],
+            [3, 2, 1, 2, 0],
+            ]
+    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    #
+    # Inputs about tasks
+    #
+    tasks = [(0, 2), (2, 1), (3, 4), (2, 4), (3, 1)]
+    rewards = [1, 2, 3, 2, 1]
+    volumes = [1, 1, 1, 1, 1]
+    #
+    # Inputs about bundles
+    #
+    numBundles = 3
+    thVolume = 3
+    thDetour = 5
+    #
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
+    points = points.keys()
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    save_problem(inputs)
+    return inputs
+
 if __name__ == '__main__':
     maxFlow = 3
     minReward, maxReward = 1, 3
