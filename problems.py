@@ -368,8 +368,8 @@ if __name__ == '__main__':
     jobID = 0
     for i in range(2, 5):
         numCols = numRows = i
-        for numTasks in range(2, 20, 2):
-            for j in range(1, 10):
+        for numTasks in range(4, 18, 2):
+            for j in range(5, 10):
                 bundleResidualProp = 1 + j / 10.0
                 inputs, fn = random_problem(numCols, numRows, maxFlow,
                                             numTasks, minReward, maxReward, minVolume, maxVolume,
