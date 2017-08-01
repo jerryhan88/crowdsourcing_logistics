@@ -395,9 +395,9 @@ def ex5():
     #
     # Inputs about bundles
     #
-    numBundles = 3
-    thVolume = 3
-    thDetour = 6
+    numBundles = 4
+    thVolume = 2
+    thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
