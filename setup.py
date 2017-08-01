@@ -24,7 +24,7 @@ plf = platform.platform()
 if plf.startswith('Linux'):
     # Linux server
     args = sys.argv
-    if len(args) == len(['pyFile', 'packageName', 'fileName']):
+    if len(args) == len(['pyFile', 'fileName']):
         _, fileName = args
         cythonize(fileName)
     else:
