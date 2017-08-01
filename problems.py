@@ -600,8 +600,8 @@ def ex9():
     #
     # Inputs about bundles
     #
-    numBundles = 4
-    thVolume = 2
+    numBundles = 3
+    thVolume = 3
     thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
