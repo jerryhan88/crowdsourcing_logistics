@@ -376,7 +376,7 @@ if __name__ == '__main__':
     #                                         thVolume, bundleResidualProp, detourAlowProp)
 
     numCols = numRows = 3
-    bundleResidualProp = 1 + 0.5
+    bundleResidualProp = 1 + 0.1
     # for numTasks in range(4, 18, 2):
     numTasks = 3
     inputs, fn = random_problem(numCols, numRows, maxFlow,
