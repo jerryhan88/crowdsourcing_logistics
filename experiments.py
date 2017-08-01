@@ -119,9 +119,7 @@ def local_run():
                              -1, -1, -1])
 
 
-
-
 if __name__ == '__main__':
     local_run()
-    # single_run('nt4-np72-nb3-tv3-td4.pkl')
+    # single_run('nt6-np20-nb4-tv2-td4.pkl')
     # run(0)

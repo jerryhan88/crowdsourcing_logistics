@@ -589,19 +589,16 @@ def ex9():
     # Inputs about tasks
     #
     tasks = [(0, 2), (2, 1), (3, 4),
-             (2, 4), (2, 4), (3, 1),
-             (2, 3)]
+             (2, 4), (2, 4)]
     rewards = [1, 2, 3,
-               2, 1, 1,
-               2]
+               2, 1]
     volumes = [1, 1, 1,
-               1, 1, 1,
-               2]
+               1, 1]
     #
     # Inputs about bundles
     #
-    numBundles = 3
-    thVolume = 3
+    numBundles = 4
+    thVolume = 2
     thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
