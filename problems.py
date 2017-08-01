@@ -2,8 +2,37 @@ from init_project import *
 #
 from random import randrange
 from math import ceil
+import pickle
+import csv
 
-def input_validity(points, flows, paths, tasks, num_bundles, thVolume):
+problem_summary_fpath = opath.join(dpath['problem'], 'problem_summary.csv')
+
+if not opath.exists(problem_summary_fpath):
+    with open(problem_summary_fpath, 'wt') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        new_headers = ['fn', 'numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour']
+        writer.writerow(new_headers)
+
+
+def save_problem(inputs):
+    points, travel_time, \
+    flows, paths, \
+    tasks, rewards, volumes, \
+    numBundles, thVolume, thDetour = inputs
+    numTasks, numPaths = map(len, [tasks, paths])
+    fn = 'nt%d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+    with open(problem_summary_fpath, 'a') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
+    #
+    ofpath = opath.join(dpath['problem'], fn)
+    if not opath.exists(ofpath):
+        with open(ofpath, 'wb') as fp:
+            pickle.dump(inputs, fp)
+    return fn
+
+
+def input_validity(points, flows, paths, tasks, numBundles, thVolume):
     # assert len(flows) == len(points)
     #
     for i, f in enumerate(flows):
@@ -16,7 +45,7 @@ def input_validity(points, flows, paths, tasks, num_bundles, thVolume):
         assert points.has_key(pp)
         assert points.has_key(dp)
     #
-    assert len(tasks) <= num_bundles * thVolume
+    assert len(tasks) <= numBundles * thVolume
 
 
 def ex0():
@@ -50,16 +79,19 @@ def ex0():
     #
     # Inputs about bundles
     #
-    num_bundles = 1
-    volume_th = 10
-    detour_th = 1000
+    numBundles = 1
+    thVolume = 10
+    thDetour = 1000
     #
-    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
-    return points, travel_time, \
-           flows, paths, \
-           tasks, rewards, volumes, \
-           num_bundles, volume_th, detour_th
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    save_problem(inputs)
+    return inputs
 
 
 def ex1():
@@ -102,16 +134,19 @@ def ex1():
     #
     # Inputs about bundles
     #
-    num_bundles = 5
-    volume_th = 4
-    detour_th = 8
+    numBundles = 5
+    thVolume = 4
+    thDetour = 8
     #
-    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
-    return points, travel_time, \
-            flows, paths, \
-            tasks, rewards, volumes, \
-            num_bundles, volume_th, detour_th
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    save_problem(inputs)
+    return inputs
 
 
 def ex2():
@@ -147,17 +182,20 @@ def ex2():
     #
     # Inputs about bundles
     #
-    num_bundles = 2
-    # volume_th = 2
-    volume_th = 3
-    detour_th = 3
+    numBundles = 2
+    # thVolume = 2
+    thVolume = 3
+    thDetour = 3
     #
-    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
-    return points, travel_time, \
-           flows, paths, \
-           tasks, rewards, volumes, \
-           num_bundles, volume_th, detour_th
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    save_problem(inputs)
+    return inputs
 
 
 
@@ -195,16 +233,19 @@ def ex3():
     #
     # Inputs about bundles
     #
-    num_bundles = 3
-    volume_th = 4
-    detour_th = 6
+    numBundles = 3
+    thVolume = 4
+    thDetour = 6
     #
-    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
-    return points, travel_time, \
-           flows, paths, \
-           tasks, rewards, volumes, \
-           num_bundles, volume_th, detour_th
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    save_problem(inputs)
+    return inputs
 
 
 
@@ -241,17 +282,19 @@ def ex4():
     #
     # Inputs about bundles
     #
-    num_bundles = 4
-    volume_th = 4
-    detour_th = 6
+    numBundles = 4
+    thVolume = 4
+    thDetour = 6
     #
-    input_validity(points, flows, paths, tasks, num_bundles, volume_th)
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
-    return points, travel_time, \
-           flows, paths, \
-           tasks, rewards, volumes, \
-           num_bundles, volume_th, detour_th
-
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    save_problem(inputs)
+    return inputs
 
 
 class point(object):
@@ -260,7 +303,6 @@ class point(object):
 
     def __repr__(self):
         return 'pid%d' % self.pid
-
 
 
 def random_problem(numCols, numRows, maxFlow,
@@ -308,13 +350,33 @@ def random_problem(numCols, numRows, maxFlow,
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
-    return points, travel_time, \
-           flows, paths, \
-           tasks, rewards, volumes, \
-           numBundles, thVolume, thDetour
+    #
+    inputs = [points, travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    fn = save_problem(inputs)
+    return inputs, fn
 
 
 if __name__ == '__main__':
-    random_problem(2, 3, 3,
-                   3, 1, 3, 1, 2,
-                   4, 1.3, 0.5)
+    maxFlow = 3
+    minReward, maxReward = 1, 3
+    minVolume, maxVolume = 1, 2
+    thVolume = 3
+    detourAlowProp = 0.5
+    for numTasks in range(5, 50, 5):
+        for i in range(3, 8):
+            numCols = numRows = i
+            for j in range(1, 10):
+                bundleResidualProp = 1 + j / 10.0
+                random_problem(numCols, numRows, maxFlow,
+                               numTasks, minReward, maxReward, minVolume, maxVolume,
+                               thVolume, bundleResidualProp, detourAlowProp)
+
+
+
+    #
+    # random_problem(2, 3, 3,
+    #                3, 1, 3, 1, 2,
+    #                4, 1.3, 0.5)

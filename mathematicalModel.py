@@ -3,14 +3,13 @@ from init_project import *
 from gurobipy import *
 from time import time
 
-
-
 big_M = 100
 #
 VALIDATION = False
-NO_LOG = True
+NO_LOG = False
 
-
+TimeLimit = 60 * 60
+numThreads = 1
 
 def convert_input4MathematicalModel(points, travel_time, \
                                     flows, paths, \
@@ -278,6 +277,9 @@ def run_mip_eliSubTour(problem):
     m._x_bkij = x_bkij
     m._z_bi = z_bi
     #
+    m.setParam('TimeLimit', TimeLimit)
+    m.setParam('Threads', numThreads)
+
     m.setParam(GRB.Param.DualReductions, 0)
     m.params.LazyConstraints = 1
     m.optimize(subtourelim)
@@ -288,7 +290,6 @@ def run_mip_eliSubTour(problem):
             m.computeIIS()
             m.write('model.ilp')
         assert m.status == GRB.Status.OPTIMAL, 'Errors while optimization'
-
         print 'bundle-------------------'
         for b in B:
             print 'b%d' % b,
@@ -308,9 +309,8 @@ def run_mip_eliSubTour(problem):
                         if x_bkij[b, k, i, j].x > 0.05:
                             route.append((i, j))
                 print route
-
+    assert m.status == GRB.Status.OPTIMAL, 'Errors while optimization'
     return m.objVal, time() - startTime
-
 
 
 def subtourelim(m, where):
@@ -356,7 +356,6 @@ def subtourelim(m, where):
                     if len(visited_nodes) == len(pd_points):
                         continue
                     m.cbLazy(expr <= len(visited_nodes) - 1)
-
 
 
 def get_subtours(edges, oridest_pd_points):

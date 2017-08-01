@@ -234,11 +234,10 @@ class path(object):
             return '%d->%d' % (self.ori, self.dest)
 
 
-def convert_input4greedyHeuristic(problem):
-    points, travel_time, \
-    flows, paths, \
-    tasks, rewards, volumes, \
-    num_bundles, volume_th, detour_th = problem()
+def convert_input4greedyHeuristic(points, travel_time,
+                                    flows, paths,
+                                    tasks, rewards, volumes,
+                                    num_bundles, volume_th, detour_th):
     #
     # Convert inputs for the greedy heuristic
     #
@@ -257,6 +256,6 @@ if __name__ == '__main__':
     # tasks, rewards, volumes, \
     # numBundles, thVolume, thDetour = random_problem(2, 3, 3, 3, 1, 3, 1, 2, 4, 3.3, 1.5)
     # heuristic_bundles, unassigned_tasks = run_greedyHeuristic(convert_input4greedyHeuristic(ex2))
-    print run_greedyHeuristic(convert_input4greedyHeuristic(ex2))
+    print run_greedyHeuristic(convert_input4greedyHeuristic(*ex2()))
 
 
