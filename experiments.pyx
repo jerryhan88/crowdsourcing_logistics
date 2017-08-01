@@ -14,7 +14,7 @@ def run(processorID, num_workers=11):
     thVolume = 3
     detourAlowProp = 0.5
     jobID = 0
-    for i in range(3, 8):
+    for i in range(2, 9):
         numCols = numRows = i
         for numTasks in range(5, 50, 5):
             for j in range(1, 10):
