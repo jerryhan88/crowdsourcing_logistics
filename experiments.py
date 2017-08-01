@@ -88,8 +88,11 @@ def local_run():
     points, travel_time, \
     flows, paths, \
     tasks, rewards, volumes, \
-    numBundles, thVolume, thDetour = ex1()
-    inputs = ex7()
+    numBundles, thVolume, thDetour = ex7()
+    inputs = [points, travel_time,
+                flows, paths,
+                tasks, rewards, volumes,
+                numBundles, thVolume, thDetour]
     numTasks, numPaths = map(len, [tasks, paths])
     fn = 'nt%d-np%d-nb%d-tv%d-td%d.csv' % (numTasks, numPaths, numBundles, thVolume, thDetour)
     ofpath = opath.join(dpath['experiment'], fn)

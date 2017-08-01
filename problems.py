@@ -493,9 +493,9 @@ def ex7():
     #
     # Inputs about bundles
     #
-    numBundles = 3
-    thVolume = 3
-    thDetour = 5
+    numBundles = 2
+    thVolume = 4
+    thDetour = 6
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     points = points.keys()
