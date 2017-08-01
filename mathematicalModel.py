@@ -9,7 +9,7 @@ VALIDATION = False
 NO_LOG = False
 
 TimeLimit = 60 * 60
-numThreads = 1
+numThreads = 8
 
 def convert_input4MathematicalModel(points, travel_time, \
                                     flows, paths, \
@@ -280,7 +280,7 @@ def run_mip_eliSubTour(problem):
     m._z_bi = z_bi
     #
     m.setParam('TimeLimit', TimeLimit)
-    m.setParam('Threads', numThreads)
+    # m.setParam('Threads', numThreads)
 
     m.setParam(GRB.Param.DualReductions, 0)
     m.params.LazyConstraints = 1
@@ -389,17 +389,5 @@ def get_subtours(edges, oridest_pd_points):
 
 if __name__ == '__main__':
     from problems import *
-    # run_mip(ex1)
-    # run_mip(convert_input4MathematicalModel(*ex2()))
-    print run_mip_eliSubTour(convert_input4MathematicalModel(*ex2()))
-    # run_mip(convert_input4MathematicalModel(*ex1()))
-    # run_mip(convert_input4MathematicalModel(*ex2()))
-    # points, travel_time, \
-    # flows, paths, \
-    # tasks, rewards, volumes, \
-    # numBundles, thVolume, thDetour = random_problem(2, 3, 3, 3, 1, 3, 1, 2, 4, 3.3, 1.5)
-    # #
-    # run_mip(convert_input4MathematicalModel(points, travel_time, \
-    #             flows, paths, \
-    #             tasks, rewards, volumes, \
-    #             numBundles, thVolume, thDetour))
+
+    print run_mip_eliSubTour(convert_input4MathematicalModel(*ex1()))

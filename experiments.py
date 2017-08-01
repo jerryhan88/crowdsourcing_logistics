@@ -1,6 +1,6 @@
 from init_project import *
 #
-from problems import random_problem
+from problems import *
 from mathematicalModel import run_mip_eliSubTour, convert_input4MathematicalModel
 from greedyHeuristic import run_greedyHeuristic, convert_input4greedyHeuristic
 #
@@ -84,6 +84,41 @@ def single_run(fn):
                              -1, -1, -1])
 
 
+def local_run():
+    points, travel_time, \
+    flows, paths, \
+    tasks, rewards, volumes, \
+    numBundles, thVolume, thDetour = ex1()
+    inputs = ex5()
+    numTasks, numPaths = map(len, [tasks, paths])
+    fn = 'nt%d-np%d-nb%d-tv%d-td%d.csv' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+    ofpath = opath.join(dpath['experiment'], fn)
+    with open(ofpath, 'wt') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
+                  'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
+        writer.writerow(header)
+    try:
+        m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+        h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
+        gap_obj = (m_obj - h_obj) / float(m_obj)
+        gap_time = (m_time - h_time)
+        with open(ofpath, 'a') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
+                             m_obj, h_obj, gap_obj,
+                             m_time, h_time, gap_time])
+    except:
+        with open(ofpath, 'a') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
+                             -1, -1, -1,
+                             -1, -1, -1])
+
+
+
+
 if __name__ == '__main__':
-    single_run('nt3-np72-nb3-tv3-td4.pkl')
+    local_run()
+    # single_run('nt4-np72-nb3-tv3-td4.pkl')
     # run(0)
