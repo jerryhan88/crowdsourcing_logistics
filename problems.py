@@ -26,9 +26,9 @@ def save_problem(inputs):
         writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
     #
     ofpath = opath.join(dpath['problem'], fn)
-    if not opath.exists(ofpath):
-        with open(ofpath, 'wb') as fp:
-            pickle.dump(inputs, fp)
+    # if not opath.exists(ofpath):
+    with open(ofpath, 'wb') as fp:
+        pickle.dump(inputs, fp)
     return fn
 
 
