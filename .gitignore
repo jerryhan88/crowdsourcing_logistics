@@ -10,3 +10,7 @@
 *.gz
 *.html
 z_html
+__pycache__/
+build/
+greedyHeuristic.c
+greedyHeuristic.so
