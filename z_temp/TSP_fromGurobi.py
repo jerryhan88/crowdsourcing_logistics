@@ -1,8 +1,9 @@
 import math
 import random
 from gurobipy import *
-
-
+#
+# ref. http://examples.gurobi.com/traveling-salesman-problem/
+#
 # Callback - use lazy constraints to eliminate sub-tours
 
 def subtourelim(model, where):
