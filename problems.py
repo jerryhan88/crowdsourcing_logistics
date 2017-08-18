@@ -15,7 +15,7 @@ if not opath.exists(problem_summary_fpath):
 
 
 def save_problem(inputs):
-    points, travel_time, \
+    travel_time, \
     flows, paths, \
     tasks, rewards, volumes, \
     numBundles, thVolume, thDetour = inputs
@@ -42,8 +42,8 @@ def input_validity(points, flows, paths, tasks, numBundles, thVolume):
     assert len(paths) == len(flows) * (len(flows) - 1)
     #
     for pp, dp in tasks:
-        assert points.has_key(pp)
-        assert points.has_key(dp)
+        assert pp in points
+        assert dp in points
     #
     assert len(tasks) <= numBundles * thVolume
 
@@ -69,7 +69,7 @@ def ex0():
         [0, 1],
         [1, 0],
     ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -84,9 +84,8 @@ def ex0():
     thDetour = 1000
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -104,8 +103,8 @@ def ex1():
         for j in range(3):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -121,7 +120,7 @@ def ex1():
             [0, 2, 2, 3, 0, 2, 2, 0, 2],
             [2, 2, 2, 3, 2, 0, 3, 0, 0]
             ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -139,9 +138,8 @@ def ex1():
     thDetour = 5
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -159,8 +157,8 @@ def ex2():
         for j in range(2):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -172,7 +170,7 @@ def ex2():
         [2, 1, 0, 2],
         [1, 0, 3, 0],
     ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -188,9 +186,8 @@ def ex2():
     thDetour = 3
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -209,8 +206,8 @@ def ex3():
         for j in range(2):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -222,7 +219,7 @@ def ex3():
         [2, 1, 0, 2],
         [1, 3, 3, 0],
     ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -238,9 +235,8 @@ def ex3():
     thDetour = 6
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -259,8 +255,8 @@ def ex4():
         for j in range(2):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -271,7 +267,7 @@ def ex4():
         [1, 0, 2],
         [0, 1, 0],
     ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -287,9 +283,8 @@ def ex4():
     thDetour = 6
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -317,24 +312,24 @@ def random_problem(numCols, numRows, maxFlow,
         for j in range(numRows):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
     #
-    flows = [[0 for _ in xrange(len(points))] for _ in xrange(len(points))]
-    for i in xrange(len(points)):
-        for j in xrange(len(points)):
+    flows = [[0 for _ in range(len(points))] for _ in range(len(points))]
+    for i in range(len(points)):
+        for j in range(len(points)):
             if i == j:
                 continue
             flows[i][j] = randrange(maxFlow)
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
     tasks, rewards, volumes = [], [], []
-    for _ in xrange(numTasks):
+    for _ in range(numTasks):
         i, j = randrange(len(points)), randrange(len(points))
         while i == j:
             j = randrange(len(points))
@@ -349,9 +344,8 @@ def random_problem(numCols, numRows, maxFlow,
     thDetour = int((numCols + numRows) * detourAlowProp)
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -369,8 +363,8 @@ def ex5():
         for j in range(3):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -384,7 +378,7 @@ def ex5():
             [2, 3, 1, 0, 2, 0, 3],
             [1, 1, 3, 2, 0, 2, 0],
             ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -400,9 +394,8 @@ def ex5():
     thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -420,8 +413,8 @@ def ex6():
         for j in range(3):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -434,7 +427,7 @@ def ex6():
             [3, 2, 1, 2, 0, 1],
             [2, 3, 1, 0, 2, 0],
             ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -449,9 +442,8 @@ def ex6():
     thDetour = 5
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -470,8 +462,8 @@ def ex7():
         for j in range(3):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -483,7 +475,7 @@ def ex7():
             [1, 0, 3, 0, 1],
             [3, 2, 1, 2, 0],
             ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -498,9 +490,8 @@ def ex7():
     thDetour = 5
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -519,8 +510,8 @@ def ex8():
         for j in range(3):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -532,7 +523,7 @@ def ex8():
             [1, 0, 3, 0, 1],
             [3, 2, 1, 2, 0],
             ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -553,9 +544,8 @@ def ex8():
     thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]
@@ -574,8 +564,8 @@ def ex9():
         for j in range(3):
             points[pid] = point(pid, i, j)
             pid += 1
-    for p0 in points.itervalues():
-        for p1 in points.itervalues():
+    for p0 in points.values():
+        for p1 in points.values():
             travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
     #
     # Define flows and paths
@@ -587,7 +577,7 @@ def ex9():
             [1, 0, 3, 0, 1],
             [3, 2, 1, 2, 0],
             ]
-    paths = [(i, j) for i in xrange(len(flows)) for j in xrange(len(flows)) if i != j]
+    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
     #
     # Inputs about tasks
     #
@@ -605,9 +595,8 @@ def ex9():
     thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    points = points.keys()
     #
-    inputs = [points, travel_time,
+    inputs = [travel_time,
               flows, paths,
               tasks, rewards, volumes,
               numBundles, thVolume, thDetour]

@@ -11,7 +11,7 @@ NO_LOG = False
 TimeLimit = 60 * 60
 numThreads = 8
 
-def convert_input4MathematicalModel(points, travel_time, \
+def convert_input4MathematicalModel(travel_time, \
                                     flows, paths, \
                                     tasks, rewards, volumes, \
                                     num_bundles, volume_th, detour_th):
@@ -36,7 +36,7 @@ def convert_input4MathematicalModel(points, travel_time, \
     Pi = list(range(2 * _n + _m, 2 * _n + 2 * _m))
     omega_k = [Omega[k] for k in K]
     pi_k = [Pi[k] for k in K]
-    sum_f_k = sum(flows[i][j] for i in xrange(len(flows)) for j in xrange(len(flows)))
+    sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
     w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
     V = N + Omega + Pi
     t_ij = {}
@@ -292,25 +292,25 @@ def run_mip_eliSubTour(problem):
             m.computeIIS()
             m.write('model.ilp')
         assert m.status == GRB.Status.OPTIMAL, 'Errors while optimization'
-        print 'bundle-------------------'
+        print('bundle-------------------')
         for b in B:
-            print 'b%d' % b,
+            print('b%d' % b, end='')
             for i in P:
                 if z_bi[b, i].x > 0.5:
-                    print i,
-            print ''
+                    print(i, end='')
+            print('')
 
-        print 'route-------------------'
+        print('route-------------------')
 
         for b in B:
             for k in K:
-                print 'b%d k%d' % (b, k),
+                print('b%d k%d' % (b, k), end='')
                 route = []
                 for i in [omega_k[k]] + N:
                     for j in N + [pi_k[k]]:
                         if x_bkij[b, k, i, j].x > 0.05:
                             route.append((i, j))
-                print route
+                print(route)
     assert m.status == GRB.Status.OPTIMAL, 'Errors while optimization'
     return m.objVal, time() - startTime
 
@@ -369,7 +369,7 @@ def get_subtours(edges, oridest_pd_points):
     for i, j in edges:
         adj[i].append(j)
     while True:
-        for i in visited.iterkeys():
+        for i in visited.keys():
             if not visited[i]:
                 break
         thistour = []
@@ -390,4 +390,4 @@ def get_subtours(edges, oridest_pd_points):
 if __name__ == '__main__':
     from problems import *
 
-    print run_mip_eliSubTour(convert_input4MathematicalModel(*ex1()))
+    print(run_mip_eliSubTour(convert_input4MathematicalModel(*ex3())))

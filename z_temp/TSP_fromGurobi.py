@@ -12,7 +12,7 @@ def subtourelim(model, where):
     for i in range(n):
       sol = model.cbGetSolution([model._vars[i,j] for j in range(n)])
       selected += [(i,j) for j in range(n) if sol[j] > 0.5]
-    print selected
+    print(selected)
     # find the shortest cycle in the selected edge list
     tour = subtour(selected)
     if len(tour) < n:
@@ -55,7 +55,7 @@ def subtour(edges):
     lengths.append(len(thiscycle))
     if sum(lengths) == n:
       break
-  print cycles
+  print(cycles)
   return cycles[lengths.index(min(lengths))]
 
 n = 7
