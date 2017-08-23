@@ -23,32 +23,34 @@ Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2010
 from gurobipy import *
 
 LOG = True
+SHOW_LOG = 1 if LOG else 0
 EPS = 1.e-6
 
-def solveCuttingStock(s, B):
-    """solveCuttingStock: use Haessler's heuristic.
-    
-    Parameters:
-        s - list with item widths
-        B - bin capacity
 
-    Returns a solution: list of lists, each of which with the cuts of a roll.
+def solveCuttingStock(s, B):
+    """
+        solveCuttingStock: use Haessler's heuristic.
+    
+        Parameters:
+            s - list with item widths
+            B - bin capacity
+
+        Returns a solution: list of lists, each of which with the cuts of a roll.
     """
     w = []   # list of different widths (sizes) of items
-    q = []   # quantitiy of orders  
+    q = []   # quantitiy of orders
     for item in sorted(s):
         if w == [] or item != w[-1]:
             w.append(item)
             q.append(1)
         else:
             q[-1] += 1
-
-    t = []	# patterns
+    t = []  # patterns
     m = len(w)
     # generate initial patterns with one size for each item width
-    for i,width in enumerate(w):
-        pat = [0]*m  # vector of number of orders to be packed into one roll (bin)
-        pat[i] = int(B/width)
+    for i, width in enumerate(w):
+        pat = [0] * m  # vector of number of orders to be packed into one roll (bin)
+        pat[i] = int(B / width)
         t.append(pat)
 
     if LOG:
@@ -59,22 +61,21 @@ def solveCuttingStock(s, B):
 
     iter = 0
     K = len(t)
-    master = Model("LP") # master LP problem
+    master = Model("LP")  # master LP problem
     x = {}
     for k in range(K):
-        x[k] = master.addVar(obj=1, vtype="I", name="x[%d]"%k)
+        x[k] = master.addVar(obj=1, vtype="I", name="x[%d]" % k)
     master.update()
 
-    orders={}
+    orders = {}
     for i in range(m):
         coef = [t[k][i] for k in range(K) if t[k][i] > 0]
         var = [x[k] for k in range(K) if t[k][i] > 0]
-        orders[i] = master.addConstr(LinExpr(coef,var), ">", q[i], name="Order[%d]"%i)
+        orders[i] = master.addConstr(LinExpr(coef, var), ">", q[i], name="Order[%d]" % i)
 
     master.update()   # must update before calling relax()
-    master.Params.OutputFlag = 0 # silent mode
+    master.Params.OutputFlag = SHOW_LOG
     # master.write("MP" + str(iter) + ".lp")
-
     while 1:
         iter += 1
         relax = master.relax()
@@ -82,45 +83,45 @@ def solveCuttingStock(s, B):
         pi = [c.Pi for c in relax.getConstrs()] # keep dual variables
 
         knapsack = Model("KP")   # knapsack sub-problem
-        knapsack.ModelSense=-1   # maximize
+        knapsack.ModelSense = -1   # maximize
         y = {}
         for i in range(m):
-            y[i] = knapsack.addVar(obj=pi[i], ub=q[i], vtype="I", name="y[%d]"%i)
+            y[i] = knapsack.addVar(obj=pi[i], ub=q[i], vtype="I", name="y[%d]" % i)
         knapsack.update()
 
         L = LinExpr(w, [y[i] for i in range(m)])
         knapsack.addConstr(L, "<", B, name="width")
         knapsack.update()
         # knapsack.write("KP"+str(iter)+".lp")
-        knapsack.Params.OutputFlag = 0 # silent mode
+        knapsack.Params.OutputFlag = SHOW_LOG
         knapsack.optimize()
         if LOG:
             print("objective of knapsack problem:", knapsack.ObjVal)
-        if knapsack.ObjVal < 1+EPS: # break if no more columns
+        if knapsack.ObjVal < 1 + EPS: # break if no more columns
             break
 
-        pat = [int(y[i].X+0.5) for i in y]	# new pattern
+        pat = [int(y[i].X + 0.5) for i in y]# new pattern
         t.append(pat)
         if LOG:
             print("shadow prices and new pattern:")
-            for i,d in enumerate(pi):
-                print("\t%5d%12g%7d" % (i,d,pat[i]))
-            print
+            for i, d in enumerate(pi):
+                print("\t%5d%12g%7d" % (i, d, pat[i]))
+            print('')
 
         # add new column to the master problem
         col = Column()
         for i in range(m):
             if t[K][i] > 0:
                 col.addTerms(t[K][i], orders[i])
-        x[K] = master.addVar(obj=1, vtype="I", name="x[%d]"%K, column=col)
+        x[K] = master.addVar(obj=1, vtype="I", name="x[%d]" % K, column=col)
         master.update()   # must update before calling relax()
         # master.write("MP" + str(iter) + ".lp")
         K += 1
-
+        if LOG:
+            print("%dth column" % iter, t)
+        print('')
 
     # Finally, solve the IP
-    if LOG:
-        master.Params.OutputFlag = 1 # verbose mode
     master.optimize()
 
     if LOG:
@@ -141,7 +142,7 @@ def solveCuttingStock(s, B):
     rolls.sort()
     return rolls
 
-    
+
 
 def FFD(s, B):
     """First Fit Decreasing heuristics for the Bin Packing Problem.
@@ -149,7 +150,7 @@ def FFD(s, B):
     Parameters:
         s - list with item widths
         B - bin capacity
-    """    
+    """
     remain = [B]	# keep list of empty space per bin
     sol = [[]]		# a list ot items (i.e., sizes) on each used bin
     for item in sorted(s, reverse=True):
@@ -163,7 +164,7 @@ def FFD(s, B):
             remain.append(B-item)
 
     return sol
-    
+
 
 
 def solveBinPacking(s,B):
@@ -182,13 +183,13 @@ def solveBinPacking(s,B):
     x = {}
     listX = {} # for SOS constraints	!!!!!!!!!!!!!!!!!!!
     for i in range(n):
-        listX[i] = [] 
+        listX[i] = []
         for j in range(U):
             x[i,j] = model.addVar(vtype="B", name="x[%d,%d]"%(i,j))
             listX[i].append(x[i,j])
     y = {}
     for j in range(U):
-        y[j] = model.addVar(obj=1, vtype="B", name="y[%d]"%j)    
+        y[j] = model.addVar(obj=1, vtype="B", name="y[%d]"%j)
     model.update()
 
     # assignment constraints
@@ -207,7 +208,7 @@ def solveBinPacking(s,B):
     for j in range(U):
         for i in range(n):
             model.addConstr(x[i,j], "<", y[j], name="cnstr3[%d,%d]"%(i,j))
-        
+
 ##    # tie breaking constraints
 ##    for j in range(U-1):
 ##        lin=LinExpr()
@@ -222,7 +223,7 @@ def solveBinPacking(s,B):
     if not LOG:
         model.Params.outputflag = 0
     model.optimize()
-    
+
     bins = [[] for i in range(U)]
     for (i,j) in x:
         if x[i,j].X > EPS:
@@ -238,55 +239,57 @@ def solveBinPacking(s,B):
 
 def CuttingStockExample1():
     """CuttingStockExample1: create toy instance for the cutting stock problem."""
-    B = 110            # roll width (bin size)  
-    w = [20,45,50,55,75]  # width (size) of orders (items)
-    q = [48,35,24,10,8]  # quantitiy of orders
+    B = 110            # roll width (bin size)
+    w = [20, 45, 50, 55, 75]  # width (size) of orders (items)
+    q = [48, 35, 24, 10, 8]  # quantitiy of orders
     s = []
     for j in range(len(w)):
         for i in range(q[j]):
             s.append(w[j])
-    return s,B
+    return s, B
+
 
 def CuttingStockExample2():
     """CuttingStockExample2: create toy instance for the cutting stock problem."""
-    B = 9            # roll width (bin size)  
-    w = [2,3,4,5,6,7,8]   # width (size) of orders (items)
-    q = [4,2,6,6,2,2,2]  # quantitiy of orders
-    s=[]
+    B = 9            # roll width (bin size)
+    w = [2, 3, 4, 5, 6, 7, 8]   # width (size) of orders (items)
+    q = [4, 2, 6, 6, 2, 2, 2]  # quantitiy of orders
+    s = []
     for j in range(len(w)):
         for i in range(q[j]):
             s.append(w[j])
-    return s,B
+    return s, B
 
-def DiscreteUniform(n=10,LB=1,UB=99,B=100):
+
+def DiscreteUniform(n=10, LB=1, UB=99, B=100):
     """DiscreteUniform: create random, uniform instance for the bin packing problem."""
     import random
     random.seed(1)
-    B=100
-    s=[0]*n
+    B = 100
+    s = [0] * n
     for i in range(n):
-        s[i]=random.randint(LB,UB)
-    return s,B
+        s[i] = random.randint(LB, UB)
+    return s, B
 
 
 if __name__ == "__main__":
-    # s,B = CuttingStockExample1()
-    s,B = CuttingStockExample2()
+    # s, B = CuttingStockExample1()
+    s, B = CuttingStockExample2()
     # n = 500
     # B = 100
-    # s,B = DiscreteUniform(n,18,50,B)
-    
-    ffd = FFD(s,B)
-    print("\n\n\nSolution of FFD:")
-    print(ffd)
-    print(len(ffd), "bins")
-    
+    # s, B = DiscreteUniform(n,18,50,B)
+
+    # ffd = FFD(s,B)
+    # print("\n\n\nSolution of FFD:")
+    # print(ffd)
+    # print(len(ffd), "bins")
+
     print("\n\n\nCutting stock problem:")
-    rolls = solveCuttingStock(s,B)
+    rolls = solveCuttingStock(s, B)
     print(len(rolls), "rolls:")
     print(rolls)
-    
-    print("\n\n\nBin packing problem:")
-    bins = solveBinPacking(s,B)
-    print(len(bins), "bins:")
-    print(bins)
+
+    # print("\n\n\nBin packing problem:")
+    # bins = solveBinPacking(s,B)
+    # print(len(bins), "bins:")
+    # print(bins)
