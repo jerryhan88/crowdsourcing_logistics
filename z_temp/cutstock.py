@@ -52,10 +52,10 @@ def solveCuttingStock(s, B):
         t.append(pat)
 
     if LOG:
-        print "sizes of orders=", w
-        print "quantities of orders=", q
-        print "roll size=", B
-        print "initial patterns", t
+        print("sizes of orders=", w)
+        print("quantities of orders=", q)
+        print("roll size=", B)
+        print("initial patterns", t)
 
     iter = 0
     K = len(t)
@@ -95,16 +95,16 @@ def solveCuttingStock(s, B):
         knapsack.Params.OutputFlag = 0 # silent mode
         knapsack.optimize()
         if LOG:
-            print "objective of knapsack problem:", knapsack.ObjVal
+            print("objective of knapsack problem:", knapsack.ObjVal)
         if knapsack.ObjVal < 1+EPS: # break if no more columns
             break
 
         pat = [int(y[i].X+0.5) for i in y]	# new pattern
         t.append(pat)
         if LOG:
-            print "shadow prices and new pattern:"
+            print("shadow prices and new pattern:")
             for i,d in enumerate(pi):
-                print "\t%5d%12g%7d" % (i,d,pat[i])
+                print("\t%5d%12g%7d" % (i,d,pat[i]))
             print
 
         # add new column to the master problem
@@ -124,15 +124,15 @@ def solveCuttingStock(s, B):
     master.optimize()
 
     if LOG:
-        print 
-        print "final solution (integer master problem):  objective =", master.ObjVal
-        print "patterns:"
+        print('')
+        print("final solution (integer master problem):  objective =", master.ObjVal)
+        print("patterns:")
         for k in x:
             if x[k].X > EPS:
-                print "pattern", k,
-                print "\tsizes:", 
-                print [w[i] for i in range(m) if t[k][i]>0 for j in range(t[k][i]) ],
-                print "--> %d rolls" % int(x[k].X+.5)
+                print("pattern", k)
+                print("\tsizes:", end='')
+                print([w[i] for i in range(m) if t[k][i]>0 for j in range(t[k][i]) ], end='')
+                print("--> %d rolls" % int(x[k].X+.5))
 
     rolls = []
     for k in x:
@@ -277,16 +277,16 @@ if __name__ == "__main__":
     # s,B = DiscreteUniform(n,18,50,B)
     
     ffd = FFD(s,B)
-    print "\n\n\nSolution of FFD:"
-    print ffd
-    print len(ffd), "bins"
+    print("\n\n\nSolution of FFD:")
+    print(ffd)
+    print(len(ffd), "bins")
     
-    print "\n\n\nCutting stock problem:"
+    print("\n\n\nCutting stock problem:")
     rolls = solveCuttingStock(s,B)
-    print len(rolls), "rolls:"
-    print rolls
+    print(len(rolls), "rolls:")
+    print(rolls)
     
-    print "\n\n\nBin packing problem:"
+    print("\n\n\nBin packing problem:")
     bins = solveBinPacking(s,B)
-    print len(bins), "bins:"
-    print bins
+    print(len(bins), "bins:")
+    print(bins)
