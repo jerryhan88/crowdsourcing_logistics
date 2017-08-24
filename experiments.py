@@ -1,7 +1,7 @@
 from init_project import *
 #
 from problems import *
-from mathematicalModel import run_mip_eliSubTour, convert_input4MathematicalModel
+from genMM import run_mip_eliSubTour, convert_input4MathematicalModel
 from greedyHeuristic import run_greedyHeuristic, convert_input4greedyHeuristic
 #
 import csv
