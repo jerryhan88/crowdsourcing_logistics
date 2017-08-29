@@ -212,7 +212,6 @@ def ex3():
     #
     # Define flows and paths
     #
-
     flows = [
         [0, 1, 2, 1],
         [1, 0, 2, 1],
