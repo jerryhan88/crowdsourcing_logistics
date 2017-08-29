@@ -1,58 +1,92 @@
 from init_project import *
 #
 from gurobipy import *
-from time import time
+from math import ceil
 
-big_M = 100
-#
-VALIDATION = False
-NO_LOG = False
-
-TimeLimit = 60 * 60
-numThreads = 8
-
-def convert_input4MathematicalModel(travel_time, \
-                                    flows, paths, \
-                                    tasks, rewards, volumes, \
-                                    num_bundles, volume_th, detour_th):
-    #
-    # For master problem
-    #
-    bB = num_bundles
-    T = list(range(len(tasks)))
-    iP, iM = list(zip(*[tasks[i] for i in T]))
-    #
-    # For sub problem
-    #
-    r_i, v_i = rewards, volumes
-    K = list(range(len(paths)))
-    kP, kM = list(zip(*[paths[k] for k in K]))
-    sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
-    w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
-    _lambda = volume_th
-    _delta = detour_th
-
-    #
-    # For subSub problem
-    #
-    t_ij = travel_time
-
-    return bB, T, iP, iM, \
-           r_i, v_i, K, kP, kM, w_k, _lambda, _delta, \
-           t_ij
+SUB_SUB_LOGGING = False
 
 
 def masterProblem(problem):
     bB, T, iP, iM, \
     r_i, v_i, K, kP, kM, w_k, _lambda, _delta, \
     t_ij = problem
-
     input4subProblem = [T, r_i, v_i, K, w_k, _lambda, _delta]
     input4subSubProblem = [iP, iM, kP, kM, t_ij]
+    #
+    # generate initial bundles
+    #
 
-    pi_i = [1 for _ in range(len(T))]
-    mu = 2
-    subProblem(pi_i, mu, input4subProblem, input4subSubProblem)
+    print(bB, _lambda)
+    print(T)
+
+    e_bi = [[0 for _ in range(len(T))] for _ in range(bB)]
+    taskBN = ceil(len(T) / bB)
+    for i in T:
+        e_bi[i % taskBN][i] = 1
+    B = range(len(e_bi))
+    p_b = []
+    for b in B:
+        bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
+        reward = sum([r_i[i] for i in bundle])
+        # subProblem(pi_i, mu, input4subProblem, input4subSubProblem)
+        profit = 0
+        for k in K:
+            detour = subSubProblem(bundle, k, input4subSubProblem)
+            if detour < _delta:
+                profit += w_k[k] * reward
+        p_b.append(profit)
+    #
+
+    m = Model('materProblem')
+    ofpath = opath.join(dpath['gurobiLog'], 'masterProblem.log')
+    m.setParam('LogFile', ofpath)
+    #
+    # Define decision variables
+    #
+    q_b = {}
+    for b in B:
+        q_b[b] = m.addVar(vtype="I", name="q[%d]" % b)
+    m.update()
+    #
+    # Define objective
+    #
+    obj = LinExpr()
+    for b in B:
+        obj += p_b[b] * q_b[b]
+    m.setObjective(obj, GRB.MAXIMIZE)
+    #
+    # Define constrains
+    #
+    taskAC = {}
+    for i in T:  # eq:taskA
+        taskAC[i] = m.addConstr(quicksum(e_bi[b][i] * q_b[b] for b in B) == 1, name="taskAC[%d]" % i)
+    numBC = m.addConstr(quicksum(q_b[b] for b in B) == bB, name="numBC")
+    #
+    m.update()  # must update before calling relax()
+
+    relax = m.relax()
+
+    relax.write("temp.lp")
+
+    relax.optimize()
+
+    pi = [c.Pi for c in relax.getConstrs()]  # keep dual variables
+    print(pi)
+
+    # relax = m.relax()
+    # relax.optimize()
+    # # for c in relax.getConstrs():
+    # #     print(c.ConstrName, dir(c))
+    # #     c0 = model.getConstrByName("c0")
+    # #     assert False
+    pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
+    mu = relax.getConstrByName("numBC").Pi
+
+    print([relax.getVarByName("q[%d]" % b).x for b in B])
+
+
+
+    # print('col', subProblem(pi_i, mu, input4subProblem, input4subSubProblem))
 
 
 
@@ -114,13 +148,11 @@ def subProblem(pi_i, mu, input4subProblem, input4subSubProblem):
 def addDetourC(m, where):
     if where == GRB.callback.MIPSOL:
         b = [i for i in m._T if m.cbGetSolution(m._z_i[i]) > 0.5]
-        if not b:
-            assert False
-        print('cur', b)
-        for k in m._K:
-            d_bk = subSubProblem(b, k, m._input4subSubProblem)
-            #  # eq:detourTh
-            m.cbLazy(d_bk - m._delta <= m._big_M * (1 - m._y_k[k]))
+        if b:
+            for k in m._K:
+                d_bk = subSubProblem(b, k, m._input4subSubProblem)
+                #  # eq:detourTh
+                m.cbLazy(d_bk - m._delta <= m._big_M * (1 - m._y_k[k]))
 
 
 def subSubProblem(b, k, input4subSubProblem):
@@ -141,6 +173,7 @@ def subSubProblem(b, k, input4subSubProblem):
             _t_ij[i, j] = t_ij[N[i], N[j]]
     #
     m = Model('subSubProblem')
+    m.Params.OutputFlag = SUB_SUB_LOGGING
     ofpath = opath.join(dpath['gurobiLog'], 'subSubProblem.log')
     m.setParam('LogFile', ofpath)
     #
@@ -269,7 +302,38 @@ def get_subtours(edges, nodes):
     return subtours
 
 
-if __name__ == '__main__':
-    from problems import ex3
+def convert_input4MathematicalModel(travel_time, \
+                                    flows, paths, \
+                                    tasks, rewards, volumes, \
+                                    num_bundles, volume_th, detour_th):
+    #
+    # For master problem
+    #
+    bB = num_bundles
+    T = list(range(len(tasks)))
+    iP, iM = list(zip(*[tasks[i] for i in T]))
+    #
+    # For sub problem
+    #
+    r_i, v_i = rewards, volumes
+    K = list(range(len(paths)))
+    kP, kM = list(zip(*[paths[k] for k in K]))
+    sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
+    w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
+    _lambda = volume_th
+    _delta = detour_th
 
-    print(masterProblem(convert_input4MathematicalModel(*ex3())))
+    #
+    # For subSub problem
+    #
+    t_ij = travel_time
+
+    return bB, T, iP, iM, \
+           r_i, v_i, K, kP, kM, w_k, _lambda, _delta, \
+           t_ij
+
+
+if __name__ == '__main__':
+    from problems import *
+
+    print(masterProblem(convert_input4MathematicalModel(*ex2())))
