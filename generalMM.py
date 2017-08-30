@@ -390,4 +390,4 @@ def get_subtours(edges, oridest_pd_points):
 if __name__ == '__main__':
     from problems import *
 
-    print(run_mip_eliSubTour(convert_input4MathematicalModel(*ex3())))
+    print(run_mip_eliSubTour(convert_input4MathematicalModel(*ex2())))

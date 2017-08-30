@@ -27,14 +27,7 @@ def masterProblem(problem):
     p_b = []
     for b in B:
         bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
-        reward = sum([r_i[i] for i in bundle])
-        # subProblem(pi_i, mu, input4subProblem, input4subSubProblem)
-        profit = 0
-        for k in K:
-            detour = subSubProblem(bundle, k, input4subSubProblem)
-            if detour < _delta:
-                profit += w_k[k] * reward
-        p_b.append(profit)
+        p_b.append(calc_profit(K, w_k, _delta, r_i, input4subSubProblem, bundle))
     #
 
     m = Model('materProblem')
@@ -45,7 +38,7 @@ def masterProblem(problem):
     #
     q_b = {}
     for b in B:
-        q_b[b] = m.addVar(vtype="I", name="q[%d]" % b)
+        q_b[b] = m.addVar(vtype=GRB.BINARY, name="q[%d]" % b)
     m.update()
     #
     # Define objective
@@ -63,32 +56,61 @@ def masterProblem(problem):
     numBC = m.addConstr(quicksum(q_b[b] for b in B) == bB, name="numBC")
     #
     m.update()  # must update before calling relax()
+    while True:
 
-    relax = m.relax()
+        relax = m.relax()
+        relax.write("temp.lp")
+        relax.optimize()
+        #
+        pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
+        mu = relax.getConstrByName("numBC").Pi
+        c_b, bundle = subProblem(pi_i, mu, input4subProblem, input4subSubProblem)
+        if c_b < 0:
+            break
+        vec = [0 for _ in range(len(T))]
+        for i in bundle:
+            vec[i] = 1
+        e_bi.append(vec)
+        p_b.append(calc_profit(K, w_k, _delta, r_i, input4subSubProblem, bundle))
+        #
+        col = Column()
 
-    relax.write("temp.lp")
 
-    relax.optimize()
+        for i in range(T):
+            if e_bi[len(B)][i] > 0:
+                col.addTerms(e_bi[len(B)][i], taskAC[i])
+        col.addTerms(1, numBC)
 
-    pi = [c.Pi for c in relax.getConstrs()]  # keep dual variables
-    print(pi)
+        q_b[len(B)] = m.addVar(obj=p_b[len(B)], vtype=GRB.BINARY, name="x[%d]" % K, column=col)
+        m.update()  # must update before calling relax()
+        #
+        B = range(len(e_bi))
 
-    # relax = m.relax()
-    # relax.optimize()
-    # # for c in relax.getConstrs():
-    # #     print(c.ConstrName, dir(c))
-    # #     c0 = model.getConstrByName("c0")
-    # #     assert False
-    pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
-    mu = relax.getConstrByName("numBC").Pi
+    m.optimize()
 
-    print([relax.getVarByName("q[%d]" % b).x for b in B])
+
+
+
+
+    print(B)
+    print([m.getVarByName("q[%d]" % b).x for b in B])
 
 
 
     # print('col', subProblem(pi_i, mu, input4subProblem, input4subSubProblem))
 
 
+def calc_profit(K, w_k, _delta, r_i, input4subSubProblem, bundle):
+    reward = sum([r_i[i] for i in bundle])
+    profit = 0
+    for k in K:
+        try:
+            detour = subSubProblem(bundle, k, input4subSubProblem)
+        except:
+            print()
+        if detour < _delta:
+            profit += w_k[k] * reward
+    return profit
 
 
 
@@ -142,7 +164,8 @@ def subProblem(pi_i, mu, input4subProblem, input4subSubProblem):
     #
     m.params.LazyConstraints = 1
     m.optimize(addDetourC)
-    return [i for i in T if z_i[i].x > 0.05]
+    #
+    return m.objVal, [i for i in T if z_i[i].x > 0.05]
 
 
 def addDetourC(m, where):
