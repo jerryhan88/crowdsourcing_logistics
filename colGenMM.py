@@ -56,6 +56,9 @@ def masterProblem(problem):
     numBC = m.addConstr(quicksum(q_b[b] for b in B) == bB, name="numBC")
     #
     m.update()  # must update before calling relax()
+
+    m.write('temp.lp')
+
     while True:
 
         relax = m.relax()
