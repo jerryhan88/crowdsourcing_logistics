@@ -133,9 +133,9 @@ def ex1():
     #
     # Inputs about bundles
     #
-    numBundles = 3
-    thVolume = 3
-    thDetour = 5
+    numBundles = 4
+    thVolume = 4
+    thDetour = 6
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #
@@ -175,7 +175,7 @@ def ex2():
     # Inputs about tasks
     #
     tasks = [(0, 2), (2, 3), (1, 2)]
-    rewards = [1, 2, 1]
+    rewards = [1, 1, 1]
     volumes = [1, 1, 1]
     #
     # Inputs about bundles
@@ -183,7 +183,7 @@ def ex2():
     numBundles = 2
     # thVolume = 2
     thVolume = 3
-    thDetour = 3
+    thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #
@@ -231,7 +231,7 @@ def ex3():
     #
     numBundles = 3
     thVolume = 4
-    thDetour = 6
+    thDetour = 10
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #
@@ -431,14 +431,14 @@ def ex6():
     # Inputs about tasks
     #
     tasks = [(0, 2), (2, 1), (3, 5), (2, 5), (5, 1)]
-    rewards = [1, 2, 3, 2, 1]
+    rewards = [1, 1, 1, 1, 1]
     volumes = [1, 1, 1, 1, 1]
     #
     # Inputs about bundles
     #
-    numBundles = 3
-    thVolume = 3
-    thDetour = 5
+    numBundles = 4
+    thVolume = 4
+    thDetour = 4
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #
@@ -479,14 +479,14 @@ def ex7():
     # Inputs about tasks
     #
     tasks = [(0, 2), (2, 1), (3, 4), (2, 4), (2, 4), (3, 1)]
-    rewards = [1, 2, 3, 2, 1, 1]
+    rewards = [1, 1, 1, 1, 1, 1]
     volumes = [1, 1, 1, 1, 1, 1]
     #
     # Inputs about bundles
     #
-    numBundles = 2
+    numBundles = 3
     thVolume = 4
-    thDetour = 5
+    thDetour = 7
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #

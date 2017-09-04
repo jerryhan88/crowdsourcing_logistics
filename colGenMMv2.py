@@ -71,7 +71,7 @@ def masterProblem(problem):
         fn = "relaxted%d.lp" % len(B)
 
         relax = m.relax()
-        relax.write(fn)
+        # relax.write(fn)
         relax.Params.OutputFlag = SUB_SUB_LOGGING
         relax.optimize()
         #
@@ -150,7 +150,6 @@ def calc_profit(K, w_k, _delta, r_i, input4subSubProblem, bundle):
 def subProblem(pi_i, mu, input4subProblem, input4subSubProblem):
     T, r_i, v_i, K, w_k, _lambda, _delta = input4subProblem
     big_M = 1000
-    big_M2 = 1000
     #
     m = Model('subProblem')
     m.Params.OutputFlag = SUB_SUB_LOGGING
@@ -159,15 +158,12 @@ def subProblem(pi_i, mu, input4subProblem, input4subSubProblem):
     #
     # Define decision variables
     #
-    z_i, y_k, a_k, x_k = {}, {}, {}, {}
+    z_i, y_k, a_k = {}, {}, {}
     for i in T:
         z_i[i] = m.addVar(vtype=GRB.BINARY, name='z[%d]' % i)
     for k in K:
         y_k[k] = m.addVar(vtype=GRB.BINARY, name='y[%d]' % k)
         a_k[k] = m.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % k)
-        # x_k[k] = m.addVar(vtype=GRB.BINARY, name='x[%d]' % k)
-
-
     m.update()
     #
     # Define objective
@@ -182,68 +178,62 @@ def subProblem(pi_i, mu, input4subProblem, input4subSubProblem):
     #
     # Define constrains
     #
-    for k in K:
-        #
-        # eq:linAlpha
-        #
-        m.addConstr(a_k[k] >= quicksum(r_i[i] * z_i[i] for i in T) - big_M * (1 - y_k[k]), name='la1[%d]' % k)
-        m.addConstr(a_k[k] <= big_M * y_k[k], name='la2[%d]' % k)
-        m.addConstr(a_k[k] <= quicksum(r_i[i] * z_i[i] for i in T), name='la3[%d]' % k)
     #  # eq:volTh
     m.addConstr(quicksum(v_i[i] * z_i[i] for i in T) <= _lambda, name='volTH')
     #
     # For callback function
     #
     m._K, m._T = K, T
-    m._z_i, m._y_k, m._x_k = z_i, y_k, x_k
-    m._delta, m._big_M2 = _delta, big_M2
+    m._z_i, m._y_k, m._a_k = z_i, y_k, a_k
+    m._r_i = r_i
+    m._delta, m._big_M = _delta, big_M
     m._input4subSubProblem = input4subSubProblem
-
-    m._w_k, m._r_i = w_k, r_i
-    m._pi_i = pi_i
     #
     m.params.LazyConstraints = 1
     m.optimize(addDetourC)
     #
     m.write('subProblem.lp')
-    if m.status != GRB.Status.OPTIMAL:
-        m.computeIIS()
-        m.write('subProblem.ilp')
-        m.write('subProblem.lp')
+    print(m.status)
+    # if m.status != GRB.Status.OPTIMAL:
+    #     m.computeIIS()
+    #     m.write('subProblem.ilp')
+    #     m.write('subProblem.lp')
 
     return m.objVal, [i for i in T if z_i[i].x > 0.05]
 
-addDetourCounter = 0
 
 def addDetourC(m, where):
     if where == GRB.callback.MIPSOL:
         b = [i for i in m._T if m.cbGetSolution(m._z_i[i]) > 0.5]
-        ordY = [m.cbGetSolution(m._y_k[k]) for k in m._K ]
-        print('ordY', ordY)
         if b:
-            global addDetourCounter
-            print(addDetourCounter, b)
-            addDetourCounter += 1
-            new_m = m.copy()
 
+            new_m = m.copy()
             for i in b:
                 new_m.addConstr(new_m.getVarByName("z[%d]" % i) == 1, name='cb[%d]' % i)
+
             for k in m._K:
                 d_bk = subSubProblem(b, k, m._input4subSubProblem)
                 #  # eq:detourTh
                 if d_bk < m._delta:
                     m.cbLazy(m._y_k[k] == 1)
                     new_m.addConstr(new_m.getVarByName("y[%d]" % k) == 1, name='cf[%d]' % k)
-                    print('cf[%d]: y_k[%d]=%d' % (k, k, 1))
                 else:
                     m.cbLazy(m._y_k[k] == 0)
                     new_m.addConstr(new_m.getVarByName("y[%d]" % k) == 0, name='cf[%d]' % k)
-                    print('cf[%d]: y_k[%d]=%d' % (k, k, 0))
-                # print('\ta_k[k] >= %d - big_M * (1 - y_k[k])' % _r)
-                # print('\ta_k[k] <= big_M * y_k[k]')
-                # print('\ta_k[k] <= %d' % _r)
-            m.update()
-            new_m.write('subProblem%d.lp' % addDetourCounter)
+                #
+                # eq:linAlpha
+                #
+                m.cbLazy(m._a_k[k] >= quicksum(m._r_i[i] * m._z_i[i] for i in m._T) - m._big_M * (1 - m._y_k[k]))
+                m.cbLazy(m._a_k[k] <= m._big_M * m._y_k[k])
+                m.cbLazy(m._a_k[k] <= quicksum(m._r_i[i] * m._z_i[i] for i in m._T))
+
+                a_k = new_m.getVarByName("a[%d]" % k)
+                y_k = new_m.getVarByName("y[%d]" % k)
+                new_m.addConstr(a_k >= quicksum(m._r_i[i] * new_m.getVarByName("z[%d]" % i) for i in m._T) - m._big_M * (1 - y_k), name='la1[%d]' % k)
+                new_m.addConstr(a_k <= m._big_M * y_k, name='la2[%d]' % k)
+                new_m.addConstr(a_k <= quicksum(m._r_i[i] * new_m.getVarByName("z[%d]" % i) for i in m._T), name='la3[%d]' % k)
+
+            new_m.write('subProblem__.lp')
             new_m.Params.OutputFlag = True
             new_m.params.LazyConstraints = 0
             new_m.optimize()
@@ -253,42 +243,8 @@ def addDetourC(m, where):
             print('y', y)
             a = [new_m.getVarByName('a[%d]' % k).x for k in m._K]
             print('a', a)
-
-            print('pz', (np.array(m._pi_i) * np.array(z)).sum())
-            print('wa', (np.array(m._w_k) * np.array(a)).sum())
-
-
-            print()
-
-
-
-                # m.cbLazy((m._delta - d_bk + m._big_M2 * (1 - m._x_k[k])) >= 0)
-                # m.cbLazy((m._y_k[k] + m._big_M2 * (1 - m._x_k[k])) >= 0)
-                # m.cbLazy(m._delta - d_bk <= m._big_M2 * m._x_k[k])
-
-
-                # m.cbLazy((m._delta - d_bk + m._big_M2 * m._x_k[k]) >= 0)
-                # m.cbLazy((m._y_k[k] + m._big_M2 * m._x_k[k]) >= 0)
-                # m.cbLazy(m._delta - d_bk <= m._big_M2 * (1 - m._x_k[k]))
-
-
-
-
-                # m.cbLazy(1 - m._y_k[k] <= m._big_M2 * m._x_k[k])
-                # m.cbLazy(m._delta - d_bk <= m._big_M2 * (1 - m._x_k[k]))
-
-
-                # m.cbLazy(d_bk - m._delta <= m._big_M2 * (1 - m._y_k[k]))
-                # m.cbLazy(m._delta - d_bk <= m._big_M2 * m._y_k[k])
-
-                # m.cbLazy(m._delta - d_bk <= m._big_M2 * (1 - m._x_k[k]))
-                # m.cbLazy(1 - m._y_k[k] <= m._big_M2 * m._x_k[k])
-
-
         else:
-            return None
-        #     m.cbLazy(1 <= quicksum(m._z_i[i] for i in m._T))
-
+            m.cbLazy(1 <= quicksum(m._z_i[i] for i in m._T))
 
 
 def subSubProblem(b, k, input4subSubProblem):
