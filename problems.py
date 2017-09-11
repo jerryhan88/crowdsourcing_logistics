@@ -270,15 +270,15 @@ def ex4():
     #
     # Inputs about tasks
     #
-    tasks = [(0, 2), (2, 0), (1, 2),
+    tasks = [(0, 2), (2, 0), (1, 2), (1, 2), (2, 1), (1, 0),
              ]
-    rewards = [1, 2, 1]
-    volumes = [1, 1, 1]
+    rewards = [1, 2, 1, 1, 2, 1]
+    volumes = [1, 1, 1, 1, 1, 1]
     #
     # Inputs about bundles
     #
     numBundles = 3
-    thVolume = 2
+    thVolume = 3
     thDetour = 6
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
