@@ -2,7 +2,11 @@ from init_project import *
 #
 from gurobipy import *
 import numpy as np
+#
+from datetime import datetime
 
+startTime = datetime.now()
+print('Start time: %s' % str(startTime))
 
 SUB_SUB_LOGGING = False
 
@@ -52,7 +56,6 @@ def masterProblem(problem):
             continue
         e_bi.append(l)
         colums.add(tuple(l))
-
         B.append([i for i, v in enumerate(l) if v != 0])
     p_b = []
     for b in range(len(B)):
@@ -65,6 +68,9 @@ def masterProblem(problem):
                     p += w * br
         p_b.append(p)
     #
+    print('Initial bundles')
+    for b in B:
+        print('\t', b)
     m = Model('materProblem')
     ofpath = opath.join(dpath['gurobiLog'], 'masterProblem.log')
     m.setParam('LogFile', ofpath)
@@ -98,7 +104,7 @@ def masterProblem(problem):
             break
         counter += 1
         relax = m.relax()
-        relax.write("RLPM_%dth.lp" % counter)
+        # relax.write("RLPM_%dth.lp" % counter)
         relax.Params.OutputFlag = SUB_SUB_LOGGING
         relax.optimize()
         #
@@ -108,10 +114,11 @@ def masterProblem(problem):
         if c_b == None:
             break
         vec = [0 for _ in range(len(T))]
-        print('%dth iteration' % counter)
-        print('\t Pi', pi_i, 'mu', mu)
-        print('\t bundle:', bundle)
-        print('\t reduced C.: ', c_b)
+        print('', end='\n')
+        print('%dth iteration' % counter, '(%s)' % str(datetime.now()))
+        print('\t Dual V: Pi', [round(v, 3) for v in pi_i], 'mu', mu)
+        print('\t new Bundle:', bundle)
+        print('\t reduced C.: ', round(c_b, 3))
         for i in bundle:
             vec[i] = 1
         p = c_b + (np.array(vec) * np.array(pi_i)).sum() + mu
@@ -134,14 +141,14 @@ def masterProblem(problem):
     m.Params.OutputFlag = SUB_SUB_LOGGING
     m.write('finalPM.lp')
     m.optimize()
-
-
-
-
-    print([q_b[b].x for b in range(len(B))])
-    print([p_b[b] * q_b[b].x for b in range(len(B))])
-    print(m.objVal)
-
+    endTime = datetime.now()
+    print('End time: %s' % str(endTime))
+    #
+    print('', end='\n')
+    print('Summary')
+    print('\t Elapsed time: %s' % str(endTime - startTime))
+    print('\t ObjV:', m.objVal)
+    print('\t Chosen Bundle:', [B[b] for b in range(len(B)) if q_b[b].x > 0.5], [q_b[b].x for b in range(len(B))])
 
 
 def subProblem(pi_i, mu, B, input4subProblem):
@@ -495,4 +502,5 @@ def convert_input4MathematicalModel(travel_time, \
 if __name__ == '__main__':
     from problems import *
 
-    print(masterProblem(convert_input4MathematicalModel(*ex8())))
+    # masterProblem(convert_input4MathematicalModel(*ex1()))
+    masterProblem(convert_input4MathematicalModel(*ex8()))

@@ -618,7 +618,6 @@ if __name__ == '__main__':
     #             inputs, fn = random_problem(numCols, numRows, maxFlow,
     #                                         numTasks, minReward, maxReward, minVolume, maxVolume,
     #                                         thVolume, bundleResidualProp, detourAlowProp)
-
     numCols = numRows = 3
     bundleResidualProp = 1 + 0.1
     # for numTasks in range(4, 18, 2):
@@ -626,7 +625,7 @@ if __name__ == '__main__':
     inputs, fn = random_problem(numCols, numRows, maxFlow,
                                 numTasks, minReward, maxReward, minVolume, maxVolume,
                                 thVolume, bundleResidualProp, detourAlowProp)
-
+    print(inputs)
 
 
 
