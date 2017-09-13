@@ -17,7 +17,7 @@ def cythonize(fileName):
         script_args=['build_ext'],
         options={'build_ext': {'inplace': True, 'force': True}}
     )
-    print '******** CYTHON COMPLETE ******'
+    print('******** CYTHON COMPLETE ******')
 
 
 plf = platform.platform()
@@ -28,8 +28,8 @@ if plf.startswith('Linux'):
         _, fileName = args
         cythonize(fileName)
     else:
-        print '******** Error ******'
-        print '******** Type packageName and fileName ******'
+        print('******** Error ******')
+        print('******** Type packageName and fileName ******')
 elif plf.startswith('Darwin'):
     # Mac
     fileName = 'greedyHeuristic'
@@ -38,3 +38,6 @@ else:
     # Window ?
     pass
 
+
+if __name__ == '__main__':
+    cythonize('greedyHeuristic')

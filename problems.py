@@ -606,34 +606,25 @@ def ex9():
 if __name__ == '__main__':
     maxFlow = 3
     minReward, maxReward = 1, 3
-    minVolume, maxVolume = 1, 2
-    thVolume = 3
+    minVolume, maxVolume = 1, 3
+    thVolume = 5
     detourAlowProp = 0.8
     jobID = 0
-    # for i in range(2, 5):
-    #     numCols = numRows = i
-    #     for numTasks in range(4, 18, 2):
-    #         for j in range(5, 10):
-    #             bundleResidualProp = 1 + j / 10.0
-    #             inputs, fn = random_problem(numCols, numRows, maxFlow,
-    #                                         numTasks, minReward, maxReward, minVolume, maxVolume,
-    #                                         thVolume, bundleResidualProp, detourAlowProp)
-    numCols = numRows = 3
-    bundleResidualProp = 1 + 0.1
-    # for numTasks in range(4, 18, 2):
-    numTasks = 3
-    inputs, fn = random_problem(numCols, numRows, maxFlow,
-                                numTasks, minReward, maxReward, minVolume, maxVolume,
-                                thVolume, bundleResidualProp, detourAlowProp)
-    print(inputs)
+    for i in range(2, 5):
+        numCols = numRows = i
+        for numTasks in range(4, 18, 2):
+            for j in range(5, 10):
+                bundleResidualProp = 1 + j / 10.0
+                inputs, fn = random_problem(numCols, numRows, maxFlow,
+                                            numTasks, minReward, maxReward, minVolume, maxVolume,
+                                            thVolume, bundleResidualProp, detourAlowProp)
+    # numCols = numRows = 3
+    # bundleResidualProp = 1 + 0.1
+    # numTasks = 3
+    # inputs, fn = random_problem(numCols, numRows, maxFlow,
+    #                             numTasks, minReward, maxReward, minVolume, maxVolume,
+    #                             thVolume, bundleResidualProp, detourAlowProp)
+    # print(inputs)
 
 
 
-
-
-
-
-    #
-    # random_problem(2, 3, 3,
-    #                3, 1, 3, 1, 2,
-    #                4, 1.3, 0.5)

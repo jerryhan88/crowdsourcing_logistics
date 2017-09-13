@@ -1,7 +1,9 @@
 from init_project import *
 #
 from problems import *
-from generalMM import run_mip_eliSubTour, convert_input4MathematicalModel
+# from generalMM import run_mip_eliSubTour, convert_input4MathematicalModel
+from colGenMMv2 import masterProblem, convert_input4MathematicalModel
+
 from greedyHeuristic import run_greedyHeuristic, convert_input4greedyHeuristic
 #
 import csv
@@ -18,7 +20,7 @@ def run(processorID, num_workers=11):
             inputs = pickle.load(fp)
         if i % num_workers != processorID:
             continue
-        points, travel_time, \
+        travel_time, \
         flows, paths, \
         tasks, rewards, volumes, \
         numBundles, thVolume, thDetour = inputs
@@ -33,7 +35,8 @@ def run(processorID, num_workers=11):
                       'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
             writer.writerow(header)
         try:
-            m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+            # m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+            m_obj, m_time = masterProblem(convert_input4MathematicalModel(*inputs))
             h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
             gap_obj = (m_obj - h_obj) / float(m_obj)
             gap_time = (m_time - h_time)
@@ -67,7 +70,8 @@ def single_run(fn):
                   'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
         writer.writerow(header)
     try:
-        m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+        # m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+        m_obj, m_time = masterProblem(convert_input4MathematicalModel(*inputs))
         h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
         gap_obj = (m_obj - h_obj) / float(m_obj)
         gap_time = (m_time - h_time)
@@ -102,7 +106,8 @@ def local_run():
                   'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
         writer.writerow(header)
     try:
-        m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+        # m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
+        m_obj, m_time = masterProblem(convert_input4MathematicalModel(*inputs))
         h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
         gap_obj = (m_obj - h_obj) / float(m_obj)
         gap_time = (m_time - h_time)
@@ -120,6 +125,7 @@ def local_run():
 
 
 if __name__ == '__main__':
-    local_run()
+    run(0, num_workers=8)
+    # local_run()
     # single_run('nt6-np20-nb4-tv2-td4.pkl')
     # run(0)

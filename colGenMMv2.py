@@ -150,6 +150,8 @@ def masterProblem(problem):
     print('\t ObjV:', m.objVal)
     print('\t Chosen Bundle:', [B[b] for b in range(len(B)) if q_b[b].x > 0.5], [q_b[b].x for b in range(len(B))])
 
+    return m.objVal, (endTime - startTime).seconds
+
 
 def subProblem(pi_i, mu, B, input4subProblem):
     T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
