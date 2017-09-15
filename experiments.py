@@ -2,7 +2,7 @@ from init_project import *
 #
 from problems import *
 # from generalMM import run_mip_eliSubTour, convert_input4MathematicalModel
-from colGenMMv2 import masterProblem, convert_input4MathematicalModel
+from colGenMM import masterProblem, convert_input4MathematicalModel
 
 from greedyHeuristic import run_greedyHeuristic, convert_input4greedyHeuristic
 #
