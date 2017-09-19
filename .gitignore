@@ -4,9 +4,7 @@
 
 *.pyc
 *.xml
-*.aux
 *.log
-*.pdf
 *.gz
 *.html
 *.lp

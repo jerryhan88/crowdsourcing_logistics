@@ -1,10 +1,13 @@
 from init_project import *
 #
-from time import time
+from datetime import datetime
+#
+from _utils.logging import record_logs
 
-def run_greedyHeuristic(problem):
+
+def run(problem, log_fpath=None):
     travel_time, tasks, paths, detour_th, volume_th, num_bundles = problem
-    startTime = time()
+    #
     def insert_task(b, t1, path_insertion_estimation=None):
         b.tasks[t1.tid] = t1
         path_ws = 0
@@ -21,7 +24,7 @@ def run_greedyHeuristic(problem):
                     b.path_detour[p] = detour
                     path_ws += p.w
         else:
-            for p, (additional_detour, i0, j0) in path_insertion_estimation.iteritems():
+            for p, (additional_detour, i0, j0) in path_insertion_estimation.items():
                 if b.path_detour[p] + additional_detour < detour_th:
                     path_ws += p.w
                     b.path_detour[p] += additional_detour
@@ -29,10 +32,10 @@ def run_greedyHeuristic(problem):
                     b.path_pd_seq[p].insert(j0 + 1, 'd%d' % t1.tid)
                 else:
                     b.path_detour[p] = 1e400
-        b.bundle_attr = sum(t.r for t in b.tasks.itervalues()) * path_ws
+        b.bundle_attr = sum(t.r for t in b.tasks.values()) * path_ws
     #
     def estimate_bundle_attr(b, t1):
-        if volume_th < sum(t0.v for t0 in b.tasks.itervalues()) + t1.v:
+        if volume_th < sum(t0.v for t0 in b.tasks.values()) + t1.v:
             return 0, None
         else:
             task_path_insertion_estimation = {}
@@ -102,10 +105,10 @@ def run_greedyHeuristic(problem):
                 task_path_insertion_estimation[p] = (least_addditional_detour, i0, j0)
             #
             path_ws = 0
-            for p, (additional_detour, _, _) in task_path_insertion_estimation.iteritems():
+            for p, (additional_detour, _, _) in task_path_insertion_estimation.items():
                 if b.path_detour[p] + additional_detour < detour_th:
                     path_ws += p.w
-            bundle_attr = (sum(t.r for t in b.tasks.itervalues()) + t1.r) * path_ws
+            bundle_attr = (sum(t.r for t in b.tasks.values()) + t1.r) * path_ws
             return bundle_attr, task_path_insertion_estimation
     #
     def get_point(b, pd_name):
@@ -115,6 +118,8 @@ def run_greedyHeuristic(problem):
         else:
             assert pd_name.startswith('d')
             return t.dp
+    #
+    startTime = datetime.now()
     #
     # initialize variable to accumulate task attractiveness score
     #
@@ -175,15 +180,19 @@ def run_greedyHeuristic(problem):
                     new_candi_bundles += [b]
         candi_bundles = new_candi_bundles
     unassigned_tasks = tasks
-
-    # print bundles
-    # obj = 0
-    # for b in bundles:
-    #     print b, b.bundle_attr
-
-
-    return sum(b.bundle_attr for b in bundles), time() -  startTime
-    # return bundles, unassigned_tasks
+    #
+    endTime = datetime.now()
+    eliTime = (endTime - startTime).seconds
+    logContents = '\n\n'
+    logContents += 'Summary\n'
+    logContents += '\t Sta.Time: %s\n' % str(startTime)
+    logContents += '\t End.Time: %s\n' % str(endTime)
+    logContents += '\t Eli.Time: %d\n' % eliTime
+    logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
+    logContents += '\t chosen B.: %s\n' % str(bundles)
+    record_logs(log_fpath, logContents)
+    #
+    return sum(b.bundle_attr for b in bundles), eliTime
 
 
 
@@ -199,63 +208,11 @@ class bundle(object):
         self.bundle_attr = 0
 
     def __repr__(self):
-        return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.itervalues()]))
-
-
-class node(object):
-    def __init__(self, nid):
-        self.nid = nid
-
-    def __repr__(self):
-        return str(self.nid)
-
-
-class task(object):
-    def __init__(self, tid, pp, dp, v, r):
-        self.tid = tid
-        self.pp, self.dp = pp, dp
-        self.v, self.r = v, r
-
-    def set_attr(self, attr):
-        self.attr = attr
-
-    def __repr__(self):
-        return 't%d(%s->%s;%.03f)' % (self.tid, self.pp, self.dp, self.r)
-
-
-class path(object):
-    def __init__(self, ori, dest, w=None):
-        self.ori, self.dest, self.w = ori, dest, w
-
-    def __repr__(self):
-        if self.w != None:
-            return '%d->%d;%.03f' % (self.ori, self.dest, self.w)
-        else:
-            return '%d->%d' % (self.ori, self.dest)
-
-
-def convert_input4greedyHeuristic(travel_time,
-                                  flows, paths,
-                                  tasks, rewards, volumes,
-                                  num_bundles, volume_th, detour_th):
-    #
-    # Convert inputs for the greedy heuristic
-    #
-    tasks = [task(i, pp, dd, volumes[i], rewards[i]) for i, (pp, dd) in enumerate(tasks)]
-    total_flows = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
-    paths = [path(ori, dest, flows[ori][dest] / float(total_flows)) for ori, dest in paths]
-
-    return travel_time, tasks, paths, detour_th, volume_th, num_bundles
+        return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.values()]))
 
 
 if __name__ == '__main__':
     from problems import *
-    # heuristic_bundles, unassigned_tasks = run_greedyHeuristic(convert_input4greedyHeuristic(ex1))
-    # points, travel_time, \
-    # flows, paths, \
-    # tasks, rewards, volumes, \
-    # numBundles, thVolume, thDetour = random_problem(2, 3, 3, 3, 1, 3, 1, 2, 4, 3.3, 1.5)
-    # heuristic_bundles, unassigned_tasks = run_greedyHeuristic(convert_input4greedyHeuristic(ex2))
-    print(run_greedyHeuristic(convert_input4greedyHeuristic(*ex2())))
+    print(run(convert_input4greedyHeuristic(*ex2())))
 
 

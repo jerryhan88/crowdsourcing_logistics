@@ -1,46 +1,21 @@
 from init_project import *
 #
 from gurobipy import *
+from datetime import datetime
 import numpy as np
 #
-from datetime import datetime
-
-startTime = datetime.now()
-print('Start time: %s' % str(startTime))
-
-SUB_SUB_LOGGING = False
+from _utils.logging import record_logs, O_GL, X_GL
+from _utils.mm_utils import get_routeFromOri
 
 
-def masterProblem(problem):
-    bB, T, iP, iM, \
-    r_i, v_i, K, kP, kM, w_k, _lambda, _delta, \
-    tt = problem
+def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
+    startTime = datetime.now()
     #
-    P, D = set(), set()
-    _N = {}
-    for i in T:
-        P.add('p%d' % i)
-        D.add('d%d' % i)
-        #
-        _N['p%d' % i] = iP[i]
-        _N['d%d' % i] = iM[i]
-    t_ij = {}
-    for k in K:
-        _kP, _kM = 'ori%d' % k, 'dest%d' % k
-        t_ij[_kP, _kP] = tt[kP[k], kP[k]]
-        t_ij[_kM, _kM] = tt[kM[k], kM[k]]
-        t_ij[_kP, _kM] = tt[kP[k], kM[k]]
-        t_ij[_kM, _kP] = tt[kM[k], kP[k]]
-        for i in _N:
-            t_ij[_kP, i] = tt[kP[k], _N[i]]
-            t_ij[i, _kP] = tt[_N[i], kP[k]]
-            #
-            t_ij[_kM, i] = tt[kM[k], _N[i]]
-            t_ij[i, _kM] = tt[_N[i], kM[k]]
-    for i in _N:
-        for j in _N:
-            t_ij[i, j] = tt[_N[i], _N[j]]
-    N = set(_N.keys())
+    # Solve a master problem
+    #
+    bB, \
+    T, r_i, v_i, _lambda, P, D, N, \
+    K, w_k, t_ij, _delta = problem
     input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
     #
     # generate initial bundles
@@ -68,15 +43,18 @@ def masterProblem(problem):
                     p += w * br
         p_b.append(p)
     #
-    print('Initial bundles')
+    logContents = 'Initial bundles\n'
     for b in B:
-        print('\t', b)
-    m = Model('materProblem')
-    ofpath = opath.join(dpath['gurobiLog'], 'masterProblem.log')
-    m.setParam('LogFile', ofpath)
+        logContents += '\t %s\n' % str(b)
+    if log_fpath:
+        with open(log_fpath, 'wt') as f:
+            f.write(logContents)
+    else:
+        print(logContents)
     #
     # Define decision variables
     #
+    m = Model('materProblem')
     q_b = {}
     for b in range(len(B)):
         q_b[b] = m.addVar(vtype=GRB.BINARY, name="q[%d]" % b)
@@ -94,31 +72,32 @@ def masterProblem(problem):
     taskAC = {}
     for i in T:  # eq:taskA
         taskAC[i] = m.addConstr(quicksum(e_bi[b][i] * q_b[b] for b in range(len(B))) == 1, name="taskAC[%d]" % i)
-    numBC = m.addConstr(quicksum(q_b[b] for b in range(len(B))) <= bB, name="numBC")
+    numBC = m.addConstr(quicksum(q_b[b] for b in range(len(B))) == bB, name="numBC")
+    m.update()
     #
-    m.update()  # must update before calling relax()
-    m.write('initPM.lp')
     counter = 0
     while True:
         if len(B) == len(T) ** 2 - 1:
             break
         counter += 1
         relax = m.relax()
-        # relax.write("RLPM_%dth.lp" % counter)
-        relax.Params.OutputFlag = SUB_SUB_LOGGING
+        relax.Params.OutputFlag = X_GL
         relax.optimize()
         #
         pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = relax.getConstrByName("numBC").Pi
-        c_b, bundle = subProblem(pi_i, mu, B, input4subProblem)
+        c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, TimeLimit)
         if c_b == None:
             break
         vec = [0 for _ in range(len(T))]
-        print('', end='\n')
-        print('%dth iteration' % counter, '(%s)' % str(datetime.now()))
-        print('\t Dual V: Pi', [round(v, 3) for v in pi_i], 'mu', mu)
-        print('\t new Bundle:', bundle)
-        print('\t reduced C.: ', round(c_b, 3))
+        logContents = '\n\n'
+        logContents += '%dth iteration (%s)\n' % (counter, str(datetime.now()))
+        logContents += '\t Dual V\n'
+        logContents += '\t\t Pi: %s\n' % str([round(v, 3) for v in pi_i])
+        logContents += '\t\t mu: %.3f\n' % mu
+        logContents += '\t new B. %s\n' % str(bundle)
+        logContents += '\t red. C. %.3f\n' % c_b
+        record_logs(log_fpath, logContents)
         for i in bundle:
             vec[i] = 1
         p = c_b + (np.array(vec) * np.array(pi_i)).sum() + mu
@@ -138,222 +117,68 @@ def masterProblem(problem):
         B.append(bundle)
         m.update()
     #
-    m.Params.OutputFlag = SUB_SUB_LOGGING
-    m.write('finalPM.lp')
+    # Settings
+    #
+    if TimeLimit is not None:
+        m.setParam('TimeLimit', TimeLimit)
+    if numThreads is not None:
+        m.setParam('Threads', numThreads)
+    if log_fpath is not None:
+        m.setParam('LogFile', log_fpath)
+    m.setParam('OutputFlag', X_GL)
+    #
+    # Run Gurobi (Optimization)
+    #
     m.optimize()
     endTime = datetime.now()
-    print('End time: %s' % str(endTime))
+    eliTime = (endTime - startTime).seconds
+    chosenB = [B[b] for b in range(len(B)) if q_b[b].x > 0.5]
     #
-    print('', end='\n')
-    print('Summary')
-    print('\t Elapsed time: %s' % str(endTime - startTime))
-    print('\t ObjV:', m.objVal)
-    print('\t Chosen Bundle:', [B[b] for b in range(len(B)) if q_b[b].x > 0.5], [q_b[b].x for b in range(len(B))])
-
-    return m.objVal, (endTime - startTime).seconds
-
-
-def subProblem(pi_i, mu, B, input4subProblem):
-    T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
-    # bigM1 = sum(t_ij.values())
-    # bigM2 = sum(r_i) * 2
-    bigM1 = 1000
-    bigM2 = 1000
+    logContents = '\n\n'
+    logContents += 'Summary\n'
+    logContents += '\t Sta.Time: %s\n' % str(startTime)
+    logContents += '\t End.Time: %s\n' % str(endTime)
+    logContents += '\t Eli.Time: %d\n' % eliTime
+    logContents += '\t ObjV: %.3f\n' % m.objVal
+    logContents += '\t chosen B.: %s\n' % str(chosenB)
+    record_logs(log_fpath, logContents)
     #
-    m = Model('subProblem')
-    m.Params.OutputFlag = False
-    ofpath = opath.join(dpath['gurobiLog'], 'subProblem.log')
-    m.setParam('LogFile', ofpath)
-    #
-    # Define decision variables
-    #
-    z_i, y_k, a_k, x_kij, o_ki = {}, {}, {}, {}, {}
-    for i in T:
-        z_i[i] = m.addVar(vtype=GRB.BINARY, name='z[%d]' % i)
-    for k in K:
-        y_k[k] = m.addVar(vtype=GRB.BINARY, name='y[%d]' % k)
-        a_k[k] = m.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % k)
-    for k in K:
-        kN = N.union({'ori%d' % k, 'dest%d' % k})
-        for i in kN:
-            for j in kN:
-                x_kij[k, i, j] = m.addVar(vtype=GRB.BINARY, name='x[%d,%s,%s]' % (k, i, j))
-        for i in kN:
-            o_ki[k, i] = m.addVar(vtype=GRB.INTEGER, name='o[%d,%s]' % (k, i))
-    m.update()
-    #
-    # Define objective
-    #
-    obj = LinExpr()
-    for k in K:
-        obj += w_k[k] * a_k[k]
-
-    for i in T:
-        obj -= pi_i[i] * z_i[i]
-    obj -= mu
-
-    m.setObjective(obj, GRB.MAXIMIZE)
-    #
-    # Define constrains
-    #
-    # Linearization
-    for k in K:
-        #  # eq:linAlpha
-        m.addConstr(a_k[k] >= quicksum(r_i[i] * z_i[i] for i in T) - bigM2 * (1 - y_k[k]), name='la1[%d]' % k)
-        m.addConstr(a_k[k] <= bigM2 * y_k[k], name='la2[%d]' % k)
-        m.addConstr(a_k[k] <= quicksum(r_i[i] * z_i[i] for i in T), name='la3[%d]' % k)
-    #
-    # Volume
-    #  # eq:volTh
-    m.addConstr(quicksum(v_i[i] * z_i[i] for i in T) <= _lambda, name='volTH')
-    #
-    # Task and Flow
-    for k in K:
-        kN = N.union({'ori%d' % k, 'dest%d' % k})
-        for i in kN:
-            #  # eq:XselfFlow
-            m.addConstr(x_kij[k, i, i] == 0, name='Xsf[%d,%s]' % (k, i))
-    for i in T:
-        for k in K:
-            #  # eq:taskOutFlow
-            m.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in N) == z_i[i], name='tOF[%d,%d]' % (k, i))
-    for j in T:
-        for k in K:
-            #  # eq:taskInFlow
-            m.addConstr(quicksum(x_kij[k, i, 'd%d' % j] for i in N) == z_i[j], name='tIF[%d,%d]' % (k, j))
-    for k in K:
-        kN = N.union({'ori%d' % k, 'dest%d' % k})
-        for j in kN:
-            #  # eq:flowCon
-            m.addConstr(quicksum(x_kij[k, i, j] for i in kN) == quicksum(x_kij[k, j, i] for i in kN),
-                        name='fc[%d,%s]' % (k, j))
-    #
-    # Routing
-    #
-    for k in K:
-        #  # eq:pathPD
-        m.addConstr(quicksum(x_kij[k, 'ori%d' % k, j] for j in P) == 1, name='pPDo[%d]' % k)
-        m.addConstr(quicksum(x_kij[k, i, 'dest%d' % k] for i in D) == 1, name='pPDo[%d]' % k)
-        #  # eq:XpathPD
-        m.addConstr(quicksum(x_kij[k, 'ori%d' % k, j] for j in D) == 0, name='XpPDo[%d]' % k)
-        m.addConstr(quicksum(x_kij[k, i, 'dest%d' % k] for i in P) == 0, name='XpPDo[%d]' % k)
-    for k in K:
-        kN = N.union({'ori%d' % k, 'dest%d' % k})
-        for i in kN:
-            for j in kN:
-                if i == j: continue
-                #  # eq:direction
-                m.addConstr(x_kij[k, i, j] + x_kij[k, j, i] <= 1, name='dir[%d,%s,%s]' % (k, i, j))
-    #
-    # Feasibility
-    for k in K:
-        kP, kM = 'ori%d' % k, 'dest%d' % k
-        kN = N.union({kP, kM})
-        #  # eq:pathFeasiblity
-        m.addConstr(quicksum(t_ij[i, j] * x_kij[k, i, j] for i in kN for j in kN) - t_ij[kP, kM] - _delta <= bigM1 * (1 - y_k[k]),
-                    name='pf[%d]' % k)
-
-    m.addConstr(quicksum(z_i[i] for i in T) >= 1)
-    #
-    # For callback function
-    #
-    m._B = B
-    m._T, m._K  = T, K
-    m._z_i, m._x_kij, m._o_ki = z_i, x_kij, o_ki
-    m.params.LazyConstraints = 1
-    #
-    # Optimization
-    #
-    m.write('subProblem.lp')
-    m.optimize(addSubTourElimC_subProblem)
-    #
-    # if m.status != GRB.Status.OPTIMAL:
-    #     m.computeIIS()
-    #     m.write('subProblem.ilp')
-    #     m.write('subProblem.lp')
-    #
-    # print(m.status)
-    if m.status == GRB.Status.OPTIMAL:
-        return m.objVal, [i for i in T if z_i[i].x > 0.05]
-    elif m.status == GRB.Status.INFEASIBLE:
-        return None, None
-    else:
-        assert False
+    return m.objVal, eliTime
 
 
-def addSubTourElimC_subProblem(m, where):
-    if where == GRB.callback.MIPSOL:
-        tNodes = []
-        numTaskInBundle = 0
-        for i in m._T:
-            if m.cbGetSolution(m._z_i[i]) > 0.5:
-                tNodes.append('p%d' % i)
-                tNodes.append('d%d' % i)
-                numTaskInBundle += 1
-
-        for b in m._B:
-            if len(b) == numTaskInBundle:
-                m.cbLazy(quicksum(m._z_i[i] for i in b) <= len(b) - 1)
-
-        for k in m._K:
-            ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
-            selectedEdges = [(i, j) for j in ptNodes for i in ptNodes if m.cbGetSolution(m._x_kij[k, i, j]) > 0.5]
-            subtours = get_subtours(selectedEdges, ptNodes)
-            for sb in subtours:
-                if not sb:
-                    continue
-                expr = 0
-                visited_nodes = set()
-                for i, j in sb:
-                    expr += m._x_kij[k, i, j]
-                    expr += m._x_kij[k, j, i]
-                    visited_nodes.add(i)
-                    visited_nodes.add(j)
-                if len(visited_nodes) == len(ptNodes):
-                    # continue
-
-                    # for k in m._K:
-                    #  # eq:initOrder
-                    m.cbLazy(m._o_ki[k, 'ori%d' % k] == 1)
-                    m.cbLazy(m._o_ki[k, 'dest%d' % k] == 2 * (quicksum(m._z_i[i] for i in m._T) + 1))
-                    for i in m._T:
-                        # for k in m._K:
-                        #  # eq:pdSequnce
-                        m.cbLazy(m._o_ki[k, 'p%d' % i] <= m._o_ki[k, 'd%d' % i])
-                    # for k in m._K:
-                    for i in ptNodes:
-                        for j in ptNodes:
-                            if i == j: continue
-                            if i == 'dest%d' % k and j == 'ori%d' % k: continue
-                            # # eq:ordering
-                            m.cbLazy(m._o_ki[k, i] + 1 <= m._o_ki[k, j] + 2 * (1 - m._x_kij[k, i, j]) * (numTaskInBundle + 1))
-                # eq:subTourElim
-                m.cbLazy(expr <= len(visited_nodes) - 1)
-
-
-def minTimePD(b, k, t_ij):
+def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
+    def addSubTourElimC_minPD(m, where):
+        if where == GRB.callback.MIPSOL:
+            curRoute = []
+            for i in m._N:
+                for j in m._N:
+                    if i == j:
+                        continue
+                    if m.cbGetSolution(m._x_ij[i, j]) > 0.5:
+                        curRoute.append((i, j))
+            route = get_routeFromOri(curRoute, m._N)
+            expr = 0
+            if len(route) != len(m._N) - 1:
+                for i, j in route:
+                    expr += m._x_ij[i, j]
+                m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
+    #
     _kP, _kM = 'ori%d' % k, 'dest%d' % k
     N = {_kP, _kM}
     P, D = set(), set()
     for i in b:
-        P.add('p%d' % i)
-        D.add('d%d' % i)
+        P.add('p%d' % i); D.add('d%d' % i)
     N = N.union(P)
     N = N.union(D)
     #
-    m = Model('minPD')
-    m.Params.OutputFlag = SUB_SUB_LOGGING
-    ofpath = opath.join(dpath['gurobiLog'], 'minPD.log')
-    m.setParam('LogFile', ofpath)
-    #
     # Define decision variables
     #
+    m = Model('minTimePD')
     x_ij, o_i = {}, {}
     for i in N:
+        o_i[i] = m.addVar(vtype=GRB.INTEGER, name='o[%s]' % i)
         for j in N:
             x_ij[i, j] = m.addVar(vtype=GRB.BINARY, name='x[%s,%s]' % (i, j))
-    for i in N:
-        o_i[i] = m.addVar(vtype=GRB.INTEGER, name='o[%s]' % (i))
     m.update()
     #
     # Define objective
@@ -362,147 +187,231 @@ def minTimePD(b, k, t_ij):
     for i in N:
         for j in N:
             obj += t_ij[i, j] * x_ij[i, j]
+    obj -= t_ij[_kM, _kP]
     obj -= t_ij[_kP, _kM]
     m.setObjective(obj, GRB.MINIMIZE)
     #
     # Define constrains
     #
-    # General TSP
+    # Flow based routing
+    #  eq:pathPD
+    m.addConstr(x_ij[_kM, _kP] == 1,
+                name='cf')
+    m.addConstr(quicksum(x_ij[_kP, j] for j in P) == 1,
+                name='pPDo')
+    m.addConstr(quicksum(x_ij[i, _kM] for i in D) == 1,
+                name='pPDi')
+    #  # eq:XpathPD
+    m.addConstr(quicksum(x_ij[_kP, j] for j in D) == 0,
+                name='XpPDo')
+    m.addConstr(quicksum(x_ij[i, _kM] for i in P) == 0,
+                name='XpPDi')
     #
     for i in N:  # eq:outFlow
         if i == _kM: continue
-        m.addConstr(quicksum(x_ij[i, j] for j in N if j != _kP) == 1, name='oF_%s' % i)
+        m.addConstr(quicksum(x_ij[i, j] for j in N if j != _kP) == 1,
+                    name='tOF[%s]' % i)
     for j in N:  # eq:inFlow
         if j == _kP: continue
-        m.addConstr(quicksum(x_ij[i, j] for i in N if i != _kM) == 1, name='iF_%s' % i)
+        m.addConstr(quicksum(x_ij[i, j] for i in N if i != _kM) == 1,
+                    name='tIF[%s]' % j)
     for i in N:  # eq:XselfFlow
-        m.addConstr(x_ij[i, i] == 0, name='XsF_%s' % i)
-    #
-    # Path based pickup and delivery
-    #
-    #  # eq:pathBasedOutIn
-    m.addConstr(quicksum(x_ij[_kP, j] for j in P) == 1, name='pbO')
-    m.addConstr(quicksum(x_ij[i, _kM] for i in D) == 1, name='pbI')
-    #  # eq:XoriDdestP
-    m.addConstr(quicksum(x_ij[_kP, j] for j in D) == 0, name='XoriD')
-    m.addConstr(quicksum(x_ij[i, _kM] for i in P) == 0, name='XdestP')
-    #  # eq:reversedPD
-    for i in b:
-        _iP, _iM = 'p%d' % i, 'd%d' % i
-        m.addConstr(x_ij[_iM, _iP] == 0, name='rPD_%d' % i)
+        m.addConstr(x_ij[i, i] == 0,
+                    name='XsF[%s]' % i)
     for i in N:
         for j in N:  # eq:direction
-            m.addConstr(x_ij[i, j] + x_ij[j, i] <= 1, name='dir[%s,%s]' % (i, j))
+            m.addConstr(x_ij[i, j] + x_ij[j, i] <= 1,
+                        name='dir[%s,%s]' % (i, j))
     #  # eq:initOrder
-    m.addConstr(o_i[_kP] == 1, name='ordOri')
-    m.addConstr(o_i[_kM] == len(N), name='ordDest')
+    m.addConstr(o_i[_kP] == 1,
+                name='ordOri')
+    m.addConstr(o_i[_kM] == len(N),
+                name='ordDest')
     for i in b:  # eq:pdSequnce
-        _iP, _iM = 'p%d' % i, 'd%d' % i
-        m.addConstr(o_i[_iP] <= o_i[_iM], name='ord_%s' % i)
+        m.addConstr(o_i['p%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
     for i in N:
         for j in N:  # eq:ordering
             if i == _kM or j == _kP:
                 continue
-            m.addConstr(o_i[i] + 1 <= o_i[j] + len(N) * (1 - x_ij[i, j]), name='ord[%s,%s]' % (i, j))
+            m.addConstr(o_i[i] + 1 <= o_i[j] + len(N) * (1 - x_ij[i, j]),
+                        name='ord[%s,%s]' % (i, j))
     #
     # For callback function
     #
     m._N = N
     m._x_ij = x_ij
-    #
     m.params.LazyConstraints = 1
+    #
+    # Settings
+    #
+    if TimeLimit is not None:
+        m.setParam('TimeLimit', TimeLimit)
+    if numThreads is not None:
+        m.setParam('Threads', numThreads)
+    if log_fpath is not None:
+        m.setParam('LogFile', log_fpath)
+    m.Params.OutputFlag = X_GL
+    #
+    # Run Gurobi (Optimization)
+    #
     m.optimize(addSubTourElimC_minPD)
     #
-    if m.status != GRB.Status.OPTIMAL:
-        m.computeIIS()
-        m.write('minPD.ilp')
     return m.objVal
 
 
-def addSubTourElimC_minPD(m, where):
-    if where == GRB.callback.MIPSOL:
-        curRoute = []
-        for i in m._N:
-            for j in m._N:
-                if i == j:
-                    continue
-                if m.cbGetSolution(m._x_ij[i, j]) > 0.5:
-                    curRoute.append((i, j))
-        subtours = get_subtours(curRoute, m._N)
-        for sb in subtours:
-            if not sb:
-                continue
-            expr = 0
-            visited_nodes = set()
-            for i, j in sb:
-                expr += m._x_ij[i, j]
-                expr += m._x_ij[j, i]
-                visited_nodes.add(i)
-                visited_nodes.add(j)
-            if len(visited_nodes) == len(m._N):
-                continue
-            # eq:subTourElim
-            m.cbLazy(expr <= len(visited_nodes) - 1)
-
-
-def get_subtours(edges, nodes):
-    subtours = []
-    visited, adj = {}, {}
-    for i in nodes:
-        visited[i] = False
-        adj[i] = []
-    for i, j in edges:
-        adj[i].append(j)
-    while True:
-        for i in visited.keys():
-            if not visited[i]:
-                break
-        thistour = []
-        while True:
-            visited[i] = True
-            neighbors = [j for j in adj[i] if not visited[j]]
-            if len(neighbors) == 0:
-                break
-            thistour.append((i, neighbors[0]))
-            i = neighbors[0]
-        subtours.append(thistour)
-        if all(visited.values()):
-            break
-    return subtours
-
-
-def convert_input4MathematicalModel(travel_time, \
-                                    flows, paths, \
-                                    tasks, rewards, volumes, \
-                                    num_bundles, volume_th, detour_th):
+def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None, TimeLimit=None):
+    def addLazyC_subProblem(m, where):
+        if where == GRB.callback.MIPSOL:
+            tNodes = []
+            selectedTasks = set()
+            for i in m._T:
+                if m.cbGetSolution(m._z_i[i]) > 0.5:
+                    tNodes.append('p%d' % i); tNodes.append('d%d' % i)
+                    selectedTasks.add(i)
+            #
+            for b in m._B:
+                if len(b) == len(selectedTasks):
+                    m.cbLazy(quicksum(m._z_i[i] for i in b) <= len(b) - 1)
+            #
+            for k in m._K:
+                ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
+                selectedEdges = [(i, j) for j in ptNodes for i in ptNodes if m.cbGetSolution(m._x_kij[k, i, j]) > 0.5]
+                route = get_routeFromOri(selectedEdges, ptNodes)
+                if len(route) != len(ptNodes) - 1:
+                    expr = 0
+                    for i, j in route:
+                        expr += m._x_kij[k, i, j]
+                    m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
     #
-    # For master problem
+    T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
+    bigM1 = sum(r_i) * 2
+    bigM2 = (len(T) + 1) * 2
+    bigM3 = sum(t_ij.values())
     #
-    bB = num_bundles
-    T = list(range(len(tasks)))
-    iP, iM = list(zip(*[tasks[i] for i in T]))
+    # Define decision variables
     #
-    # For sub problem
+    m = Model('subProblem %d' % counter)
+    z_i, y_k, a_k, o_ki, x_kij = {}, {}, {}, {}, {}
+    for i in T:
+        z_i[i] = m.addVar(vtype=GRB.BINARY, name='z[%d]' % i)
+    for k in K:
+        y_k[k] = m.addVar(vtype=GRB.BINARY, name='y[%d]' % k)
+        a_k[k] = m.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % k)
+    for k in K:
+        kN = N.union({'ori%d' % k, 'dest%d' % k})
+        for i in kN:
+            o_ki[k, i] = m.addVar(vtype=GRB.INTEGER, name='o[%d,%s]' % (k, i))
+            for j in kN:
+                x_kij[k, i, j] = m.addVar(vtype=GRB.BINARY, name='x[%d,%s,%s]' % (k, i, j))
+    m.update()
     #
-    r_i, v_i = rewards, volumes
-    K = list(range(len(paths)))
-    kP, kM = list(zip(*[paths[k] for k in K]))
-    sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
-    w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
-    _lambda = volume_th
-    _delta = detour_th
+    # Define objective
     #
-    # For subSub problem
+    obj = LinExpr()
+    for k in K:
+        obj += w_k[k] * a_k[k]
+    for i in T:
+        obj -= pi_i[i] * z_i[i]
+    obj -= mu
+    m.setObjective(obj, GRB.MAXIMIZE)
     #
-    tt = travel_time
-
-    return bB, T, iP, iM, \
-           r_i, v_i, K, kP, kM, w_k, _lambda, _delta, \
-           tt
+    # Define constrains
+    # Linearization
+    for k in K:  # eq:linAlpha
+        m.addConstr(a_k[k] >= quicksum(r_i[i] * z_i[i] for i in T) - bigM1 * (1 - y_k[k]),
+                    name='la1[%d]' % k)
+        m.addConstr(a_k[k] <= bigM1 * y_k[k],
+                    name='la2[%d]' % k)
+        m.addConstr(a_k[k] <= quicksum(r_i[i] * z_i[i] for i in T),
+                    name='la3[%d]' % k)
+    #
+    # Volume
+    m.addConstr(quicksum(v_i[i] * z_i[i] for i in T) <= _lambda,
+                name='vt')  # eq:volTh
+    #
+    # Flow based routing
+    for k in K:
+        #  # eq:circularF
+        m.addConstr(x_kij[k, 'dest%d' % k, 'ori%d' % k] == 1,
+                    name='cf[%d]' % k)
+        #  # eq:pathPD
+        m.addConstr(quicksum(x_kij[k, 'ori%d' % k, j] for j in P) == 1,
+                    name='pPDo[%d]' % k)
+        m.addConstr(quicksum(x_kij[k, i, 'dest%d' % k] for i in D) == 1,
+                    name='pPDi[%d]' % k)
+        #  # eq:XpathPD
+        m.addConstr(quicksum(x_kij[k, 'ori%d' % k, j] for j in D) == 0,
+                    name='XpPDo[%d]' % k)
+        m.addConstr(quicksum(x_kij[k, i, 'dest%d' % k] for i in P) == 0,
+                    name='XpPDi[%d]' % k)
+        #
+        for i in T:  # eq:taskOutFlow
+            m.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in N) == z_i[i],
+                        name='tOF[%d,%d]' % (k, i))
+        for j in T:  # eq:taskInFlow
+            m.addConstr(quicksum(x_kij[k, i, 'd%d' % j] for i in N) == z_i[j],
+                        name='tIF[%d,%d]' % (k, j))
+        #
+        kP, kM = 'ori%d' % k, 'dest%d' % k
+        kN = N.union({kP, kM})
+        for i in kN:  # eq:XselfFlow
+            m.addConstr(x_kij[k, i, i] == 0,
+                        name='Xsf[%d,%s]' % (k, i))
+        for j in kN:  # eq:flowCon
+            m.addConstr(quicksum(x_kij[k, i, j] for i in kN) == quicksum(x_kij[k, j, i] for i in kN),
+                        name='fc[%d,%s]' % (k, j))
+        for i in kN:
+            for j in kN:  # eq:direction
+                if i == j: continue
+                m.addConstr(x_kij[k, i, j] + x_kij[k, j, i] <= 1,
+                            name='dir[%d,%s,%s]' % (k, i, j))
+        #
+        m.addConstr(o_ki[k, kP] == 1,
+                    name='iOF[%d]' % k)
+        m.addConstr(o_ki[k, kM] <= bigM2,
+                    name='iOE[%d]' % k)
+        for i in T:  # eq:pdSequnce
+            m.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
+                        name='pdS[%d]' % k)
+        for i in kN:
+            for j in kN:  # eq:ordering
+                if i == j: continue
+                if i == kM or j == kP: continue
+                m.addConstr(o_ki[k, i] + 1 <= o_ki[k, j] + bigM2 * (1 - x_kij[k, i, j]))
+        #
+        # Feasibility
+        #  # eq:pathFeasibility
+        m.addConstr(quicksum(t_ij[i, j] * x_kij[k, i, j] for i in kN for j in kN if not (i == kM and j == kP)) \
+                    - t_ij[kP, kM] - _delta <= bigM3 * (1 - y_k[k]),
+                    name='pf[%d]' % k)
+    #
+    # For callback function
+    #
+    m._B, m._T, m._K = B, T, K
+    m._z_i, m._x_kij = z_i, x_kij
+    m.params.LazyConstraints = 1
+    #
+    # Settings
+    #
+    if TimeLimit is not None:
+        m.setParam('TimeLimit', TimeLimit)
+    if numThreads is not None:
+        m.setParam('Threads', numThreads)
+    if log_fpath is not None:
+        m.setParam('LogFile', log_fpath)
+    m.Params.OutputFlag = O_GL
+    #
+    # Run Gurobi (Optimization)
+    #
+    m.optimize(addLazyC_subProblem)
+    if m.status == GRB.Status.OPTIMAL:
+        return m.objVal, [i for i in T if z_i[i].x > 0.05]
+    elif m.status == GRB.Status.INFEASIBLE:
+        return None, None
+    else:
+        assert False
 
 
 if __name__ == '__main__':
     from problems import *
-
-    # masterProblem(convert_input4MathematicalModel(*ex1()))
-    masterProblem(convert_input4MathematicalModel(*ex8()))
+    run(convert_input4MathematicalModel(*ex2()))
