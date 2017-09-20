@@ -73,7 +73,9 @@ def init_expEnv(initEnv=False):
 
 
 def cluster_run(processorID, num_workers=11):
-    _numThreads, _TimeLimit = 1, None
+    cpu_info = get_cpu_info()
+    _numThreads, _TimeLimit = int(cpu_info['count']), None
+    # _numThreads, _TimeLimit = 1, None
     #
     log_dpath, res_dpath, problemPaths = init_expEnv()
     for i, ifpath in enumerate(problemPaths):
@@ -120,7 +122,8 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
 
 
 def server_run():
-    _numThreads, _TimeLimit = 12, None
+    cpu_info = get_cpu_info()
+    _numThreads, _TimeLimit = int(cpu_info['count']), None
     #
     log_dpath, res_dpath, problemPaths = init_expEnv()
     problemPaths.sort()
