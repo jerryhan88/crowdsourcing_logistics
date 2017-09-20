@@ -25,7 +25,7 @@ def gen_problems(problem_dpath):
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
     volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 8
+    numCols, numRows = 1, 5
     for numTasks in range(4, 30, 2):
         for numBundles in range(3, max(4, int(numTasks / 4))):
 
@@ -37,7 +37,7 @@ def gen_problems(problem_dpath):
             tasks, rewards, volumes, \
             numBundles, thVolume, thDetour = inputs
             numTasks, numPaths = map(len, [tasks, paths])
-            fn = 'nt%d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+            fn = 'nt%2d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
             with open(problem_summary_fpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
                 writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
@@ -130,6 +130,8 @@ def server_run():
             inputs = pickle.load(fp)
         prefix = opath.basename(ifpath)[:-len('.pkl')]
         nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
+        print(prefix)
+        continue
         #
         # gHeuristic
         #
@@ -157,7 +159,8 @@ def server_run():
 
 
 if __name__ == '__main__':
-    cluster_run(0)
+    # cluster_run(0)
+    server_run()
 
     # run(0, num_workers=8)
     # local_run()
