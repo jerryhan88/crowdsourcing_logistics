@@ -120,7 +120,7 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
 
 
 def server_run():
-    _numThreads, _TimeLimit = None, None
+    _numThreads, _TimeLimit = 12, None
     #
     log_dpath, res_dpath, problemPaths = init_expEnv()
     problemPaths.sort()
