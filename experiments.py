@@ -130,8 +130,6 @@ def server_run():
             inputs = pickle.load(fp)
         prefix = opath.basename(ifpath)[:-len('.pkl')]
         nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
-        print(prefix)
-        continue
         #
         # gHeuristic
         #
