@@ -25,7 +25,7 @@ def gen_problems(problem_dpath):
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
     volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 7
+    numCols, numRows = 1, 8
     for numTasks in range(4, 30, 2):
         for numBundles in range(3, max(4, int(numTasks / 4))):
 
