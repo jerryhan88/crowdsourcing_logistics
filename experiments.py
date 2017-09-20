@@ -24,9 +24,9 @@ def gen_problems(problem_dpath):
     maxFlow = 3
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
-    volumeAlowProp, detourAlowProp = 1.2, 1.2
-    numCols, numRows = 1, 5
-    for numTasks in range(4, 18, 2):
+    volumeAlowProp, detourAlowProp = 1.5, 1.2
+    numCols, numRows = 1, 7
+    for numTasks in range(4, 30, 2):
         for numBundles in range(3, max(4, int(numTasks / 4))):
 
             inputs = random_problem(numCols, numRows, maxFlow,
@@ -47,24 +47,26 @@ def gen_problems(problem_dpath):
 
 
 def init_expEnv(initEnv=False):
-    node_name = platform.node()
-    exp_dpath = opath.join(dpath['experiment'], node_name)
+    cpu_info = get_cpu_info()
+    exp_dpath = opath.join(dpath['experiment'], str(cpu_info['brand']))
     problem_dpath = opath.join(exp_dpath, '__problem')
     log_dpath = opath.join(exp_dpath, 'log')
     res_dpath = opath.join(exp_dpath, 'res')
     if initEnv and opath.exists(exp_dpath):
         shutil.rmtree(exp_dpath)
-    if not opath.exists(exp_dpath):
-        for path in [exp_dpath, problem_dpath, log_dpath, res_dpath]:
-            os.makedirs(path)
-        #
-        cpu_info = get_cpu_info()
-        cpu_spec_fpath = opath.join(exp_dpath, '__cpuSpec.txt')
-        with open(cpu_spec_fpath, 'w') as f:
-            f.write('numProcessor: %d\n' % int(cpu_info['count']))
-            f.write('bits: %d\n' % int(cpu_info['bits']))
-            f.write('brand:%s' % str(cpu_info['brand']))
-        gen_problems(problem_dpath)
+    try:
+        if not opath.exists(exp_dpath):
+            for path in [exp_dpath, problem_dpath, log_dpath, res_dpath]:
+                os.makedirs(path)
+            #
+            cpu_spec_fpath = opath.join(exp_dpath, '__cpuSpec.txt')
+            with open(cpu_spec_fpath, 'w') as f:
+                f.write('numProcessor: %d\n' % int(cpu_info['count']))
+                f.write('bits: %d\n' % int(cpu_info['bits']))
+                f.write('brand:%s' % str(cpu_info['brand']))
+            gen_problems(problem_dpath)
+    except:
+        pass
     #
     return log_dpath, res_dpath, [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
                        if fn.endswith('.pkl')]
@@ -73,7 +75,7 @@ def init_expEnv(initEnv=False):
 def cluster_run(processorID, num_workers=11):
     _numThreads, _TimeLimit = 1, None
     #
-    log_dpath, res_dpath, problemPaths = init_expEnv(True)
+    log_dpath, res_dpath, problemPaths = init_expEnv()
     for i, ifpath in enumerate(problemPaths):
         if i % num_workers != processorID:
             continue
@@ -82,12 +84,22 @@ def cluster_run(processorID, num_workers=11):
             inputs = pickle.load(fp)
         prefix = opath.basename(ifpath)[:-len('.pkl')]
         nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
-
         #
-        # exactMM
+        # gHeuristic
         #
-        for m, func in [('exactMM', exactMM_run),
-                        ('colGenMM', colGenMM_run)]:
+        m = 'gHeuristic'
+        try:
+            objV, eliTime = gHeuristic_run(convert_input4greedyHeuristic(*inputs),
+                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        except:
+            objV, eliTime = -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, eliTime)
+        #
+        # MM
+        #
+        for m, func in [('colGenMM', colGenMM_run),
+                        ('exactMM', exactMM_run),]:
             try:
                 objV, eliTime = func(convert_input4MathematicalModel(*inputs),
                                     log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
@@ -96,17 +108,6 @@ def cluster_run(processorID, num_workers=11):
                 objV, eliTime = -1, -1
             record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
                        nt, np, nb, tv, td, m, objV, eliTime)
-        #
-        # gHeuristic
-        #
-        m = 'gHeuristic'
-        try:
-            objV, eliTime = gHeuristic_run(convert_input4MathematicalModel(*inputs),
-                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-        except:
-            objV, eliTime = -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, eliTime)
 
 
 def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
@@ -118,120 +119,40 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
         writer.writerow([nt, np, nb, tv, td, m, objV, eliTime])
 
 
-# def run(processorID, num_workers=11):
-#     for i, fn in enumerate(os.listdir(dpath['problem'])):
-#         if not fn.endswith('.pkl'):
-#             continue
-#         ifpath = opath.join(dpath['problem'], fn)
-#         inputs = None
-#         with open(ifpath, 'rb') as fp:
-#             inputs = pickle.load(fp)
-#         if i % num_workers != processorID:
-#             continue
-#         travel_time, \
-#         flows, paths, \
-#         tasks, rewards, volumes, \
-#         numBundles, thVolume, thDetour = inputs
-#         numTasks, numPaths = map(len, [tasks, paths])
-#         fn = 'nt%d-np%d-nb%d-tv%d-td%d.csv' % (numTasks, numPaths, numBundles, thVolume, thDetour)
-#         ofpath = opath.join(dpath['experiment'], fn)
-#         if opath.exists(ofpath):
-#             continue
-#         with open(ofpath, 'wt') as w_csvfile:
-#             writer = csv.writer(w_csvfile, lineterminator='\n')
-#             header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-#                       'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
-#             writer.writerow(header)
-#         try:
-#             # m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
-#             m_obj, m_time = masterProblem(convert_input4MathematicalModel(*inputs))
-#             h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
-#             gap_obj = (m_obj - h_obj) / float(m_obj)
-#             gap_time = (m_time - h_time)
-#             with open(ofpath, 'a') as w_csvfile:
-#                 writer = csv.writer(w_csvfile, lineterminator='\n')
-#                 writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
-#                                  m_obj, h_obj, gap_obj,
-#                                  m_time, h_time, gap_time])
-#         except:
-#             with open(ofpath, 'a') as w_csvfile:
-#                 writer = csv.writer(w_csvfile, lineterminator='\n')
-#                 writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
-#                                  -1, -1, -1,
-#                                  -1, -1, -1])
-#
-# def single_run(fn):
-#     ifpath = opath.join(dpath['problem'], fn)
-#     inputs = None
-#     with open(ifpath, 'rb') as fp:
-#         inputs = pickle.load(fp)
-#     points, travel_time, \
-#     flows, paths, \
-#     tasks, rewards, volumes, \
-#     numBundles, thVolume, thDetour = inputs
-#     numTasks, numPaths = map(len, [tasks, paths])
-#     fn = 'nt%d-np%d-nb%d-tv%d-td%d.csv' % (numTasks, numPaths, numBundles, thVolume, thDetour)
-#     ofpath = opath.join(dpath['experiment'], fn)
-#     with open(ofpath, 'wt') as w_csvfile:
-#         writer = csv.writer(w_csvfile, lineterminator='\n')
-#         header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-#                   'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
-#         writer.writerow(header)
-#     try:
-#         # m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
-#         m_obj, m_time = masterProblem(convert_input4MathematicalModel(*inputs))
-#         h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
-#         gap_obj = (m_obj - h_obj) / float(m_obj)
-#         gap_time = (m_time - h_time)
-#         with open(ofpath, 'a') as w_csvfile:
-#             writer = csv.writer(w_csvfile, lineterminator='\n')
-#             writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
-#                              m_obj, h_obj, gap_obj,
-#                              m_time, h_time, gap_time])
-#     except:
-#         with open(ofpath, 'a') as w_csvfile:
-#             writer = csv.writer(w_csvfile, lineterminator='\n')
-#             writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
-#                              -1, -1, -1,
-#                              -1, -1, -1])
-#
-#
-# def local_run():
-#     points, travel_time, \
-#     flows, paths, \
-#     tasks, rewards, volumes, \
-#     numBundles, thVolume, thDetour = ex8()
-#     inputs = [points, travel_time,
-#                 flows, paths,
-#                 tasks, rewards, volumes,
-#                 numBundles, thVolume, thDetour]
-#     numTasks, numPaths = map(len, [tasks, paths])
-#     fn = 'nt%d-np%d-nb%d-tv%d-td%d.csv' % (numTasks, numPaths, numBundles, thVolume, thDetour)
-#     ofpath = opath.join(dpath['experiment'], fn)
-#     with open(ofpath, 'wt') as w_csvfile:
-#         writer = csv.writer(w_csvfile, lineterminator='\n')
-#         header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-#                   'm_obj', 'h_obj', 'gapR_obj', 'm_time', 'h_time', 'gap_time', ]
-#         writer.writerow(header)
-#     try:
-#         # m_obj, m_time = run_mip_eliSubTour(convert_input4MathematicalModel(*inputs))
-#         m_obj, m_time = masterProblem(convert_input4MathematicalModel(*inputs))
-#         h_obj, h_time = run_greedyHeuristic(convert_input4greedyHeuristic(*inputs))
-#         gap_obj = (m_obj - h_obj) / float(m_obj)
-#         gap_time = (m_time - h_time)
-#         with open(ofpath, 'a') as w_csvfile:
-#             writer = csv.writer(w_csvfile, lineterminator='\n')
-#             writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
-#                              m_obj, h_obj, gap_obj,
-#                              m_time, h_time, gap_time])
-#     except:
-#         with open(ofpath, 'a') as w_csvfile:
-#             writer = csv.writer(w_csvfile, lineterminator='\n')
-#             writer.writerow([numTasks, numPaths, numBundles, thVolume, thDetour,
-#                              -1, -1, -1,
-#                              -1, -1, -1])
-
-
+def server_run():
+    _numThreads, _TimeLimit = None, None
+    #
+    log_dpath, res_dpath, problemPaths = init_expEnv()
+    for i, ifpath in enumerate(problemPaths):
+        inputs = None
+        with open(ifpath, 'rb') as fp:
+            inputs = pickle.load(fp)
+        prefix = opath.basename(ifpath)[:-len('.pkl')]
+        nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
+        #
+        # gHeuristic
+        #
+        m = 'gHeuristic'
+        try:
+            objV, eliTime = gHeuristic_run(convert_input4greedyHeuristic(*inputs),
+                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        except:
+            objV, eliTime = -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, eliTime)
+        #
+        # MM
+        #
+        for m, func in [('colGenMM', colGenMM_run),
+                        ('exactMM', exactMM_run), ]:
+            try:
+                objV, eliTime = func(convert_input4MathematicalModel(*inputs),
+                                     log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+                                     numThreads=_numThreads, TimeLimit=_TimeLimit)
+            except:
+                objV, eliTime = -1, -1
+            record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                       nt, np, nb, tv, td, m, objV, eliTime)
 
 
 if __name__ == '__main__':

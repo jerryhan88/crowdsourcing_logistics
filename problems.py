@@ -310,7 +310,8 @@ def random_problem(numCols, numRows, maxFlow,
             j = randrange(len(points))
         tasks.append((i, j))
         rewards.append(minReward + randrange(maxReward))
-        volumes.append(minVolume + randrange(maxVolume))
+        # volumes.append(minVolume + randrange(maxVolume))
+        volumes.append(1)
     #
     # Inputs about bundles
     #
@@ -428,7 +429,7 @@ if __name__ == '__main__':
         for numTasks in range(4, 18, 2):
             for j in range(5, 10):
                 bundleResidualProp = 1 + j / 10.0
-                inputs, fn = random_problem(numCols, numRows, maxFlow,
+                inputs = random_problem(numCols, numRows, maxFlow,
                                             numTasks, minReward, maxReward, minVolume, maxVolume,
                                             thVolume, bundleResidualProp, detourAlowProp)
     # numCols = numRows = 3
