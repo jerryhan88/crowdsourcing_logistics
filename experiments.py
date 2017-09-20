@@ -123,6 +123,7 @@ def server_run():
     _numThreads, _TimeLimit = None, None
     #
     log_dpath, res_dpath, problemPaths = init_expEnv()
+    problemPaths.sort()
     for i, ifpath in enumerate(problemPaths):
         inputs = None
         with open(ifpath, 'rb') as fp:

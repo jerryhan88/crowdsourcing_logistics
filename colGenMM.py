@@ -3,13 +3,14 @@ from init_project import *
 from gurobipy import *
 from datetime import datetime
 import numpy as np
+from time import clock
 #
 from _utils.logging import record_logs, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
 
 
 def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
-    startTime = datetime.now()
+    startTime = clock()
     #
     # Solve a master problem
     #
@@ -130,8 +131,8 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     # Run Gurobi (Optimization)
     #
     m.optimize()
-    endTime = datetime.now()
-    eliTime = (endTime - startTime).seconds
+    endTime = clock()
+    eliTime = endTime - startTime
     chosenB = [B[b] for b in range(len(B)) if q_b[b].x > 0.5]
     #
     logContents = '\n\n'
@@ -414,4 +415,7 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
 
 if __name__ == '__main__':
     from problems import *
-    run(convert_input4MathematicalModel(*ex2()))
+    from time import clock, time
+    cSTime, cTTime = clock(), time()
+    run(convert_input4MathematicalModel(*ex1()))
+    print(clock() - cSTime, time() - cTTime)

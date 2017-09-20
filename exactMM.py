@@ -2,6 +2,7 @@ from init_project import *
 #
 from gurobipy import *
 from datetime import datetime
+from time import clock
 #
 from _utils.logging import record_logs, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
@@ -26,7 +27,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
                             expr += m._x_bkij[b, k, i, j]
                         m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
     #
-    startTime = datetime.now()
+    startTime = clock()
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
     K, w_k, t_ij, _delta = problem
@@ -153,8 +154,8 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     # Run Gurobi (Optimization)
     #
     m.optimize(addLazyC)
-    endTime = datetime.now()
-    eliTime = (endTime - startTime).seconds
+    endTime = clock()
+    eliTime = endTime - startTime
     chosenB = [[i for i in T if z_bi[b, i].x > 0.5] for b in B]
     #
     logContents = '\n\n'
