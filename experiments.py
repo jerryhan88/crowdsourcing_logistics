@@ -37,7 +37,7 @@ def gen_problems(problem_dpath):
             tasks, rewards, volumes, \
             numBundles, thVolume, thDetour = inputs
             numTasks, numPaths = map(len, [tasks, paths])
-            fn = 'nt%2d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+            fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
             with open(problem_summary_fpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
                 writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
