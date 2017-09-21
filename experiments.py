@@ -25,7 +25,7 @@ def gen_problems(problem_dpath):
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
     volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 5
+    numCols, numRows = 1, 4
     for numTasks in range(4, 30, 2):
         for numBundles in range(3, max(4, int(numTasks / 4))):
 
@@ -48,7 +48,8 @@ def gen_problems(problem_dpath):
 
 def init_expEnv(initEnv=False):
     cpu_info = get_cpu_info()
-    exp_dpath = opath.join(dpath['experiment'], str(cpu_info['brand']))
+    # exp_dpath = opath.join(dpath['experiment'], str(cpu_info['brand']))
+    exp_dpath = opath.join(dpath['experiment'], str(platform.node()))
     problem_dpath = opath.join(exp_dpath, '__problem')
     log_dpath = opath.join(exp_dpath, 'log')
     res_dpath = opath.join(exp_dpath, 'res')
@@ -72,10 +73,10 @@ def init_expEnv(initEnv=False):
                        if fn.endswith('.pkl')]
 
 
-def cluster_run(processorID, num_workers=11):
-    cpu_info = get_cpu_info()
-    _numThreads, _TimeLimit = int(cpu_info['count']), None
-    # _numThreads, _TimeLimit = 1, None
+def run_singleCore(processorID, num_workers=11):
+    # cpu_info = get_cpu_info()
+    # _numThreads, _TimeLimit = int(cpu_info['count']), None
+    _numThreads, _TimeLimit = 1, None
     #
     log_dpath, res_dpath, problemPaths = init_expEnv()
     for i, ifpath in enumerate(problemPaths):
@@ -121,7 +122,7 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
         writer.writerow([nt, np, nb, tv, td, m, objV, eliTime])
 
 
-def server_run():
+def run_multipleCores():
     cpu_info = get_cpu_info()
     _numThreads, _TimeLimit = int(cpu_info['count']), None
     #
@@ -161,7 +162,7 @@ def server_run():
 
 if __name__ == '__main__':
     # cluster_run(0)
-    server_run()
+    run_multipleCores()
 
     # run(0, num_workers=8)
     # local_run()
