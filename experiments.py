@@ -1,13 +1,13 @@
 from init_project import *
 #
-from cpuinfo import get_cpu_info
+# from cpuinfo import get_cpu_info
 import platform
 import shutil
 import pickle, csv
 #
-from exactMM import run as exactMM_run
-from colGenMM import run as colGenMM_run
-from greedyHeuristic import run as gHeuristic_run
+# from exactMM import run as exactMM_run
+# from colGenMM import run as colGenMM_run
+# from greedyHeuristic import run as gHeuristic_run
 from problems import *
 
 
@@ -25,25 +25,37 @@ def gen_problems(problem_dpath):
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
     volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 4
-    for numTasks in range(4, 30, 2):
-        for numBundles in range(3, max(4, int(numTasks / 4))):
+    numCols, numRows = 1, 5
+    #
+    numBundles = 4
+    for numTasks in [6, 8, 10]:
+        inputs = random_problem(numCols, numRows, maxFlow,
+                                numTasks, minReward, maxReward, minVolume, maxVolume,
+                                numBundles, volumeAlowProp, detourAlowProp)
+        save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
-            inputs = random_problem(numCols, numRows, maxFlow,
-                                    numTasks, minReward, maxReward, minVolume, maxVolume,
-                                    numBundles, volumeAlowProp, detourAlowProp)
-            travel_time, \
-            flows, paths, \
-            tasks, rewards, volumes, \
-            numBundles, thVolume, thDetour = inputs
-            numTasks, numPaths = map(len, [tasks, paths])
-            fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
-            with open(problem_summary_fpath, 'a') as w_csvfile:
-                writer = csv.writer(w_csvfile, lineterminator='\n')
-                writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
-            ofpath = opath.join(problem_dpath, fn)
-            with open(ofpath, 'wb') as fp:
-                pickle.dump(inputs, fp)
+    # for numTasks in range(6, 30, 2):
+    #     for numBundles in range(3, max(4, int(numTasks / 4))):
+    #
+    #         inputs = random_problem(numCols, numRows, maxFlow,
+    #                                 numTasks, minReward, maxReward, minVolume, maxVolume,
+    #                                 numBundles, volumeAlowProp, detourAlowProp)
+    #         save_aProblem(inputs, problem_dpath, problem_summary_fpath)
+
+
+def save_aProblem(inputs, problem_dpath, problem_summary_fpath):
+    travel_time, \
+    flows, paths, \
+    tasks, rewards, volumes, \
+    numBundles, thVolume, thDetour = inputs
+    numTasks, numPaths = map(len, [tasks, paths])
+    fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+    with open(problem_summary_fpath, 'a') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
+    ofpath = opath.join(problem_dpath, fn)
+    with open(ofpath, 'wb') as fp:
+        pickle.dump(inputs, fp)
 
 
 def init_expEnv(initEnv=False):
@@ -159,10 +171,75 @@ def run_multipleCores():
             record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
                        nt, np, nb, tv, td, m, objV, eliTime)
 
+def summary():
+    sum_fpath = opath.join(dpath['experiment'], 'experiment_summary.csv')
+    with open(sum_fpath, 'wt') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
+                  'ex_objV', 'cg_objV', 'gh_objV',
+                  'cg_optG', 'gh_optG',
+                  'ex_comT', 'cg_comT', 'gh_comT', 'nodeSpec']
+        writer.writerow(header)
+
+    for dir_name in os.listdir(dpath['experiment']):
+        if not dir_name.startswith('c'):
+            continue
+        dir_path = opath.join(dpath['experiment'], dir_name)
+        spec_fpath = opath.join(dir_path, '__cpuSpec.txt')
+        problem_dpath = opath.join(dir_path, '__problem')
+        res_dpath = opath.join(dir_path, 'res')
+        spec = None
+        with open(spec_fpath, 'r') as f:
+            spec = f.readlines()
+        _numProcessor, _, _brand = spec
+        numProcessor = _numProcessor.split(':')[1][:-1]
+        brand = _brand.split(':')[1][:-1]
+        for fn in os.listdir(problem_dpath):
+            if not fn.endswith('.pkl'):
+                continue
+            with open(sum_fpath, 'a') as w_csvfile:
+                writer = csv.writer(w_csvfile, lineterminator='\n')
+                new_row = []
+                #
+                prefix = fn[:-len('.pkl')]
+                for p in prefix.split('-'):
+                    new_row.append(int(p[len('xx'):]))
+                #
+                ex_res_fpath = opath.join(res_dpath, '%s-exactMM.csv' % prefix)
+                cg_res_fpath = opath.join(res_dpath, '%s-colGenMM.csv' % prefix)
+                he_res_fpath = opath.join(res_dpath, '%s-gHeuristic.csv' % prefix)
+                objVs, comTs = [], []
+                for fpath in [ex_res_fpath, cg_res_fpath, he_res_fpath]:
+                    if opath.exists(fpath):
+                        with open(fpath, 'rb') as r_csvfile:
+                            reader = csv.reader(r_csvfile)
+                            header = reader.next()
+                            hid = {h: i for i, h in enumerate(header)}
+                            for row in reader:
+                                _, objV, comT = [row[hid[cn]] for cn in ['method', 'objV', 'eliTime']]
+                    else:
+                        objV, comT = -1, -1
+                    objVs.append(objV)
+                    comTs.append(comT)
+                ex_objV, cg_objV, gh_objV = map(float, objVs)
+                if ex_objV == -1:
+                    cg_optG, gh_optG = -1, -1
+                else:
+                    cg_optG, gh_optG = (ex_objV - cg_objV) / ex_objV * 100, (ex_objV - gh_objV) / ex_objV  * 100
+                ex_comT, cg_comT, gh_comT = comTs
+                nodeSpec = brand + '; cores ' + numProcessor
+                new_row += [ex_objV, cg_objV, gh_objV]
+                new_row += [cg_optG, gh_optG]
+                new_row += [ex_comT, cg_comT, gh_comT]
+                new_row += [nodeSpec]
+                writer.writerow(new_row)
+
 
 if __name__ == '__main__':
+    summary()
+
     # cluster_run(0)
-    run_multipleCores()
+    # run_multipleCores()
 
     # run(0, num_workers=8)
     # local_run()
