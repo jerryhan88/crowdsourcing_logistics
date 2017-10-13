@@ -7,10 +7,12 @@ import pickle, csv
 #
 from exactMM import run as exactMM_run
 from colGenMM import run as colGenMM_run
+
 try:
     from greedyHeuristic import run as gHeuristic_run
 except ModuleNotFoundError:
     from setup import cythonize
+
     cythonize('greedyHeuristic')
     #
     from greedyHeuristic import run as gHeuristic_run
@@ -41,13 +43,13 @@ def gen_problems(problem_dpath):
                                 numBundles, volumeAlowProp, detourAlowProp)
         save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
-    # for numTasks in range(6, 30, 2):
-    #     for numBundles in range(3, max(4, int(numTasks / 4))):
-    #
-    #         inputs = random_problem(numCols, numRows, maxFlow,
-    #                                 numTasks, minReward, maxReward, minVolume, maxVolume,
-    #                                 numBundles, volumeAlowProp, detourAlowProp)
-    #         save_aProblem(inputs, problem_dpath, problem_summary_fpath)
+        # for numTasks in range(6, 30, 2):
+        #     for numBundles in range(3, max(4, int(numTasks / 4))):
+        #
+        #         inputs = random_problem(numCols, numRows, maxFlow,
+        #                                 numTasks, minReward, maxReward, minVolume, maxVolume,
+        #                                 numBundles, volumeAlowProp, detourAlowProp)
+        #         save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
 
 def save_aProblem(inputs, problem_dpath, problem_summary_fpath):
@@ -89,7 +91,65 @@ def init_expEnv(initEnv=False):
         pass
     #
     return log_dpath, res_dpath, [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
-                       if fn.endswith('.pkl')]
+                                  if fn.endswith('.pkl')]
+
+
+def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
+    with open(fpath, 'wt') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
+                  'method', 'objV', 'eliTime']
+        writer.writerow(header)
+        writer.writerow([nt, np, nb, tv, td, m, objV, eliTime])
+
+
+def run_multipleCores():
+    cpu_info = get_cpu_info()
+    _numThreads, _TimeLimit, _pfCst = int(cpu_info['count']), 2 * 60 * 60, 1.2
+    #
+    log_dpath, res_dpath, problemPaths = init_expEnv()
+    problemPaths.sort()
+    for i, ifpath in enumerate(problemPaths):
+        inputs = None
+        with open(ifpath, 'rb') as fp:
+            inputs = pickle.load(fp)
+        prefix = opath.basename(ifpath)[:-len('.pkl')]
+        nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
+        #
+        # gHeuristic
+        #
+        m = 'gHeuristic'
+        try:
+            objV, eliTime = gHeuristic_run(inputs,
+                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        except:
+            objV, eliTime = -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, eliTime)
+        #
+        # colGenMM
+        #
+        m = 'colGenMM'
+        try:
+            objV, eliTime = colGenMM_run(inputs,
+                                         log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+                                         numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
+        except:
+            objV, eliTime = -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, eliTime)
+        #
+        # exactMM
+        #
+        m = 'exactMM'
+        try:
+            objV, eliTime = exactMM_run(inputs,
+                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+                                        numThreads=_numThreads, TimeLimit=_TimeLimit)
+        except:
+            objV, eliTime = -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, eliTime)
 
 
 def run_singleCore(processorID, num_workers=11):
@@ -120,62 +180,16 @@ def run_singleCore(processorID, num_workers=11):
         # MM
         #
         for m, func in [('colGenMM', colGenMM_run),
-                        ('exactMM', exactMM_run),]:
-            try:
-                objV, eliTime = func(inputs,
-                                    log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-                                    numThreads=_numThreads, TimeLimit=_TimeLimit)
-            except:
-                objV, eliTime = -1, -1
-            record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                       nt, np, nb, tv, td, m, objV, eliTime)
-
-
-def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
-    with open(fpath, 'wt') as w_csvfile:
-        writer = csv.writer(w_csvfile, lineterminator='\n')
-        header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-                  'method', 'objV', 'eliTime']
-        writer.writerow(header)
-        writer.writerow([nt, np, nb, tv, td, m, objV, eliTime])
-
-
-def run_multipleCores():
-    cpu_info = get_cpu_info()
-    _numThreads, _TimeLimit = int(cpu_info['count']), None
-    #
-    log_dpath, res_dpath, problemPaths = init_expEnv()
-    problemPaths.sort()
-    for i, ifpath in enumerate(problemPaths):
-        inputs = None
-        with open(ifpath, 'rb') as fp:
-            inputs = pickle.load(fp)
-        prefix = opath.basename(ifpath)[:-len('.pkl')]
-        nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
-        #
-        # gHeuristic
-        #
-        m = 'gHeuristic'
-        try:
-            objV, eliTime = gHeuristic_run(convert_input4greedyHeuristic(*inputs),
-                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-        except:
-            objV, eliTime = -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, eliTime)
-        #
-        # MM
-        #
-        for m, func in [('colGenMM', colGenMM_run),
                         ('exactMM', exactMM_run), ]:
             try:
-                objV, eliTime = func(convert_input4MathematicalModel(*inputs),
+                objV, eliTime = func(inputs,
                                      log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
                                      numThreads=_numThreads, TimeLimit=_TimeLimit)
             except:
                 objV, eliTime = -1, -1
             record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
                        nt, np, nb, tv, td, m, objV, eliTime)
+
 
 def summary():
     sum_fpath = opath.join(dpath['experiment'], 'experiment_summary.csv')
@@ -229,7 +243,7 @@ def summary():
                 if ex_objV == -1:
                     cg_optG, gh_optG = -1, -1
                 else:
-                    cg_optG, gh_optG = (ex_objV - cg_objV) / ex_objV * 100, (ex_objV - gh_objV) / ex_objV  * 100
+                    cg_optG, gh_optG = (ex_objV - cg_objV) / ex_objV * 100, (ex_objV - gh_objV) / ex_objV * 100
                 ex_comT, cg_comT, gh_comT = comTs
                 nodeSpec = brand + '; cores ' + numProcessor
                 new_row += [ex_objV, cg_objV, gh_objV]
@@ -240,10 +254,10 @@ def summary():
 
 
 if __name__ == '__main__':
-    summary()
+    # summary()
 
     # cluster_run(0)
-    # run_multipleCores()
+    run_multipleCores()
 
     # run(0, num_workers=8)
     # local_run()

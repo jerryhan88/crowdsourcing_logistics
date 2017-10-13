@@ -29,7 +29,6 @@ def subtourelim(model, where):
         objbst = model.cbGet(GRB.Callback.MIP_OBJBST)
         objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
         gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
-        print(gap, objbnd, abs(objbst - objbnd))
         timeIntv = runTime - m._lastGapUpTime
         if model.cbGet(GRB.Callback.MIP_SOLCNT):
             if impTimeLimit < timeIntv:
@@ -116,7 +115,10 @@ m._minGap = GRB.INFINITY
 
 m._vars = vars
 m.params.LazyConstraints = 1
+# m.setParam('TimeLimit', 1)
 m.optimize(subtourelim)
+
+
 
 solution = m.getAttr('x', vars)
 selected = [(i,j) for i in range(n) for j in range(n) if solution[i,j] > 0.5]

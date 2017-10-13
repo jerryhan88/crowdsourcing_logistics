@@ -11,6 +11,8 @@
 *.ilp
 *.c
 *.so
+*.txt
+*.csv
 z_html
 __pycache__/
 build/

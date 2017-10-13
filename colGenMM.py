@@ -18,7 +18,7 @@ except ModuleNotFoundError:
 from exactMM import convert_input4MathematicalModel
 
 
-def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
+def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     startTime = time.clock()
     #
     # Solve a master problem
@@ -94,7 +94,7 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
         #
         pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = relax.getConstrByName("numBC").Pi
-        c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, timeLimit, pfConst)
+        c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, TimeLimit, pfCst)
         if c_b == None:
             break
         vec = [0 for _ in range(len(T))]
@@ -126,8 +126,8 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
     #
     # Settings
     #
-    if timeLimit is not None:
-        m.setParam('timeLimit', timeLimit)
+    if TimeLimit is not None:
+        m.setParam('TimeLimit', TimeLimit)
     if numThreads is not None:
         m.setParam('Threads', numThreads)
     if log_fpath is not None:
@@ -446,5 +446,5 @@ if __name__ == '__main__':
     from problems import *
     import time
     cSTime, cTTime = time.clock(), time.time()
-    run(ex1(), pfConst=1.2)
+    run(ex1(), pfCst=1.2)
     print(time.clock() - cSTime, time.time() - cTTime)
