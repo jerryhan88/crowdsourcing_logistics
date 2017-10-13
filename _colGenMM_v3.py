@@ -3,40 +3,36 @@ from init_project import *
 from gurobipy import *
 from datetime import datetime
 import numpy as np
-import time
+from time import clock
 #
 from _utils.logging import record_logs, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
-#
-try:
-    from greedyHeuristic import run as gHeuristic_run
-except ModuleNotFoundError:
-    from setup import cythonize
-    cythonize('greedyHeuristic')
-    #
-    from greedyHeuristic import run as gHeuristic_run
-from exactMM import convert_input4MathematicalModel
 
 
-def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
-    startTime = time.clock()
+def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
+    startTime = clock()
     #
     # Solve a master problem
     #
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+    K, w_k, t_ij, _delta = problem
     input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
     #
-    # generate initial bundles with the greedy heuristic
+    # generate initial bundles
     #
-    B = gHeuristic_run(problem, initSol4ColGen=True)
+    _e_bi = [[0 for _ in range(len(T))] for _ in range(bB)]
+    for i in T:
+        _e_bi[i % bB][i] = 1
+    colums = set()
     e_bi = []
-    for b in B:
-        vec = [0 for _ in range(len(T))]
-        for i in b:
-            vec[i] = 1
-        e_bi.append(vec)
+    B = []
+    for l in _e_bi:
+        if sum(l) == 0:
+            continue
+        e_bi.append(l)
+        colums.add(tuple(l))
+        B.append([i for i, v in enumerate(l) if v != 0])
     p_b = []
     for b in range(len(B)):
         bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
@@ -47,9 +43,6 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
                 if minTimePD(bundle, k, t_ij) < _delta:
                     p += w * br
         p_b.append(p)
-
-    # assert False
-
     #
     logContents = 'Initial bundles\n'
     for b in B:
@@ -94,7 +87,7 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
         #
         pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = relax.getConstrByName("numBC").Pi
-        c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, timeLimit, pfConst)
+        c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, TimeLimit)
         if c_b == None:
             break
         vec = [0 for _ in range(len(T))]
@@ -112,6 +105,7 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
         if c_b <= 0:
             break
         e_bi.append(vec)
+        colums.add(tuple(vec))
         p_b.append(p)
         #
         col = Column()
@@ -126,8 +120,8 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
     #
     # Settings
     #
-    if timeLimit is not None:
-        m.setParam('timeLimit', timeLimit)
+    if TimeLimit is not None:
+        m.setParam('TimeLimit', TimeLimit)
     if numThreads is not None:
         m.setParam('Threads', numThreads)
     if log_fpath is not None:
@@ -137,7 +131,7 @@ def run(problem, log_fpath=None, numThreads=None, timeLimit=None, pfConst=None):
     # Run Gurobi (Optimization)
     #
     m.optimize()
-    endTime = time.clock()
+    endTime = clock()
     eliTime = endTime - startTime
     chosenB = [B[b] for b in range(len(B)) if q_b[b].x > 0.5]
     #
@@ -266,8 +260,8 @@ def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
     return m.objVal
 
 
-def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None, TimeLimit=None, pfConst=None):
-    def process_callback(m, where):
+def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None, TimeLimit=None):
+    def addLazyC_subProblem(m, where):
         if where == GRB.callback.MIPSOL:
             tNodes = []
             selectedTasks = set()
@@ -289,26 +283,6 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
                     for i, j in route:
                         expr += m._x_kij[k, i, j]
                     m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
-
-        if pfConst and where == GRB.callback.MIP and m.cbGet(GRB.Callback.MIP_SOLCNT):
-            runTime = m.cbGet(GRB.callback.RUNTIME)
-            objbst = m.cbGet(GRB.Callback.MIP_OBJBST)
-            objbnd = m.cbGet(GRB.Callback.MIP_OBJBND)
-            gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
-            timeIntv = runTime - m._lastGapUpTime
-            #
-            if gap < m._minGap:
-                m._minGap = gap
-                m._lastGapUpTime = runTime
-            else:
-                gapPct = gap * 100
-                if gapPct ** m._pfConst < timeIntv:
-                    logContents = '\n\n'
-                    logContents += 'Termination\n'
-                    logContents += '\t gapPct: %.2f \n' % gapPct
-                    logContents += '\t timeIntv: %f \n' % timeIntv
-                    record_logs(log_fpath, logContents)
-                    m.terminate()
     #
     T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
     bigM1 = sum(r_i) * 2
@@ -416,11 +390,6 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
     #
     m._B, m._T, m._K = B, T, K
     m._z_i, m._x_kij = z_i, x_kij
-    #
-    m._minGap = GRB.INFINITY
-    m._lastGapUpTime = -GRB.INFINITY
-    m._pfConst = pfConst
-    #
     m.params.LazyConstraints = 1
     #
     # Settings
@@ -435,16 +404,18 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
     #
     # Run Gurobi (Optimization)
     #
-    m.optimize(process_callback)
-    if m.status == GRB.Status.INFEASIBLE:
+    m.optimize(addLazyC_subProblem)
+    if m.status == GRB.Status.OPTIMAL:
+        return m.objVal, [i for i in T if z_i[i].x > 0.05]
+    elif m.status == GRB.Status.INFEASIBLE:
         return None, None
     else:
-        return m.objVal, [i for i in T if z_i[i].x > 0.05]
+        assert False
 
 
 if __name__ == '__main__':
     from problems import *
-    import time
-    cSTime, cTTime = time.clock(), time.time()
-    run(ex1(), pfConst=1.2)
-    print(time.clock() - cSTime, time.time() - cTTime)
+    from time import clock, time
+    cSTime, cTTime = clock(), time()
+    run(convert_input4MathematicalModel(*ex1()))
+    print(clock() - cSTime, time() - cTTime)

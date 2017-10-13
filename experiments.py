@@ -1,13 +1,20 @@
 from init_project import *
 #
-# from cpuinfo import get_cpu_info
+from cpuinfo import get_cpu_info
 import platform
 import shutil
 import pickle, csv
 #
-# from exactMM import run as exactMM_run
-# from colGenMM import run as colGenMM_run
-# from greedyHeuristic import run as gHeuristic_run
+from exactMM import run as exactMM_run
+from colGenMM import run as colGenMM_run
+try:
+    from greedyHeuristic import run as gHeuristic_run
+except ModuleNotFoundError:
+    from setup import cythonize
+    cythonize('greedyHeuristic')
+    #
+    from greedyHeuristic import run as gHeuristic_run
+
 from problems import *
 
 
@@ -104,8 +111,7 @@ def run_singleCore(processorID, num_workers=11):
         #
         m = 'gHeuristic'
         try:
-            objV, eliTime = gHeuristic_run(convert_input4greedyHeuristic(*inputs),
-                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+            objV, eliTime = gHeuristic_run(inputs, log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
         except:
             objV, eliTime = -1, -1
         record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
@@ -116,7 +122,7 @@ def run_singleCore(processorID, num_workers=11):
         for m, func in [('colGenMM', colGenMM_run),
                         ('exactMM', exactMM_run),]:
             try:
-                objV, eliTime = func(convert_input4MathematicalModel(*inputs),
+                objV, eliTime = func(inputs,
                                     log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
                                     numThreads=_numThreads, TimeLimit=_TimeLimit)
             except:
@@ -211,12 +217,10 @@ def summary():
                 objVs, comTs = [], []
                 for fpath in [ex_res_fpath, cg_res_fpath, he_res_fpath]:
                     if opath.exists(fpath):
-                        with open(fpath, 'rb') as r_csvfile:
-                            reader = csv.reader(r_csvfile)
-                            header = reader.next()
-                            hid = {h: i for i, h in enumerate(header)}
+                        with open(fpath) as r_csvfile:
+                            reader = csv.DictReader(r_csvfile)
                             for row in reader:
-                                _, objV, comT = [row[hid[cn]] for cn in ['method', 'objV', 'eliTime']]
+                                _, objV, comT = [row[cn] for cn in ['method', 'objV', 'eliTime']]
                     else:
                         objV, comT = -1, -1
                     objVs.append(objV)

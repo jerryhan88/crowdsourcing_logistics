@@ -5,8 +5,8 @@ from datetime import datetime
 from _utils.logging import record_logs
 
 
-def run(problem, log_fpath=None):
-    travel_time, tasks, paths, detour_th, volume_th, num_bundles = problem
+def run(problem, log_fpath=None, initSol4ColGen=False):
+    travel_time, tasks, paths, detour_th, volume_th, num_bundles = convert_input4greedyHeuristic(*problem)
     #
     def insert_task(b, t1, path_insertion_estimation=None):
         b.tasks[t1.tid] = t1
@@ -192,8 +192,33 @@ def run(problem, log_fpath=None):
     logContents += '\t chosen B.: %s\n' % str(bundles)
     record_logs(log_fpath, logContents)
     #
-    return sum(b.bundle_attr for b in bundles), eliTime
+    if initSol4ColGen:
+        return [[t.tid for t in b.tasks.values()] for b in bundles]
+    else:
+        return sum(b.bundle_attr for b in bundles), eliTime
 
+
+class task(object):
+    def __init__(self, tid, pp, dp, v, r):
+        self.tid = tid
+        self.pp, self.dp = pp, dp
+        self.v, self.r = v, r
+
+    def set_attr(self, attr):
+        self.attr = attr
+
+    def __repr__(self):
+        return 't%d(%s->%s;%.03f)' % (self.tid, self.pp, self.dp, self.r)
+
+class path(object):
+    def __init__(self, ori, dest, w=None):
+        self.ori, self.dest, self.w = ori, dest, w
+
+    def __repr__(self):
+        if self.w != None:
+            return '%d->%d;%.03f' % (self.ori, self.dest, self.w)
+        else:
+            return '%d->%d' % (self.ori, self.dest)
 
 
 class bundle(object):
@@ -209,6 +234,20 @@ class bundle(object):
 
     def __repr__(self):
         return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.values()]))
+
+def convert_input4greedyHeuristic(travel_time,
+                                  flows, paths,
+                                  tasks, rewards, volumes,
+                                  num_bundles, volume_th, detour_th):
+    #
+    # Convert inputs for the greedy heuristic
+    #
+    tasks = [task(i, pp, dd, volumes[i], rewards[i]) for i, (pp, dd) in enumerate(tasks)]
+    total_flows = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
+    paths = [path(ori, dest, flows[ori][dest] / float(total_flows)) for ori, dest in paths]
+    #
+    return travel_time, tasks, paths, detour_th, volume_th, num_bundles
+
 
 
 if __name__ == '__main__':

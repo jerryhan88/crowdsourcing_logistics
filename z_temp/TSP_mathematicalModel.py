@@ -44,9 +44,6 @@ def get_min_subtour(edges):
     return cycles[0]
 
 
-
-
-
 seed(1)
 
 
