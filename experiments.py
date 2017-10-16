@@ -254,10 +254,10 @@ def summary():
 
 
 if __name__ == '__main__':
-    # summary()
+    summary()
 
     # cluster_run(0)
-    run_multipleCores()
+    # run_multipleCores()
 
     # run(0, num_workers=8)
     # local_run()
