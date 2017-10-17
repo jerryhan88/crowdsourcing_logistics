@@ -1,6 +1,7 @@
 from init_project import *
 #
 from cpuinfo import get_cpu_info
+from psutil import virtual_memory
 import platform
 import shutil
 import pickle, csv
@@ -117,6 +118,7 @@ def run_multipleCores(machine_num):
         f.write('numProcessor: %d\n' % int(cpu_info['count']))
         f.write('bits: %d\n' % int(cpu_info['bits']))
         f.write('brand:%s' % str(cpu_info['brand']))
+        f.write('memory:%d kb' % virtual_memory().total)
     log_dpath = opath.join(machine_dpath, 'log')
     res_dpath = opath.join(machine_dpath, 'res')
     for path in [log_dpath, res_dpath]:
