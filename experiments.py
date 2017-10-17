@@ -116,8 +116,10 @@ def run_multipleCores(machine_num):
     res_dpath = opath.join(machine_dpath, 'res')
     for path in [log_dpath, res_dpath]:
         os.makedirs(path)
-    problem_dpath.sort()
-    for i, ifpath in enumerate(problem_dpath):
+    problems_ifpathes = [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
+                         if fn.endswith('.pkl')]
+    problems_ifpathes.sort()
+    for i, ifpath in enumerate(problems_ifpathes):
         inputs = None
         with open(ifpath, 'rb') as fp:
             inputs = pickle.load(fp)
