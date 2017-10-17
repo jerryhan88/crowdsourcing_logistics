@@ -111,7 +111,7 @@ def run_multipleCores(machine_num):
     machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
     problem_dpath = opath.join(machine_dpath, '__problem')
     for path in [machine_dpath, problem_dpath]:
-        assert opath.exists(path)
+        assert opath.exists(path), path
     log_dpath = opath.join(machine_dpath, 'log')
     res_dpath = opath.join(machine_dpath, 'res')
     for path in [log_dpath, res_dpath]:
