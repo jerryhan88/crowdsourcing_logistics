@@ -19,7 +19,7 @@ from exactMM import convert_input4MathematicalModel
 
 
 def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
-    startTime = time.clock()
+    startCpuTimeM, startWallTimeM = time.clock(), time.time()
     #
     # Solve a master problem
     #
@@ -47,9 +47,6 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
                 if minTimePD(bundle, k, t_ij) < _delta:
                     p += w * br
         p_b.append(p)
-
-    # assert False
-
     #
     logContents = 'Initial bundles\n'
     for b in B:
@@ -62,41 +59,46 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     #
     # Define decision variables
     #
-    m = Model('materProblem')
+    cgMM = Model('materProblem')
     q_b = {}
     for b in range(len(B)):
-        q_b[b] = m.addVar(vtype=GRB.BINARY, name="q[%d]" % b)
-    m.update()
+        q_b[b] = cgMM.addVar(vtype=GRB.BINARY, name="q[%d]" % b)
+    cgMM.update()
     #
     # Define objective
     #
     obj = LinExpr()
     for b in range(len(B)):
         obj += p_b[b] * q_b[b]
-    m.setObjective(obj, GRB.MAXIMIZE)
+    cgMM.setObjective(obj, GRB.MAXIMIZE)
     #
     # Define constrains
     #
     taskAC = {}
     for i in T:  # eq:taskA
-        taskAC[i] = m.addConstr(quicksum(e_bi[b][i] * q_b[b] for b in range(len(B))) == 1, name="taskAC[%d]" % i)
-    numBC = m.addConstr(quicksum(q_b[b] for b in range(len(B))) == bB, name="numBC")
-    m.update()
+        taskAC[i] = cgMM.addConstr(quicksum(e_bi[b][i] * q_b[b] for b in range(len(B))) == 1, name="taskAC[%d]" % i)
+    numBC = cgMM.addConstr(quicksum(q_b[b] for b in range(len(B))) == bB, name="numBC")
+    cgMM.update()
     #
     counter = 0
     while True:
         if len(B) == len(T) ** 2 - 1:
             break
         counter += 1
-        relax = m.relax()
+        relax = cgMM.relax()
         relax.Params.OutputFlag = X_GL
         relax.optimize()
         #
         pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = relax.getConstrByName("numBC").Pi
+
+        startCpuTimeS, startWallTimeS = time.clock(), time.time()
         c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, TimeLimit, pfCst)
         if c_b == None:
             break
+        endCpuTimeS, endWallTimeS = time.clock(), time.time()
+        eliCpuTimeS, eliWallTimeS = endCpuTimeS - startCpuTimeS, endWallTimeS - startWallTimeS
+
         vec = [0 for _ in range(len(T))]
         logContents = '\n\n'
         logContents += '%dth iteration (%s)\n' % (counter, str(datetime.now()))
@@ -105,6 +107,14 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
         logContents += '\t\t mu: %.3f\n' % mu
         logContents += '\t new B. %s\n' % str(bundle)
         logContents += '\t red. C. %.3f\n' % c_b
+        logContents += '\t Cpu Time\n'
+        logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeS)
+        logContents += '\t\t End.Time: %s\n' % str(endCpuTimeS)
+        logContents += '\t\t Eli.Time: %f\n' % eliCpuTimeS
+        logContents += '\t Wall Time\n'
+        logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeS)
+        logContents += '\t\t End.Time: %s\n' % str(endWallTimeS)
+        logContents += '\t\t Eli.Time: %f\n' % eliWallTimeS
         record_logs(log_fpath, logContents)
         for i in bundle:
             vec[i] = 1
@@ -120,37 +130,44 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
                 col.addTerms(e_bi[len(B)][i], taskAC[i])
         col.addTerms(1, numBC)
         #
-        q_b[len(B)] = m.addVar(obj=p_b[len(B)], vtype=GRB.BINARY, name="q[%d]" % len(B), column=col)
+        q_b[len(B)] = cgMM.addVar(obj=p_b[len(B)], vtype=GRB.BINARY, name="q[%d]" % len(B), column=col)
         B.append(bundle)
-        m.update()
+        cgMM.update()
     #
     # Settings
     #
     if TimeLimit is not None:
-        m.setParam('TimeLimit', TimeLimit)
+        cgMM.setParam('TimeLimit', TimeLimit)
     if numThreads is not None:
-        m.setParam('Threads', numThreads)
+        cgMM.setParam('Threads', numThreads)
     if log_fpath is not None:
-        m.setParam('LogFile', log_fpath)
-    m.setParam('OutputFlag', X_GL)
+        cgMM.setParam('LogFile', log_fpath)
+    cgMM.setParam('OutputFlag', X_GL)
     #
     # Run Gurobi (Optimization)
     #
-    m.optimize()
-    endTime = time.clock()
-    eliTime = endTime - startTime
+    cgMM.optimize()
+    #
+    endCpuTimeM, endWallTimeM = time.clock(), time.time()
+    eliCpuTimeM, eliWallTimeM = endCpuTimeM - startCpuTimeM, endWallTimeM - startWallTimeM
     chosenB = [B[b] for b in range(len(B)) if q_b[b].x > 0.5]
     #
     logContents = '\n\n'
     logContents += 'Summary\n'
-    logContents += '\t Sta.Time: %s\n' % str(startTime)
-    logContents += '\t End.Time: %s\n' % str(endTime)
-    logContents += '\t Eli.Time: %d\n' % eliTime
-    logContents += '\t ObjV: %.3f\n' % m.objVal
+    logContents += '\t Cpu Time\n'
+    logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeM)
+    logContents += '\t\t End.Time: %s\n' % str(endCpuTimeM)
+    logContents += '\t\t Eli.Time: %f\n' % eliCpuTimeM
+    logContents += '\t Wall Time\n'
+    logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeM)
+    logContents += '\t\t End.Time: %s\n' % str(endWallTimeM)
+    logContents += '\t\t Eli.Time: %f\n' % eliWallTimeM
+    logContents += '\t ObjV: %.3f\n' % cgMM.objVal
+    logContents += '\t Gap: %.3f\n' % cgMM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
     record_logs(log_fpath, logContents)
     #
-    return m.objVal, eliTime
+    return cgMM.objVal, cgMM.MIPGap, eliCpuTimeM, eliWallTimeM
 
 
 def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):

@@ -94,22 +94,30 @@ def init_expEnv(initEnv=False):
                                   if fn.endswith('.pkl')]
 
 
-def record_res(fpath, nt, np, nb, tv, td, m, objV, eliTime):
+def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem):
     with open(fpath, 'wt') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
         header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-                  'method', 'objV', 'eliTime']
+                  'method', 'objV', 'Gap', 'eliCpuTime', 'eliWallTime']
         writer.writerow(header)
-        writer.writerow([nt, np, nb, tv, td, m, objV, eliTime])
+        writer.writerow([nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem])
 
 
-def run_multipleCores():
+def run_multipleCores(machine_num):
     cpu_info = get_cpu_info()
-    _numThreads, _TimeLimit, _pfCst = int(cpu_info['count']), 2 * 60 * 60, 1.2
+    _numThreads, _TimeLimit, _pfCst = int(cpu_info['count']), 4 * 60 * 60, 1.2
     #
-    log_dpath, res_dpath, problemPaths = init_expEnv()
-    problemPaths.sort()
-    for i, ifpath in enumerate(problemPaths):
+    # log_dpath, res_dpath, problem_dpath = init_expEnv()
+    machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
+    problem_dpath = opath.join(machine_dpath, '__problem')
+    for path in [machine_dpath, problem_dpath]:
+        assert opath.exists(path)
+    log_dpath = opath.join(machine_dpath, 'log')
+    res_dpath = opath.join(machine_dpath, 'res')
+    for path in [log_dpath, res_dpath]:
+        os.makedirs(path)
+    problem_dpath.sort()
+    for i, ifpath in enumerate(problem_dpath):
         inputs = None
         with open(ifpath, 'rb') as fp:
             inputs = pickle.load(fp)
@@ -120,75 +128,37 @@ def run_multipleCores():
         #
         m = 'gHeuristic'
         try:
-            objV, eliTime = gHeuristic_run(inputs,
+            objV, eliCpuTime = gHeuristic_run(inputs,
                                            log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
         except:
-            objV, eliTime = -1, -1
+            objV, eliCpuTime = -1, -1
+        gap, eliWallTime = -1, -1
         record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, eliTime)
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # colGenMM
         #
         m = 'colGenMM'
         try:
-            objV, eliTime = colGenMM_run(inputs,
-                                         log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-                                         numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
+            objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
+                                             log_fpath=opath.join(log_dpath, '%s-%s(%f).log' % (prefix, m, _pfCst)),
+                                             numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
         except:
-            objV, eliTime = -1, -1
+            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
         record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, eliTime)
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # exactMM
         #
         m = 'exactMM'
         try:
-            objV, eliTime = exactMM_run(inputs,
+            objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
                                         log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
                                         numThreads=_numThreads, TimeLimit=_TimeLimit)
         except:
-            objV, eliTime = -1, -1
+            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
         record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, eliTime)
-
-
-def run_singleCore(processorID, num_workers=11):
-    # cpu_info = get_cpu_info()
-    # _numThreads, _TimeLimit = int(cpu_info['count']), None
-    _numThreads, _TimeLimit = 1, None
-    #
-    log_dpath, res_dpath, problemPaths = init_expEnv()
-    for i, ifpath in enumerate(problemPaths):
-        if i % num_workers != processorID:
-            continue
-        inputs = None
-        with open(ifpath, 'rb') as fp:
-            inputs = pickle.load(fp)
-        prefix = opath.basename(ifpath)[:-len('.pkl')]
-        nt, np, nb, tv, td = [int(v[len('xx'):]) for v in prefix.split('-')]
-        #
-        # gHeuristic
-        #
-        m = 'gHeuristic'
-        try:
-            objV, eliTime = gHeuristic_run(inputs, log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-        except:
-            objV, eliTime = -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, eliTime)
-        #
-        # MM
-        #
-        for m, func in [('colGenMM', colGenMM_run),
-                        ('exactMM', exactMM_run), ]:
-            try:
-                objV, eliTime = func(inputs,
-                                     log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-                                     numThreads=_numThreads, TimeLimit=_TimeLimit)
-            except:
-                objV, eliTime = -1, -1
-            record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                       nt, np, nb, tv, td, m, objV, eliTime)
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
 
 
 def summary():

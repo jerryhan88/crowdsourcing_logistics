@@ -1,5 +1,6 @@
 import math
 import random
+import time
 from gurobipy import *
 #
 # ref. http://examples.gurobi.com/traveling-salesman-problem/
@@ -24,22 +25,22 @@ def subtourelim(model, where):
                 for j in range(i+1, len(tour)):
                   expr += model._vars[tour[i], tour[j]]
                 model.cbLazy(expr <= len(tour)-1)
-    if where == GRB.callback.MIP:
-        runTime = model.cbGet(GRB.callback.RUNTIME)
-        objbst = model.cbGet(GRB.Callback.MIP_OBJBST)
-        objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
-        gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
-        timeIntv = runTime - m._lastGapUpTime
-        if model.cbGet(GRB.Callback.MIP_SOLCNT):
-            if impTimeLimit < timeIntv:
-                print('Stop early - timeIntv')
-                model.terminate()
-            if gap < 0.1:
-                print('Stop early - 10% gap achieved')
-                model.terminate()
-            if gap < m._minGap:
-                m._minGap = gap
-                m._lastGapUpTime = runTime
+    # if where == GRB.callback.MIP:
+    #     runTime = model.cbGet(GRB.callback.RUNTIME)
+    #     objbst = model.cbGet(GRB.Callback.MIP_OBJBST)
+    #     objbnd = model.cbGet(GRB.Callback.MIP_OBJBND)
+    #     gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
+    #     timeIntv = runTime - m._lastGapUpTime
+    #     if model.cbGet(GRB.Callback.MIP_SOLCNT):
+    #         if impTimeLimit < timeIntv:
+    #             print('Stop early - timeIntv')
+    #             model.terminate()
+    #         if gap < 0.1:
+    #             print('Stop early - 10% gap achieved')
+    #             model.terminate()
+    #         if gap < m._minGap:
+    #             m._minGap = gap
+    #             m._lastGapUpTime = runTime
 
 
 # Euclidean distance between two points
@@ -85,6 +86,10 @@ points = []
 for i in range(n):
     points.append((random.randint(0,100),random.randint(0,100)))
 
+
+startCpuTime, startWallTime = time.clock(), time.time()
+
+
 m = Model()
 
 
@@ -115,12 +120,24 @@ m._minGap = GRB.INFINITY
 
 m._vars = vars
 m.params.LazyConstraints = 1
-# m.setParam('TimeLimit', 1)
+m.setParam('TimeLimit', 10)
 m.optimize(subtourelim)
 
+if m.status != GRB.Status.OPTIMAL:
+    print(m.MIPGap)
 
+
+# if m.status == GRB.Status.INFEASIBLE:
+
+endCpuTime, endWallTime = time.clock(), time.time()
+
+eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
 
 solution = m.getAttr('x', vars)
 selected = [(i,j) for i in range(n) for j in range(n) if solution[i,j] > 0.5]
+
+print('')
+print(m.objVal, m.MIPGap, eliCpuTime, eliWallTime)
+
 print(selected)
 assert len(subtour(selected)) == n
