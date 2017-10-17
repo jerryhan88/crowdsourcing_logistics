@@ -112,6 +112,11 @@ def run_multipleCores(machine_num):
     problem_dpath = opath.join(machine_dpath, '__problems')
     for path in [machine_dpath, problem_dpath]:
         assert opath.exists(path), path
+    cpu_spec_fpath = opath.join(machine_dpath, '__cpuSpec.txt')
+    with open(cpu_spec_fpath, 'w') as f:
+        f.write('numProcessor: %d\n' % int(cpu_info['count']))
+        f.write('bits: %d\n' % int(cpu_info['bits']))
+        f.write('brand:%s' % str(cpu_info['brand']))
     log_dpath = opath.join(machine_dpath, 'log')
     res_dpath = opath.join(machine_dpath, 'res')
     for path in [log_dpath, res_dpath]:
