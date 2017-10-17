@@ -143,7 +143,7 @@ def run_multipleCores(machine_num):
         m = 'colGenMM'
         try:
             objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
-                                             log_fpath=opath.join(log_dpath, '%s-%s(%f).log' % (prefix, m, _pfCst)),
+                                             log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
                                              numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
         except:
             objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
