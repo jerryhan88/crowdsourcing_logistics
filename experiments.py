@@ -154,7 +154,7 @@ def run_multipleCores(machine_num):
                                              numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
         except:
             objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+        record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
                    nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # exactMM
