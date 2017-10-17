@@ -117,7 +117,7 @@ def run_multipleCores(machine_num):
     with open(cpu_spec_fpath, 'w') as f:
         f.write('numProcessor: %d\n' % int(cpu_info['count']))
         f.write('bits: %d\n' % int(cpu_info['bits']))
-        f.write('brand:%s' % str(cpu_info['brand']))
+        f.write('brand:%s\n' % str(cpu_info['brand']))
         f.write('memory:%d kb' % virtual_memory().total)
     log_dpath = opath.join(machine_dpath, 'log')
     res_dpath = opath.join(machine_dpath, 'res')
