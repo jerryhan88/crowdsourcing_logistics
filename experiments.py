@@ -35,14 +35,15 @@ def gen_problems(problem_dpath):
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
     volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 5
+    numCols, numRows = 1, 4
     #
-    numBundles = 4
-    for numTasks in [6, 8, 10]:
-        inputs = random_problem(numCols, numRows, maxFlow,
-                                numTasks, minReward, maxReward, minVolume, maxVolume,
-                                numBundles, volumeAlowProp, detourAlowProp)
-        save_aProblem(inputs, problem_dpath, problem_summary_fpath)
+    # numBundles = 4
+    for numBundles in [6, 8]:
+        for numTasks in [30, 35, 40, 45, 50]:
+            inputs = random_problem(numCols, numRows, maxFlow,
+                                    numTasks, minReward, maxReward, minVolume, maxVolume,
+                                    numBundles, volumeAlowProp, detourAlowProp)
+            save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
         # for numTasks in range(6, 30, 2):
         #     for numBundles in range(3, max(4, int(numTasks / 4))):
@@ -175,65 +176,108 @@ def summary():
     with open(sum_fpath, 'wt') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
         header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-                  'ex_objV', 'cg_objV', 'gh_objV',
-                  'cg_optG', 'gh_optG',
-                  'ex_comT', 'cg_comT', 'gh_comT', 'nodeSpec']
+                  'numDV', 'numCnts', 'nodeSpec',
+                  'ex_objV', 'ex_mipG', 'ex_wallT', 'ex_cpuT',
+                  'gh_objV', 'gh_optG', 'gh_wallT', 'gh_cpuT',
+                  ]
+        for pfConst in [1.20]:
+            header += ['cg(%.2f)_objV' % pfConst,
+                       'cg(%.2f)_optG' % pfConst,
+                       'cg(%.2f)_wallT' % pfConst,
+                       'cg(%.2f)_cpuT' % pfConst]
         writer.writerow(header)
 
-    for dir_name in os.listdir(dpath['experiment']):
-        if not dir_name.startswith('c'):
+
+    for machineName in os.listdir(dpath['experiment']):
+        if not (machineName.startswith('_m') or machineName.startswith('m')):
             continue
-        dir_path = opath.join(dpath['experiment'], dir_name)
+        dir_path = opath.join(dpath['experiment'], machineName)
         spec_fpath = opath.join(dir_path, '__cpuSpec.txt')
-        problem_dpath = opath.join(dir_path, '__problem')
-        res_dpath = opath.join(dir_path, 'res')
         spec = None
         with open(spec_fpath, 'r') as f:
             spec = f.readlines()
-        _numProcessor, _, _brand = spec
+        _numProcessor, _, _brand, _memoryS = spec
         numProcessor = _numProcessor.split(':')[1][:-1]
         brand = _brand.split(':')[1][:-1]
+        memoryS = '%.2fGB' % (int(_memoryS.split(':')[1][:-3]) / (1024 ** 3))
+        problem_dpath = opath.join(dir_path, '__problems')
+        res_dpath = opath.join(dir_path, 'res')
+        log_dpath = opath.join(dir_path, 'log')
         for fn in os.listdir(problem_dpath):
             if not fn.endswith('.pkl'):
                 continue
+            prefix = fn[:-len('.pkl')]
+            ex_log_fpath = opath.join(log_dpath, '%s-exactMM.log' % prefix)
+            if not opath.exists(ex_log_fpath):
+                continue
+            with open(ex_log_fpath, 'r') as f:
+                l = f.readline()
+                while l:
+                    if l.startswith('Optimize a model with'):
+                        break
+                    l = f.readline()
+            _rows, _cols = l.split(',')
+            numRows = int(_rows[len('Optimize a model with '):-len(' rows')])
+            numCols = int(_cols.split(' ')[1])
             with open(sum_fpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
                 new_row = []
                 #
-                prefix = fn[:-len('.pkl')]
                 for p in prefix.split('-'):
                     new_row.append(int(p[len('xx'):]))
                 #
+                new_row += [numCols, numRows]
+                nodeSpec = brand + '; cores ' + numProcessor, '; memory ' + memoryS
+                new_row += [nodeSpec]
+                #
                 ex_res_fpath = opath.join(res_dpath, '%s-exactMM.csv' % prefix)
-                cg_res_fpath = opath.join(res_dpath, '%s-colGenMM.csv' % prefix)
+                with open(ex_res_fpath) as r_csvfile:
+                    reader = csv.DictReader(r_csvfile)
+                    for row in reader:
+                        objV, mipG, wallT, cpuT = [row[cn] for cn in ['objV', 'Gap', 'eliWallTime', 'eliCpuTime']]
+                if eval(objV ) == -1:
+                    mipG = -1
+                else:
+                    mipG = eval(mipG) * 100
+                new_row += [objV, mipG, wallT, cpuT]
+                ex_objV = eval(objV)
+                #
                 he_res_fpath = opath.join(res_dpath, '%s-gHeuristic.csv' % prefix)
-                objVs, comTs = [], []
-                for fpath in [ex_res_fpath, cg_res_fpath, he_res_fpath]:
-                    if opath.exists(fpath):
-                        with open(fpath) as r_csvfile:
+                with open(he_res_fpath) as r_csvfile:
+                    reader = csv.DictReader(r_csvfile)
+                    for row in reader:
+                        objV, wallT, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
+                if ex_objV == -1:
+                    optG = -1
+                else:
+                    optG = (ex_objV - eval(objV)) / ex_objV * 100
+                new_row += [objV, optG, wallT, cpuT]
+                #
+                for pfConst in [1.20]:
+                    cg_res_fpath = opath.join(res_dpath, '%s-colGenMM(%.2f).csv' % (prefix, pfConst))
+                    if opath.exists(cg_res_fpath):
+                        with open(cg_res_fpath) as r_csvfile:
                             reader = csv.DictReader(r_csvfile)
                             for row in reader:
-                                _, objV, comT = [row[cn] for cn in ['method', 'objV', 'eliTime']]
+                                objV, wallT, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
                     else:
-                        objV, comT = -1, -1
-                    objVs.append(objV)
-                    comTs.append(comT)
-                ex_objV, cg_objV, gh_objV = map(float, objVs)
-                if ex_objV == -1:
-                    cg_optG, gh_optG = -1, -1
-                else:
-                    cg_optG, gh_optG = (ex_objV - cg_objV) / ex_objV * 100, (ex_objV - gh_objV) / ex_objV * 100
-                ex_comT, cg_comT, gh_comT = comTs
-                nodeSpec = brand + '; cores ' + numProcessor
-                new_row += [ex_objV, cg_objV, gh_objV]
-                new_row += [cg_optG, gh_optG]
-                new_row += [ex_comT, cg_comT, gh_comT]
-                new_row += [nodeSpec]
+                        objV, wallT, cpuT = -1, -1, -1, -1
+                    if ex_objV == -1:
+                        optG = -1
+                    else:
+                        optG = (ex_objV - eval(objV)) / ex_objV * 100
+                new_row += [objV, optG, wallT, cpuT]
                 writer.writerow(new_row)
 
 
 if __name__ == '__main__':
-    summary()
+    # summary()
+
+    machine_dpath = opath.join(dpath['experiment'], 'm7')
+    os.makedirs(machine_dpath)
+    problem_dpath = opath.join(machine_dpath, '__problems')
+    os.makedirs(problem_dpath)
+    gen_problems(problem_dpath)
 
     # cluster_run(0)
     # run_multipleCores()
