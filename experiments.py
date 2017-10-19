@@ -136,15 +136,15 @@ def run_multipleCores(machine_num):
         #
         # gHeuristic
         #
-        # m = 'gHeuristic'
-        # try:
-        #     objV, eliCpuTime = gHeuristic_run(inputs,
-        #                                    log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-        # except:
-        #     objV, eliCpuTime = -1, -1
-        # gap, eliWallTime = -1, -1
-        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        m = 'gHeuristic'
+        try:
+            objV, eliCpuTime = gHeuristic_run(inputs,
+                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        except:
+            objV, eliCpuTime = -1, -1
+        gap, eliWallTime = -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # colGenMM
         #
@@ -160,15 +160,15 @@ def run_multipleCores(machine_num):
         #
         # exactMM
         #
-        # m = 'exactMM'
-        # try:
-        #     objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
-        #                                 log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-        #                                 numThreads=_numThreads, TimeLimit=_TimeLimit)
-        # except:
-        #     objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        m = 'exactMM'
+        try:
+            objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
+                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+                                        numThreads=_numThreads, TimeLimit=_TimeLimit)
+        except:
+            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
 
 
 def summary():
