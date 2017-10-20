@@ -107,7 +107,9 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem)
 
 def run_multipleCores(machine_num):
     cpu_info = get_cpu_info()
-    _numThreads, _TimeLimit, _pfCst = int(cpu_info['count']), 4 * 60 * 60, 1.2
+    _numThreads, _TimeLimit = int(cpu_info['count']), 4 * 60 * 60
+    # _pfCst = 1.2
+    _pfCst = 1.5
     #
     # log_dpath, res_dpath, problem_dpath = init_expEnv()
     machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
@@ -136,15 +138,15 @@ def run_multipleCores(machine_num):
         #
         # gHeuristic
         #
-        m = 'gHeuristic'
-        try:
-            objV, eliCpuTime = gHeuristic_run(inputs,
-                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-        except:
-            objV, eliCpuTime = -1, -1
-        gap, eliWallTime = -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # m = 'gHeuristic'
+        # try:
+        #     objV, eliCpuTime = gHeuristic_run(inputs,
+        #                                    log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        # except:
+        #     objV, eliCpuTime = -1, -1
+        # gap, eliWallTime = -1, -1
+        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # colGenMM
         #
@@ -160,15 +162,15 @@ def run_multipleCores(machine_num):
         #
         # exactMM
         #
-        m = 'exactMM'
-        try:
-            objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
-                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-                                        numThreads=_numThreads, TimeLimit=_TimeLimit)
-        except:
-            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # m = 'exactMM'
+        # try:
+        #     objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
+        #                                 log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+        #                                 numThreads=_numThreads, TimeLimit=_TimeLimit)
+        # except:
+        #     objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
 
 
 def summary():
