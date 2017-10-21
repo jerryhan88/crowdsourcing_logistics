@@ -233,6 +233,9 @@ def summary():
                 new_row += [nodeSpec]
                 #
                 ex_res_fpath = opath.join(res_dpath, '%s-exactMM.csv' % prefix)
+                he_res_fpath = opath.join(res_dpath, '%s-gHeuristic.csv' % prefix)
+                if not (opath.exists(he_res_fpath) and opath.exists(ex_res_fpath)):
+                    continue
                 with open(ex_res_fpath) as r_csvfile:
                     reader = csv.DictReader(r_csvfile)
                     for row in reader:
@@ -244,7 +247,6 @@ def summary():
                 new_row += [objV, mipG, wallT, cpuT]
                 ex_objV = eval(objV)
                 #
-                he_res_fpath = opath.join(res_dpath, '%s-gHeuristic.csv' % prefix)
                 with open(he_res_fpath) as r_csvfile:
                     reader = csv.DictReader(r_csvfile)
                     for row in reader:
@@ -263,7 +265,7 @@ def summary():
                             for row in reader:
                                 objV, wallT, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
                     else:
-                        objV, wallT, cpuT = -1, -1, -1, -1
+                        objV, wallT, cpuT = -1, -1, -1
                     if ex_objV == -1:
                         optG = -1
                     else:
