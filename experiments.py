@@ -5,6 +5,7 @@ from psutil import virtual_memory
 import platform
 import shutil
 import pickle, csv
+from traceback import format_exc
 #
 from exactMM import run as exactMM_run
 from colGenMM import run as colGenMM_run
@@ -38,8 +39,8 @@ def gen_problems(problem_dpath):
     numCols, numRows = 1, 4
     #
     # numBundles = 4
-    for numBundles in [6, 8]:
-        for numTasks in [30, 35, 40, 45, 50]:
+    for numBundles in [10, 12]:
+        for numTasks in [60, 65, 70, 75, 80, 85, 90, 95, 100]:
             inputs = random_problem(numCols, numRows, maxFlow,
                                     numTasks, minReward, maxReward, minVolume, maxVolume,
                                     numBundles, volumeAlowProp, detourAlowProp)
@@ -108,8 +109,8 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem)
 def run_multipleCores(machine_num):
     cpu_info = get_cpu_info()
     _numThreads, _TimeLimit = int(cpu_info['count']), 4 * 60 * 60
-    _pfCst = 1.2
-    # _pfCst = 1.5
+    # _pfCst = 1.2
+    _pfCst = 1.5
     #
     # log_dpath, res_dpath, problem_dpath = init_expEnv()
     machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
@@ -156,6 +157,9 @@ def run_multipleCores(machine_num):
                                              log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
                                              numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
         except:
+            import sys
+            with open('%s_error.txt' % sys.argv[0], 'w') as f:
+                f.write(format_exc())
             objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
         record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
                    nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
@@ -277,11 +281,11 @@ def summary():
 if __name__ == '__main__':
     summary()
 
-    # machine_dpath = opath.join(dpath['experiment'], 'm7')
-    # os.makedirs(machine_dpath)
-    # problem_dpath = opath.join(machine_dpath, '__problems')
-    # os.makedirs(problem_dpath)
-    # gen_problems(problem_dpath)
+    machine_dpath = opath.join(dpath['experiment'], 'm14')
+    os.makedirs(machine_dpath)
+    problem_dpath = opath.join(machine_dpath, '__problems')
+    os.makedirs(problem_dpath)
+    gen_problems(problem_dpath)
 
     # cluster_run(0)
     # run_multipleCores()
