@@ -273,13 +273,13 @@ def summary():
 
 
 if __name__ == '__main__':
-    # summary()
+    summary()
 
-    machine_dpath = opath.join(dpath['experiment'], 'm7')
-    os.makedirs(machine_dpath)
-    problem_dpath = opath.join(machine_dpath, '__problems')
-    os.makedirs(problem_dpath)
-    gen_problems(problem_dpath)
+    # machine_dpath = opath.join(dpath['experiment'], 'm7')
+    # os.makedirs(machine_dpath)
+    # problem_dpath = opath.join(machine_dpath, '__problems')
+    # os.makedirs(problem_dpath)
+    # gen_problems(problem_dpath)
 
     # cluster_run(0)
     # run_multipleCores()
