@@ -39,7 +39,7 @@ def gen_problems(problem_dpath):
     numCols, numRows = 1, 4
     #
     # numBundles = 4
-    for numBundles in [10, 12]:
+    for numBundles in [20, 30]:
         for numTasks in [60, 65, 70, 75, 80, 85, 90, 95, 100]:
             inputs = random_problem(numCols, numRows, maxFlow,
                                     numTasks, minReward, maxReward, minVolume, maxVolume,
@@ -279,7 +279,7 @@ def summary():
 
 
 if __name__ == '__main__':
-    summary()
+    # summary()
 
     machine_dpath = opath.join(dpath['experiment'], 'm14')
     os.makedirs(machine_dpath)

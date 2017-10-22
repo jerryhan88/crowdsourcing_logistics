@@ -183,18 +183,18 @@ def run(problem, log_fpath=None, initSol4ColGen=False):
     #
     endTime = datetime.now()
     eliTime = (endTime - startTime).seconds
-    logContents = '\n\n'
-    logContents += 'Summary\n'
-    logContents += '\t Sta.Time: %s\n' % str(startTime)
-    logContents += '\t End.Time: %s\n' % str(endTime)
-    logContents += '\t Eli.Time: %d\n' % eliTime
-    logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
-    logContents += '\t chosen B.: %s\n' % str(bundles)
-    record_logs(log_fpath, logContents)
     #
     if initSol4ColGen:
         return [[t.tid for t in b.tasks.values()] for b in bundles]
     else:
+        logContents = '\n\n'
+        logContents += 'Summary\n'
+        logContents += '\t Sta.Time: %s\n' % str(startTime)
+        logContents += '\t End.Time: %s\n' % str(endTime)
+        logContents += '\t Eli.Time: %d\n' % eliTime
+        logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
+        logContents += '\t chosen B.: %s\n' % str(bundles)
+        record_logs(log_fpath, logContents)
         return sum(b.bundle_attr for b in bundles), eliTime
 
 
