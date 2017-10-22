@@ -109,8 +109,8 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem)
 def run_multipleCores(machine_num):
     cpu_info = get_cpu_info()
     _numThreads, _TimeLimit = int(cpu_info['count']), 4 * 60 * 60
-    # _pfCst = 1.2
-    _pfCst = 1.5
+    _pfCst = 1.2
+    # _pfCst = 1.5
     #
     # log_dpath, res_dpath, problem_dpath = init_expEnv()
     machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
