@@ -103,8 +103,6 @@ def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem)
 def run_multipleCores(machine_num):
     cpu_info = get_cpu_info()
     _numThreads, _TimeLimit = int(cpu_info['count']), 4 * 60 * 60
-    # _pfCst = 1.2
-    # _pfCst = 1.5
     #
     # log_dpath, res_dpath, problem_dpath = init_expEnv()
     machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
@@ -133,46 +131,46 @@ def run_multipleCores(machine_num):
         #
         # gHeuristic
         #
-        m = 'gHeuristic'
-        objV, eliCpuTime, B = gHeuristic_run(inputs,
-                                       log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-        gap, eliWallTime = None, None
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
-        #
-        bB, \
-        T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
-        objV = 0
-        startCpuTime, startWallTime = time.clock(), time.time()
-        for b in B:
-            p = 0
-            br = sum([r_i[i] for i in b])
-            for k, w in enumerate(w_k):
-                if minTimePD(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m))) < _delta:
-                    p += w * br
-            objV += p
-        endCpuTime, endWallTime = time.clock(), time.time()
-        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        gap = None
-        record_res(opath.join(res_dpath, '%s-%s(minPD).csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # m = 'gHeuristic'
+        # objV, eliCpuTime, B = gHeuristic_run(inputs,
+        #                                log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        # gap, eliWallTime = None, None
+        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # #
+        # bB, \
+        # T, r_i, v_i, _lambda, P, D, N, \
+        # K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+        # objV = 0
+        # startCpuTime, startWallTime = time.clock(), time.time()
+        # for b in B:
+        #     p = 0
+        #     br = sum([r_i[i] for i in b])
+        #     for k, w in enumerate(w_k):
+        #         if minTimePD(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m))) < _delta:
+        #             p += w * br
+        #     objV += p
+        # endCpuTime, endWallTime = time.clock(), time.time()
+        # eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
+        # gap = None
+        # record_res(opath.join(res_dpath, '%s-%s(minPD).csv' % (prefix, m)),
+        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # colGenMM
         #
-        # m = 'colGenMM'
-        # for _pfCst in [1.2, 1.5]:
-        #     try:
-        #         objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
-        #                                          log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
-        #                                          numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
-        #     except:
-        #         import sys
-        #         with open('%s_error.txt' % sys.argv[0], 'w') as f:
-        #             f.write(format_exc())
-        #         objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        #     record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
-        #                nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        m = 'colGenMM'
+        for _pfCst in [1.2, 1.5]:
+            try:
+                objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
+                                                 log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
+                                                 numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
+            except:
+                import sys
+                with open('%s_error.txt' % sys.argv[0], 'w') as f:
+                    f.write(format_exc())
+                objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+            record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
+                       nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         # #
         # # exactMM
         # #
@@ -190,21 +188,25 @@ def run_multipleCores(machine_num):
 
 def summary():
     sum_fpath = opath.join(dpath['experiment'], 'experiment_summary.csv')
+    powCnsts = [1.20, 1.50]
     with open(sum_fpath, 'wt') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
-        header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-                  'numDV', 'numCnts', 'nodeSpec',
-                  'ex_objV', 'ex_mipG', 'ex_wallT', 'ex_cpuT',
-                  'gh_objV', 'gh_optG', 'gh_wallT', 'gh_cpuT',
+        header = ['nodeSpec',
+                  'numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
+                  'numDV', 'numCnts',
+                  'ex_objV', 'ex_wallT(h)', 'ex_wallT(s)', 'ex_cpuT(s)', 'ex_mipG(%)',
                   ]
-        for pfConst in [1.20, 1.50]:
+        for pfConst in powCnsts:
             header += ['cg(%.2f)_objV' % pfConst,
-                       'cg(%.2f)_optG' % pfConst,
-                       'cg(%.2f)_wallT' % pfConst,
-                       'cg(%.2f)_cpuT' % pfConst]
+                       'cg(%.2f)_wallT(h)' % pfConst,
+                       'cg(%.2f)_wallT(s)' % pfConst,
+                       'cg(%.2f)_cpuT(s)' % pfConst,
+                       'cg(%.2f)_optG(%%)' % pfConst]
+        header += ['gh_objV', 'gh_cpuT(s)', 'gh_optG(%)']
+        header += ['gh_cg(%.2f)G' % pfConst for pfConst in powCnsts]
+        header += ['ghPD_objV', 'ghPD_wallT(h)', 'ghPD_wallT(s)', 'ghPD_cpuT(s)', 'ghPD_optG(%)']
+        header += ['ghPD_cg(%.2f)G' % pfConst for pfConst in powCnsts]
         writer.writerow(header)
-
-
     for machineName in os.listdir(dpath['experiment']):
         if not (machineName.startswith('_m') or machineName.startswith('m')):
             continue
@@ -238,55 +240,92 @@ def summary():
             numCols = int(_cols.split(' ')[1])
             with open(sum_fpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
-                new_row = []
+                nodeSpec = brand + '; cores ' + numProcessor, '; memory ' + memoryS
+                new_row = [nodeSpec]
                 #
                 for p in prefix.split('-'):
                     new_row.append(int(p[len('xx'):]))
                 #
                 new_row += [numCols, numRows]
-                nodeSpec = brand + '; cores ' + numProcessor, '; memory ' + memoryS
-                new_row += [nodeSpec]
+                #
+                # exMM
                 #
                 ex_res_fpath = opath.join(res_dpath, '%s-exactMM.csv' % prefix)
-                he_res_fpath = opath.join(res_dpath, '%s-gHeuristic.csv' % prefix)
-                if not (opath.exists(he_res_fpath) and opath.exists(ex_res_fpath)):
-                    continue
-                with open(ex_res_fpath) as r_csvfile:
-                    reader = csv.DictReader(r_csvfile)
-                    for row in reader:
-                        objV, mipG, wallT, cpuT = [row[cn] for cn in ['objV', 'Gap', 'eliWallTime', 'eliCpuTime']]
-                if eval(objV ) == -1:
-                    mipG = -1
+                gh_res_fpath = opath.join(res_dpath, '%s-gHeuristic.csv' % prefix)
+                ghPD_res_fpath = opath.join(res_dpath, '%s-gHeuristic(minPD).csv' % prefix)
+                if opath.exists(ex_res_fpath):
+                    with open(ex_res_fpath) as r_csvfile:
+                        reader = csv.DictReader(r_csvfile)
+                        for row in reader:
+                            objV, mipG, wallTs, cpuT = [row[cn] for cn in ['objV', 'Gap', 'eliWallTime', 'eliCpuTime']]
+                    if eval(objV) == -1:
+                        objV, wallTh, wallTs, cpuT, mipG = None, None, None, None, None
+                    else:
+                        wallTh = eval(wallTs) / 3600
+                        mipG = eval(mipG) * 100
                 else:
-                    mipG = eval(mipG) * 100
-                new_row += [objV, mipG, wallT, cpuT]
-                ex_objV = eval(objV)
-                #
-                with open(he_res_fpath) as r_csvfile:
-                    reader = csv.DictReader(r_csvfile)
-                    for row in reader:
-                        objV, wallT, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
-                if ex_objV == -1:
-                    optG = -1
+                    objV, wallTh, wallTs, cpuT, mipG = None, None, None, None, None
+                new_row += [objV, wallTh, wallTs, cpuT, mipG]
+                if objV is not None:
+                    ex_objV = eval(objV)
                 else:
-                    optG = (ex_objV - eval(objV)) / ex_objV * 100
-                new_row += [objV, optG, wallT, cpuT]
+                    ex_objV = None
                 #
-                for pfConst in [1.20, 1.50]:
+                # colGenMM
+                #
+                colGenMM_objs = {}
+                for pfConst in powCnsts:
                     cg_res_fpath = opath.join(res_dpath, '%s-colGenMM(%.2f).csv' % (prefix, pfConst))
                     if opath.exists(cg_res_fpath):
                         with open(cg_res_fpath) as r_csvfile:
                             reader = csv.DictReader(r_csvfile)
                             for row in reader:
-                                objV, wallT, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
-                            if ex_objV == -1:
-                                optG = -1
-                            else:
-                                optG = (ex_objV - eval(objV)) / ex_objV * 100
+                                objV, wallTs, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
+                        wallTh = eval(wallTs) / 3600
+                        optG = None if ex_objV is None else (ex_objV - eval(objV)) / ex_objV * 100
+                        colGenMM_objs[pfConst] = eval(objV)
                     else:
-                        objV, wallT, cpuT = None, None, None
-                        optG = None
-                    new_row += [objV, optG, wallT, cpuT]
+                        objV, wallTh, wallTs, cpuT, optG = None, None, None, None, None
+                        colGenMM_objs[pfConst] = None
+                    new_row += [objV, wallTh, wallTs, cpuT, optG]
+                #
+                # greedy heuristic
+                #
+                if not opath.exists(gh_res_fpath):
+                    new_row += [None, None, None]
+                    new_row += [None for _ in powCnsts]
+                    new_row += [None, None, None, None, None]
+                    new_row += [None for _ in powCnsts]
+                    writer.writerow(new_row)
+                    continue
+                with open(gh_res_fpath) as r_csvfile:
+                    reader = csv.DictReader(r_csvfile)
+                    for row in reader:
+                        objV, cpuT = [row[cn] for cn in ['objV', 'eliCpuTime']]
+                optG = None if ex_objV is None else (ex_objV - eval(objV)) / ex_objV * 100
+                new_row += [objV, cpuT, optG]
+                for pfConst in powCnsts:
+                    if colGenMM_objs[pfConst] is not None:
+                        new_row += [(colGenMM_objs[pfConst] - eval(objV)) / colGenMM_objs[pfConst] * 100]
+                    else:
+                        new_row += [None]
+                #
+                if opath.exists(ghPD_res_fpath):
+                    with open(ghPD_res_fpath) as r_csvfile:
+                        reader = csv.DictReader(r_csvfile)
+                        for row in reader:
+                            objV, wallTs, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
+                    wallTh = eval(wallTs) / 3600
+                    optG = None if ex_objV is None else (ex_objV - eval(objV)) / ex_objV * 100
+                    new_row += [objV, wallTh, wallTs, cpuT, optG]
+                    for pfConst in powCnsts:
+                        if colGenMM_objs[pfConst] is not None:
+                            new_row += [(colGenMM_objs[pfConst] - eval(objV)) / colGenMM_objs[pfConst] * 100]
+                        else:
+                            new_row += [None]
+                else:
+                    objV, wallTh, wallTs, cpuT, optG = None, None, None, None, None
+                    new_row += [None for _ in powCnsts]
                 writer.writerow(new_row)
 
 
