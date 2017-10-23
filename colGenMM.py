@@ -455,6 +455,8 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
     m.optimize(process_callback)
     if m.status == GRB.Status.INFEASIBLE:
         return None, None
+    elif m.status == GRB.Status.TIME_LIMIT:
+        return None, None
     else:
         return m.objVal, [i for i in T if z_i[i].x > 0.05]
 
