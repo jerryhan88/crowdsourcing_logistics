@@ -3,7 +3,7 @@ from init_project import *
 from cpuinfo import get_cpu_info
 from psutil import virtual_memory
 import platform
-import shutil
+import shutil, os
 import pickle, csv
 import time
 from traceback import format_exc
@@ -185,6 +185,7 @@ def run_multipleCores(machine_num):
         #     objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
         # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
         #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        os.remove(ifpath)
 
 
 def summary():
