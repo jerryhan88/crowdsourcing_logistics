@@ -274,7 +274,8 @@ def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
         m.setParam('Threads', numThreads)
     if log_fpath is not None:
         m.setParam('LogFile', log_fpath)
-    m.Params.OutputFlag = X_GL
+    else:
+        m.Params.OutputFlag = X_GL
     #
     # Run Gurobi (Optimization)
     #

@@ -5,6 +5,7 @@ from psutil import virtual_memory
 import platform
 import shutil
 import pickle, csv
+import time
 from traceback import format_exc
 #
 from exactMM import run as exactMM_run
@@ -133,24 +134,28 @@ def run_multipleCores(machine_num):
         # gHeuristic
         #
         m = 'gHeuristic'
-        try:
-            B, eliCpuTime = gHeuristic_run(inputs,
-                                           log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
-            bB, \
-            T, r_i, v_i, _lambda, P, D, N, \
-            K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
-            objV = 0
-            for b in B:
-                p = 0
-                br = sum([r_i[i] for i in b])
-                for k, w in enumerate(w_k):
-                    if minTimePD(b, k, t_ij) < _delta:
-                        p += w * br
-                objV += p
-        except:
-            objV, eliCpuTime = -1, -1
-        gap, eliWallTime = -1, -1
+        objV, eliCpuTime, B = gHeuristic_run(inputs,
+                                       log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+        gap, eliWallTime = None, None
         record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        #
+        bB, \
+        T, r_i, v_i, _lambda, P, D, N, \
+        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+        objV = 0
+        startCpuTime, startWallTime = time.clock(), time.time()
+        for b in B:
+            p = 0
+            br = sum([r_i[i] for i in b])
+            for k, w in enumerate(w_k):
+                if minTimePD(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m))) < _delta:
+                    p += w * br
+            objV += p
+        endCpuTime, endWallTime = time.clock(), time.time()
+        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
+        gap = None
+        record_res(opath.join(res_dpath, '%s-%s(minPD).csv' % (prefix, m)),
                    nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         #
         # colGenMM
@@ -278,14 +283,14 @@ def summary():
                             else:
                                 optG = (ex_objV - eval(objV)) / ex_objV * 100
                     else:
-                        objV, wallT, cpuT = -1, -1, -1
-                        optG = -1
+                        objV, wallT, cpuT = None, None, None
+                        optG = None
                     new_row += [objV, optG, wallT, cpuT]
                 writer.writerow(new_row)
 
 
 if __name__ == '__main__':
-    # summary()
+    summary()
 
     # machine_dpath = opath.join(dpath['experiment'], 'm4')
     # os.makedirs(machine_dpath)
@@ -294,7 +299,7 @@ if __name__ == '__main__':
     # gen_problems(problem_dpath)
 
     # cluster_run(0)
-    run_multipleCores(100)
+    # run_multipleCores(200)
 
     # run(0, num_workers=8)
     # local_run()

@@ -192,7 +192,7 @@ def run(problem, log_fpath=None):
     logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
     logContents += '\t chosen B.: %s\n' % str(bundles)
     record_logs(log_fpath, logContents)
-    return [[t.tid for t in b.tasks.values()] for b in bundles], eliTime
+    return sum(b.bundle_attr for b in bundles), eliTime, [[t.tid for t in b.tasks.values()] for b in bundles]
 
 
 class task(object):
