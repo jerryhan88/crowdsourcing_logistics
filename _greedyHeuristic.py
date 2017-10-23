@@ -249,6 +249,24 @@ def convert_input4greedyHeuristic(travel_time,
 
 if __name__ == '__main__':
     from problems import *
-    print(run(convert_input4greedyHeuristic(*ex2())))
+    import pickle
+    ifpath = 'nt18-np12-nb3-tv9-td6.pkl'
+    inputs = None
+    with open(ifpath, 'rb') as fp:
+        inputs = pickle.load(fp)
 
+    B, eliCpuTime = run(inputs)
 
+    from colGenMM import convert_input4MathematicalModel, minTimePD
+    bB, \
+    T, r_i, v_i, _lambda, P, D, N, \
+    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+    objV = 0
+    for b in B:
+        p = 0
+        br = sum([r_i[i] for i in b])
+        for k, w in enumerate(w_k):
+            if minTimePD(b, k, t_ij) < _delta:
+                p += w * br
+        objV += p
+    print(objV)

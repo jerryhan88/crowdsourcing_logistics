@@ -9,6 +9,7 @@ from traceback import format_exc
 #
 from exactMM import run as exactMM_run
 from colGenMM import run as colGenMM_run
+from colGenMM import convert_input4MathematicalModel, minTimePD
 
 try:
     from greedyHeuristic import run as gHeuristic_run
@@ -133,8 +134,19 @@ def run_multipleCores(machine_num):
         #
         m = 'gHeuristic'
         try:
-            objV, eliCpuTime = gHeuristic_run(inputs,
+            B, eliCpuTime = gHeuristic_run(inputs,
                                            log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
+            bB, \
+            T, r_i, v_i, _lambda, P, D, N, \
+            K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+            objV = 0
+            for b in B:
+                p = 0
+                br = sum([r_i[i] for i in b])
+                for k, w in enumerate(w_k):
+                    if minTimePD(b, k, t_ij) < _delta:
+                        p += w * br
+                objV += p
         except:
             objV, eliCpuTime = -1, -1
         gap, eliWallTime = -1, -1
@@ -143,31 +155,31 @@ def run_multipleCores(machine_num):
         #
         # colGenMM
         #
-        m = 'colGenMM'
-        for _pfCst in [1.2, 1.5]:
-            try:
-                objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
-                                                 log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
-                                                 numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
-            except:
-                import sys
-                with open('%s_error.txt' % sys.argv[0], 'w') as f:
-                    f.write(format_exc())
-                objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-            record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
-                       nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
-        #
-        # exactMM
-        #
-        m = 'exactMM'
-        try:
-            objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
-                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-                                        numThreads=_numThreads, TimeLimit=_TimeLimit)
-        except:
-            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # m = 'colGenMM'
+        # for _pfCst in [1.2, 1.5]:
+        #     try:
+        #         objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
+        #                                          log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
+        #                                          numThreads=_numThreads, TimeLimit=_TimeLimit, pfCst=_pfCst)
+        #     except:
+        #         import sys
+        #         with open('%s_error.txt' % sys.argv[0], 'w') as f:
+        #             f.write(format_exc())
+        #         objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        #     record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
+        #                nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # #
+        # # exactMM
+        # #
+        # m = 'exactMM'
+        # try:
+        #     objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
+        #                                 log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+        #                                 numThreads=_numThreads, TimeLimit=_TimeLimit)
+        # except:
+        #     objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
 
 
 def summary():
@@ -275,14 +287,14 @@ def summary():
 if __name__ == '__main__':
     # summary()
 
-    machine_dpath = opath.join(dpath['experiment'], 'm4')
-    os.makedirs(machine_dpath)
-    problem_dpath = opath.join(machine_dpath, '__problems')
-    os.makedirs(problem_dpath)
-    gen_problems(problem_dpath)
+    # machine_dpath = opath.join(dpath['experiment'], 'm4')
+    # os.makedirs(machine_dpath)
+    # problem_dpath = opath.join(machine_dpath, '__problems')
+    # os.makedirs(problem_dpath)
+    # gen_problems(problem_dpath)
 
     # cluster_run(0)
-    # run_multipleCores()
+    run_multipleCores(100)
 
     # run(0, num_workers=8)
     # local_run()

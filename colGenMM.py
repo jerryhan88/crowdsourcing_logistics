@@ -30,7 +30,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     #
     # generate initial bundles with the greedy heuristic
     #
-    B = gHeuristic_run(problem, initSol4ColGen=True)
+    B, _ = gHeuristic_run(problem)
     e_bi = []
     for b in B:
         vec = [0 for _ in range(len(T))]
