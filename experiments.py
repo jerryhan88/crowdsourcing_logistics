@@ -36,23 +36,15 @@ def gen_problems(problem_dpath):
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
     volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 5
+    numCols, numRows = 1, 4
     #
-    numBundles = 10
+    numBundles = 4
     # for numBundles in [20, 30]:
-    for numTasks in [30, 35, 40, 45, 50]:
+    for numTasks in [10, 12]:
         inputs = random_problem(numCols, numRows, maxFlow,
                                 numTasks, minReward, maxReward, minVolume, maxVolume,
                                 numBundles, volumeAlowProp, detourAlowProp)
         save_aProblem(inputs, problem_dpath, problem_summary_fpath)
-
-        # for numTasks in range(6, 30, 2):
-        #     for numBundles in range(3, max(4, int(numTasks / 4))):
-        #
-        #         inputs = random_problem(numCols, numRows, maxFlow,
-        #                                 numTasks, minReward, maxReward, minVolume, maxVolume,
-        #                                 numBundles, volumeAlowProp, detourAlowProp)
-        #         save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
 
 def save_aProblem(inputs, problem_dpath, problem_summary_fpath):
@@ -152,7 +144,7 @@ def run_multipleCores(machine_num):
         # colGenMM
         #
         m = 'colGenMM'
-        for _pfCst in [1.5]:
+        for _pfCst in [1.2, 1.5]:
             try:
                 objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
                                                  log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
@@ -167,15 +159,15 @@ def run_multipleCores(machine_num):
         #
         # exactMM
         #
-        # m = 'exactMM'
-        # try:
-        #     objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
-        #                                 log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-        #                                 numThreads=_numThreads, TimeLimit=_TimeLimit)
-        # except:
-        #     objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        m = 'exactMM'
+        try:
+            objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
+                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+                                        numThreads=_numThreads, TimeLimit=_TimeLimit)
+        except:
+            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
 
 
 def summary():
@@ -281,13 +273,13 @@ def summary():
 
 
 if __name__ == '__main__':
-    summary()
+    # summary()
 
-    # machine_dpath = opath.join(dpath['experiment'], 'm17')
-    # os.makedirs(machine_dpath)
-    # problem_dpath = opath.join(machine_dpath, '__problems')
-    # os.makedirs(problem_dpath)
-    # gen_problems(problem_dpath)
+    machine_dpath = opath.join(dpath['experiment'], 'm4')
+    os.makedirs(machine_dpath)
+    problem_dpath = opath.join(machine_dpath, '__problems')
+    os.makedirs(problem_dpath)
+    gen_problems(problem_dpath)
 
     # cluster_run(0)
     # run_multipleCores()
