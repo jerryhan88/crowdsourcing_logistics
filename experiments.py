@@ -159,7 +159,8 @@ def run_multipleCores(machine_num):
         # colGenMM
         #
         m = 'colGenMM'
-        for _pfCst in [1.2, 1.5]:
+        # for _pfCst in [1.2, 1.5]:
+        for _pfCst in [1.5]:
             try:
                 objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
                                                  log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
