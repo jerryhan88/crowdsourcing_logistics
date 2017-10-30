@@ -50,7 +50,7 @@ def run(path=None):
             if lat < min_lat:
                 min_lat = lat
     lonC, latC = (max_lon + min_lon) / 2.0, (max_lat + min_lat) / 2.0
-    map_osm = folium.Map(location=[latC, lonC], zoom_start=11)
+    map_osm = folium.Map(location=[latC, lonC], zoom_start=14)
     color_map = ['red', 'green', 'blue', 'orange', 'black', 'purple', 'gray', 'white']
     for i, stations in enumerate(dist_stations.itervalues()):
         for locName, lon, lat in stations:

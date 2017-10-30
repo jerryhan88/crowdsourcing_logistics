@@ -27,7 +27,7 @@ def get_points():
     with open(fpath) as f:
         kml_doc = parser.parse(f).getroot().Document
     for pm in kml_doc.Placemark:
-        if pm.name not in ['P%d' % (i + 1) for i in xrange(4)]:
+        if pm.name not in ['P%d' % (i + 1) for i in range(4)]:
             continue
         _lon, _lat, _ = str(pm.Point.coordinates).split(',')
         points[pm.name] = map(eval, [_lon, _lat])
