@@ -1,13 +1,18 @@
 from treelib import Node, Tree
 
-# tree = Tree()
-# tree.create_node("Harry", "harry")  # root node
-# tree.create_node("Jane", "jane", parent="harry")
-# tree.create_node("Bill", "bill", parent="harry")
-# tree.create_node("Diane", "diane", parent="jane")
-# tree.create_node("Mary", "mary", parent="diane")
-# tree.create_node("Mark", "mark", parent="jane")
-# tree.show()
+tree = Tree()
+tree.create_node("Harry", "harry")  # root node
+tree.create_node("Jane", "jane", parent="harry")
+tree.create_node("Bill", "bill", parent="harry")
+tree.create_node("Diane", "diane", parent="jane")
+tree.create_node("Mary", "mary", parent="diane")
+tree.create_node("Mark", "mark", parent="jane")
+tree.show()
+# print(tree.nodes())
+for id, n in tree.nodes.items():
+    if n.is_leaf():
+        print(id, n)
+
 #
 #
 # sub_t = tree.subtree('diane')
@@ -39,26 +44,26 @@ from treelib import Node, Tree
 # tree.show(line_type="ascii-em")
 
 
-class Flower(object):
-    def __init__(self, color):
-        self.color = color
+# class Flower(object):
+#     def __init__(self, color):
+#         self.color = color
 
 # class FlowerNode(Node):
 #     def __init__(self, color):
 #         self.color = color
 
-ftree = Tree()
-ftree.create_node("Root", "root", data=Flower("black"))
-ftree.create_node("F1", "f1", parent='root', data=Flower("white"))
-ftree.create_node("F2", "f2", parent='root', data=Flower("red"))
-
-node = ftree.get_node("root")
-print(node.tag)
-print(node.fpointer)
-print(type(node.data))
-cNode = ftree.get_node("f1")
-print(cNode.bpointer)
-
-
-ftree.show(data_property="color")
+# ftree = Tree()
+# ftree.create_node("Root", "root", data=Flower("black"))
+# ftree.create_node("F1", "f1", parent='root', data=Flower("white"))
+# ftree.create_node("F2", "f2", parent='root', data=Flower("red"))
+#
+# node = ftree.get_node("root")
+# print(node.tag)
+# print(node.fpointer)
+# print(type(node.data))
+# cNode = ftree.get_node("f1")
+# print(cNode.bpointer)
+#
+#
+# ftree.show(data_property="color")
 

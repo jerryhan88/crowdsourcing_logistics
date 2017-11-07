@@ -23,6 +23,12 @@ from _utils.logging import *
 from _utils.mm_utils import *
 
 
+import pickle
+ifpath = 'nt10-np20-nb4-tv3-td7.pkl'
+prefix = ifpath[:-len('.csv')]
+tsl_fpath = '%s.tsl' % prefix
+
+
 class BnBNode(object):
     def __init__(self, nid, probSetting, paraSetting, grbSetting):
         self.nid = nid
@@ -213,47 +219,51 @@ class BnBNode(object):
         return is_feasible
 
     def gen_initBundles(self):
-        bB, \
-        T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
-        #
-        # generate initial bundles with the greedy heuristic
-        #
-        _, _, B = gHeuristic_run(self.problem)
-        e_bi = []
-        for b in B:
-            vec = [0 for _ in range(len(T))]
-            for i in b:
-                vec[i] = 1
-            e_bi.append(vec)
-        #
-        logContents = 'Initial bundles\n'
-        for b in B:
-            logContents += '\t %s\n' % str(b)
-        if self.grbSetting['LogFile']:
-            with open(self.grbSetting['LogFile'], 'wt') as f:
-                f.write(logContents)
+        if not opath.exists(tsl_fpath):
+            bB, \
+            T, r_i, v_i, _lambda, P, D, N, \
+            K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
+            #
+            # generate initial bundles with the greedy heuristic
+            #
+            _, _, B = gHeuristic_run(self.problem)
+            e_bi = []
+            for b in B:
+                vec = [0 for _ in range(len(T))]
+                for i in b:
+                    vec[i] = 1
+                e_bi.append(vec)
+            #
+            logContents = 'Initial bundles\n'
+            for b in B:
+                logContents += '\t %s\n' % str(b)
+            if self.grbSetting['LogFile']:
+                with open(self.grbSetting['LogFile'], 'wt') as f:
+                    f.write(logContents)
+            else:
+                print(logContents)
+            #
+            p_b = []
+            logContents = 'Bundle-Path feasibility\n'
+            for b in range(len(B)):
+                logContents += '%s\n' % str(B[b])
+                bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
+                p = 0
+                br = sum([r_i[i] for i in bundle])
+                for k, w in enumerate(w_k):
+                    detourTime, route = minTimePD_run(bundle, k, t_ij)
+                    if detourTime <= _delta:
+                        p += w * br
+                        logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
+                    else:
+                        logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
+                p_b.append(p)
+                logContents += '\t\t\t\t\t\t %.3f\n' % p
+            if LOGGING_FEASIBILITY:
+                record_logs(self.grbSetting['LogFile'], logContents)
         else:
-            print(logContents)
-        #
-        p_b = []
-        logContents = 'Bundle-Path feasibility\n'
-        for b in range(len(B)):
-            logContents += '%s\n' % str(B[b])
-            bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
-            p = 0
-            br = sum([r_i[i] for i in bundle])
-            for k, w in enumerate(w_k):
-                detourTime, route = minTimePD_run(bundle, k, t_ij)
-                if detourTime <= _delta:
-                    p += w * br
-                    logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
-                else:
-                    logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
-            p_b.append(p)
-            logContents += '\t\t\t\t\t\t %.3f\n' % p
-        if LOGGING_FEASIBILITY:
-            record_logs(self.grbSetting['LogFile'], logContents)
+            with open(tsl_fpath, 'rb') as fp:
+                B, p_b, e_bi = pickle.load(fp)
         return B, p_b, e_bi
 
 

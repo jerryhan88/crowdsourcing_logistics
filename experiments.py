@@ -19,7 +19,7 @@ if opath.exists(c_fn):
 else:
     from setup import cythonize; cythonize(prefix)
 from greedyHeuristic import run as gHeuristic_run
-
+from branchNPrice import BnBTree
 
 def gen_problems(problem_dpath):
     #
@@ -142,15 +142,38 @@ def run_multipleCores(machine_num):
         #
         # exactMM
         #
-        m = 'exactMM'
-        try:
-            objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
-                                        log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
-                                        numThreads=_numThreads, TimeLimit=_TimeLimit)
-        except:
-            objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
-        record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
-                   nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # m = 'exactMM'
+        # try:
+        #     objV, gap, eliCpuTime, eliWallTime = exactMM_run(inputs,
+        #                                 log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)),
+        #                                 numThreads=_numThreads, TimeLimit=_TimeLimit)
+        # except:
+        #     objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
+        #            nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        #
+        m = 'bnpM'
+        _PoolSolutions = 20
+        for _pfCst in [1.2, 1.5]:
+            try:
+                probSetting = {'problem': inputs,
+                               'inclusiveC': [], 'exclusiveC': []}
+                paraSetting = {'pfCst': _pfCst}
+                grbSetting = {'LogFile': opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
+                              'Threads': _numThreads,
+                              'TimeLimit': _TimeLimit,
+                              'PoolSolutions': _PoolSolutions
+
+                              }
+                bnbTree = BnBTree(probSetting, paraSetting, grbSetting)
+                objV, gap, eliCpuTime, eliWallTime = bnbTree.startBnP()
+            except:
+                import sys
+                with open('%s_error.txt' % sys.argv[0], 'w') as f:
+                    f.write(format_exc())
+                objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+            record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
+                       nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
         os.remove(ifpath)
 
 

@@ -2,14 +2,6 @@ EPSILON = 0.000000001
 
 
 def set_grbSettings(mm, grb_settings):
-    # if TimeLimit is not None:
-    #     pricingM.setParam('TimeLimit', TimeLimit)
-    # if numThreads is not None:
-    #     pricingM.setParam('Threads', numThreads)
-    # if log_fpath is not None:
-    #     pricingM.setParam('LogFile', log_fpath)
-    # if numPoolSols is not None:
-    #     pricingM.setParam('PoolSolutions', numPoolSols)
     for k, v in grb_settings.items():
         mm.setParam(k, v)
 
