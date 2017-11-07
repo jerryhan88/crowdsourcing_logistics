@@ -1,9 +1,8 @@
 from init_project import *
 #
-import time
+from datetime import datetime
 #
 from _utils.logging import record_logs
-from problems import *
 
 
 def run(problem, log_fpath=None):
@@ -107,7 +106,7 @@ def run(problem, log_fpath=None):
             #
             path_ws = 0
             for p, (additional_detour, _, _) in task_path_insertion_estimation.items():
-                if b.path_detour[p] + additional_detour <= detour_th:
+                if b.path_detour[p] + additional_detour < detour_th:
                     path_ws += p.w
             bundle_attr = (sum(t.r for t in b.tasks.values()) + t1.r) * path_ws
             return bundle_attr, task_path_insertion_estimation
@@ -120,7 +119,7 @@ def run(problem, log_fpath=None):
             assert pd_name.startswith('d')
             return t.dp
     #
-    startCpuTime= time.clock()
+    startTime = datetime.now()
     #
     # initialize variable to accumulate task attractiveness score
     #
@@ -182,23 +181,74 @@ def run(problem, log_fpath=None):
         candi_bundles = new_candi_bundles
     unassigned_tasks = tasks
     #
-    endCpuTime = time.clock()
-    eliCpuTime = endCpuTime - startCpuTime
+    endTime = datetime.now()
+    eliTime = (endTime - startTime).seconds
     #
     logContents = '\n\n'
     logContents += 'Summary\n'
-    logContents += '\t Sta.Time: %s\n' % str(startCpuTime)
-    logContents += '\t End.Time: %s\n' % str(endCpuTime)
-    logContents += '\t Eli.Time: %f\n' % eliCpuTime
+    logContents += '\t Sta.Time: %s\n' % str(startTime)
+    logContents += '\t End.Time: %s\n' % str(endTime)
+    logContents += '\t Eli.Time: %d\n' % eliTime
     logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
-    logContents += '\t chosen B.: %s\n' % str([[t.tid for t in b.tasks.values()] for b in bundles])
-    logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
+    logContents += '\t chosen B.: %s\n' % str(bundles)
     record_logs(log_fpath, logContents)
-    return sum(b.bundle_attr for b in bundles), eliCpuTime, [[t.tid for t in b.tasks.values()] for b in bundles]
+    return sum(b.bundle_attr for b in bundles), eliTime, [[t.tid for t in b.tasks.values()] for b in bundles]
+
+
+class task(object):
+    def __init__(self, tid, pp, dp, v, r):
+        self.tid = tid
+        self.pp, self.dp = pp, dp
+        self.v, self.r = v, r
+
+    def set_attr(self, attr):
+        self.attr = attr
+
+    def __repr__(self):
+        return 't%d(%s->%s;%.03f)' % (self.tid, self.pp, self.dp, self.r)
+
+class path(object):
+    def __init__(self, ori, dest, w=None):
+        self.ori, self.dest, self.w = ori, dest, w
+
+    def __repr__(self):
+        if self.w != None:
+            return '%d->%d;%.03f' % (self.ori, self.dest, self.w)
+        else:
+            return '%d->%d' % (self.ori, self.dest)
+
+
+class bundle(object):
+    def __init__(self, bid, paths):
+        self.bid = bid
+        #
+        self.tasks = {}
+        self.path_pd_seq, self.path_detour = {}, {}
+        for p in paths:
+            self.path_pd_seq[p] = []
+            self.path_detour[p] = 0
+        self.bundle_attr = 0
+
+    def __repr__(self):
+        return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.values()]))
+
+def convert_input4greedyHeuristic(travel_time,
+                                  flows, paths,
+                                  tasks, rewards, volumes,
+                                  num_bundles, volume_th, detour_th):
+    #
+    # Convert inputs for the greedy heuristic
+    #
+    tasks = [task(i, pp, dd, volumes[i], rewards[i]) for i, (pp, dd) in enumerate(tasks)]
+    total_flows = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
+    paths = [path(ori, dest, flows[ori][dest] / float(total_flows)) for ori, dest in paths]
+    #
+    return travel_time, tasks, paths, detour_th, volume_th, num_bundles
+
 
 
 if __name__ == '__main__':
     from problems import *
-    print(run(ex2()))
+    print(run(convert_input4greedyHeuristic(*ex2())))
 
 

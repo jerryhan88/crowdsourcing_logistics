@@ -2,23 +2,22 @@ from init_project import *
 #
 from cpuinfo import get_cpu_info
 from psutil import virtual_memory
-from traceback import format_exc
+import platform
+import shutil, os
 import pickle, csv
-import time
 #
+from __old.exactMM import run as exactMM_run
+
+try:
+    from greedyHeuristic import run as gHeuristic_run
+except ModuleNotFoundError:
+    from setup import cythonize
+
+    cythonize('greedyHeuristic')
+    #
+    from greedyHeuristic import run as gHeuristic_run
+
 from problems import *
-#
-from exactMM import run as exactMM_run
-from minTimePD import run as minTimePD_run
-from colGenMM import run as colGenMM_run
-prefix = 'greedyHeuristic'
-pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
-if opath.exists(c_fn):
-    if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
-        from setup import cythonize; cythonize(prefix)
-else:
-    from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
 
 
 def gen_problems(problem_dpath):
@@ -43,19 +42,49 @@ def gen_problems(problem_dpath):
         inputs = random_problem(numCols, numRows, maxFlow,
                                 numTasks, minReward, maxReward, minVolume, maxVolume,
                                 numBundles, volumeAlowProp, detourAlowProp)
-        travel_time, \
-        flows, paths, \
-        tasks, rewards, volumes, \
-        numBundles, thVolume, thDetour = inputs
-        numTasks, numPaths = map(len, [tasks, paths])
-        fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
-        with open(problem_summary_fpath, 'a') as w_csvfile:
-            writer = csv.writer(w_csvfile, lineterminator='\n')
-            writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
-        ofpath = opath.join(problem_dpath, fn)
-        with open(ofpath, 'wb') as fp:
-            pickle.dump(inputs, fp)
+        save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
+
+def save_aProblem(inputs, problem_dpath, problem_summary_fpath):
+    travel_time, \
+    flows, paths, \
+    tasks, rewards, volumes, \
+    numBundles, thVolume, thDetour = inputs
+    numTasks, numPaths = map(len, [tasks, paths])
+    fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+    with open(problem_summary_fpath, 'a') as w_csvfile:
+        writer = csv.writer(w_csvfile, lineterminator='\n')
+        writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
+    ofpath = opath.join(problem_dpath, fn)
+    with open(ofpath, 'wb') as fp:
+        pickle.dump(inputs, fp)
+
+
+def init_expEnv(initEnv=False):
+    cpu_info = get_cpu_info()
+    # exp_dpath = opath.join(dpath['experiment'], str(cpu_info['brand']))
+    exp_dpath = opath.join(dpath['experiment'], str(platform.node()))
+    problem_dpath = opath.join(exp_dpath, '__problem')
+    log_dpath = opath.join(exp_dpath, 'log')
+    res_dpath = opath.join(exp_dpath, 'res')
+    if initEnv and opath.exists(exp_dpath):
+        shutil.rmtree(exp_dpath)
+    try:
+        if not opath.exists(exp_dpath):
+            for path in [exp_dpath, problem_dpath, log_dpath, res_dpath]:
+                os.makedirs(path)
+            #
+            cpu_spec_fpath = opath.join(exp_dpath, '__cpuSpec.txt')
+            with open(cpu_spec_fpath, 'w') as f:
+                f.write('numProcessor: %d\n' % int(cpu_info['count']))
+                f.write('bits: %d\n' % int(cpu_info['bits']))
+                f.write('brand:%s' % str(cpu_info['brand']))
+            gen_problems(problem_dpath)
+    except:
+        pass
+    #
+    return log_dpath, res_dpath, [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
+                                  if fn.endswith('.pkl')]
 
 
 def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem):
@@ -114,8 +143,7 @@ def run_multipleCores(machine_num):
         #     p = 0
         #     br = sum([r_i[i] for i in b])
         #     for k, w in enumerate(w_k):
-        #         detour, _ = minTimePD_run(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m)))
-        #         if detour < _delta:
+        #         if minTimePD(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m))) < _delta:
         #             p += w * br
         #     objV += p
         # endCpuTime, endWallTime = time.clock(), time.time()
@@ -128,6 +156,7 @@ def run_multipleCores(machine_num):
         #
         # m = 'colGenMM'
         # for _pfCst in [1.2, 1.5]:
+        # for _pfCst in [1.5]:
         #     try:
         #         objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
         #                                          log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
@@ -304,6 +333,18 @@ def summary():
 
 
 if __name__ == '__main__':
-    run_multipleCores(0)
     summary()
 
+    # machine_dpath = opath.join(dpath['experiment'], 'm4')
+    # os.makedirs(machine_dpath)
+    # problem_dpath = opath.join(machine_dpath, '__problems')
+    # os.makedirs(problem_dpath)
+    # gen_problems(problem_dpath)
+
+    # cluster_run(0)
+    # run_multipleCores(2000)
+
+    # run(0, num_workers=8)
+    # local_run()
+    # single_run('nt6-np20-nb4-tv2-td4.pkl')
+    # run(0)

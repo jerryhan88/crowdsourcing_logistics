@@ -1,13 +1,11 @@
 from init_project import *
 #
 from gurobipy import *
-#
-from problems import *
 import time
+# from time import clock
 #
-from _utils.logging import *
+from _utils.logging import record_logs, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
-
 
 def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     def addLazyC(m, where):
@@ -136,7 +134,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
             # Feasibility
             #  # eq:pathFeasibility
             exactMM.addConstr(quicksum(t_ij[i, j] * x_bkij[b, k, i, j] for i in kN for j in kN if not (i == kM and j == kP)) \
-                              - t_ij[kM, kP] - t_ij[kP, kM] <= _delta + bigM3 * (1 - y_bk[b, k]),
+                        - t_ij[kP, kM] <= _delta + bigM3 * (1 - y_bk[b, k]),
                         name='pf[%d,%d]' % (b, k))
     #
     exactMM._B, exactMM._T, exactMM._K = B, T, K
@@ -177,6 +175,60 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     record_logs(log_fpath, logContents)
     #
     return exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime
+
+
+def convert_input4MathematicalModel(travel_time, \
+                                    flows, paths, \
+                                    tasks, rewards, volumes, \
+                                    num_bundles, volume_th, detour_th):
+    #
+    # Bundle
+    #
+    bB = num_bundles
+    _lambda = volume_th
+    #
+    # Task
+    #
+    T = list(range(len(tasks)))
+    iP, iM = list(zip(*[tasks[i] for i in T]))
+    r_i, v_i = rewards, volumes
+    P, D = set(), set()
+    _N = {}
+    for i in T:
+        P.add('p%d' % i)
+        D.add('d%d' % i)
+        #
+        _N['p%d' % i] = iP[i]
+        _N['d%d' % i] = iM[i]
+    #
+    # Path
+    #
+    K = list(range(len(paths)))
+    kP, kM = list(zip(*[paths[k] for k in K]))
+    sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
+    w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
+    _delta = detour_th
+    t_ij = {}
+    for k in K:
+        _kP, _kM = 'ori%d' % k, 'dest%d' % k
+        t_ij[_kP, _kP] = travel_time[kP[k], kP[k]]
+        t_ij[_kM, _kM] = travel_time[kM[k], kM[k]]
+        t_ij[_kP, _kM] = travel_time[kP[k], kM[k]]
+        t_ij[_kM, _kP] = travel_time[kM[k], kP[k]]
+        for i in _N:
+            t_ij[_kP, i] = travel_time[kP[k], _N[i]]
+            t_ij[i, _kP] = travel_time[_N[i], kP[k]]
+            #
+            t_ij[_kM, i] = travel_time[kM[k], _N[i]]
+            t_ij[i, _kM] = travel_time[_N[i], kM[k]]
+    for i in _N:
+        for j in _N:
+            t_ij[i, j] = travel_time[_N[i], _N[j]]
+    N = set(_N.keys())
+    #
+    return bB, \
+           T, r_i, v_i, _lambda, P, D, N, \
+           K, w_k, t_ij, _delta
 
 
 if __name__ == '__main__':
