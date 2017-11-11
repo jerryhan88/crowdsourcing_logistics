@@ -1,8 +1,6 @@
-from _utils.recording import record_logs
-from problems import *
 
 
-def run(problem, log_fpath=None):
+def run(problem):
     travel_time, tasks, paths, detour_th, volume_th, num_bundles = convert_input4greedyHeuristic(*problem)
     #
     def insert_task(b, t1, path_insertion_estimation=None):

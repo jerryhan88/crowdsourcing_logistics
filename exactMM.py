@@ -1,15 +1,13 @@
-from init_project import *
-#
 from gurobipy import *
 #
 from problems import *
 import time
 #
 from _utils.recording import *
-from _utils.mm_utils import get_routeFromOri
+from _utils.mm_utils import *
 
 
-def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
+def run(probSetting, grbSetting, etcSetting):
     def addLazyC(m, where):
         if where == GRB.callback.MIPSOL:
             for b in m._B:
@@ -30,6 +28,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
                         m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
     #
     startCpuTime, startWallTime = time.clock(), time.time()
+    problem = probSetting['problem']
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
     K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
@@ -135,7 +134,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
             #
             # Feasibility
             #  # eq:pathFeasibility
-            exactMM.addConstr(quicksum(t_ij[i, j] * x_bkij[b, k, i, j] for i in kN for j in kN if not (i == kM and j == kP)) \
+            exactMM.addConstr(quicksum(t_ij[i, j] * x_bkij[b, k, i, j] for i in kN for j in kN) \
                               - t_ij[kM, kP] - t_ij[kP, kM] <= _delta + bigM3 * (1 - y_bk[b, k]),
                         name='pf[%d,%d]' % (b, k))
     #
@@ -143,21 +142,9 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     exactMM._z_bi, exactMM._x_bkij = z_bi, x_bkij
     exactMM.params.LazyConstraints = 1
     #
-    # setting
-    #
-
-
-
-    if TimeLimit is not None:
-        exactMM.setParam('TimeLimit', TimeLimit)
-    if numThreads is not None:
-        exactMM.setParam('Threads', numThreads)
-    if log_fpath is not None:
-        exactMM.setParam('LogFile', log_fpath)
-    exactMM.setParam('OutputFlag', O_GL)
-    #
     # Run Gurobi (Optimization)
     #
+    set_grbSettings(exactMM, grbSetting)
     exactMM.optimize(addLazyC)
     #
     endCpuTime, endWallTime = time.clock(), time.time()
@@ -177,11 +164,56 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     logContents += '\t ObjV: %.3f\n' % exactMM.objVal
     logContents += '\t Gap: %.3f\n' % exactMM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
-    record_logs(log_fpath, logContents)
-    #
-    return exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime
+    record_logs(etcSetting['exLogF'], logContents)
+
+    logContents = '\n\n'
+    for b in B:
+        bundle = [i for i in T if z_bi[b, i].x > 0.5]
+        br = sum([r_i[i] for i in bundle])
+        logContents += '%s (%d) \n' % (str(bundle), br)
+        p = 0
+        for k in K:
+            _kP, _kM = 'ori%d' % k, 'dest%d' % k
+            kN = N.union({_kP, _kM})
+            _route = {}
+            detourTime = 0
+            for j in kN:
+                for i in kN:
+                    if x_bkij[b, k, i, j].x > 0.5:
+                        detourTime += t_ij[i, j]
+                        _route[i] = j
+            detourTime -= t_ij[kM, kP]
+            detourTime -= t_ij[kP, kM]
+            i = _kP
+            route = []
+            while i != _kM:
+                route.append(i)
+                i = _route[i]
+            route.append(i)
+            if y_bk[b, k].x > 0.5:
+                p += w_k[k] * br
+                logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 1, str(route))
+            else:
+                logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 0, str(route))
+        logContents += '\t\t\t\t\t\t %.3f\n' % p
+    record_logs(etcSetting['exLogF'], logContents)
+    record_res(etcSetting['exResF'], exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime)
 
 
 if __name__ == '__main__':
-    from problems import *
-    print(run(ex2()))
+    # from problems import *
+    # print(run(ex2()))
+    import pickle
+
+    ifpath = 'nt05-np12-nb2-tv3-td5.pkl'
+    with open(ifpath, 'rb') as fp:
+        inputs = pickle.load(fp)
+    probSetting = {'problem': inputs}
+    exLogF = 'exM.log'
+    exResF = 'exM.csv'
+    grbSetting = {'LogFile' : exLogF}
+    etcSetting = {'exLogF': exLogF,
+                  'exResF': exResF
+                  }
+    #
+    run(probSetting, grbSetting, etcSetting)

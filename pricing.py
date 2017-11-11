@@ -4,10 +4,12 @@ from _utils.recording import *
 from _utils.mm_utils import *
 
 
+PRICING_TIME_LIMIT = 60 * 10
+
 def run(counter,
         pi_i, mu, B, input4subProblem,
         inclusiveC, exclusiveC,
-        grb_settings):
+        grbSetting):
     def process_callback(pricingM, where):
         if where == GRB.callback.MIPSOL:
             tNodes = []
@@ -25,6 +27,26 @@ def run(counter,
                     for i, j in route:
                         expr += pricingM._x_kij[k, i, j]
                     pricingM.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
+
+        if where == GRB.callback.MIP and pricingM.cbGet(GRB.Callback.MIP_SOLCNT):
+            runTime = pricingM.cbGet(GRB.callback.RUNTIME)
+            objbst = pricingM.cbGet(GRB.Callback.MIP_OBJBST)
+            objbnd = pricingM.cbGet(GRB.Callback.MIP_OBJBND)
+            gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
+            timeIntv = runTime - pricingM._lastGapUpTime
+            #
+            if gap < pricingM._minGap:
+                pricingM._minGap = gap
+                pricingM._lastGapUpTime = runTime
+            else:
+                gapPct = gap * 100
+                if PRICING_TIME_LIMIT < timeIntv:
+                    logContents = '\n\n'
+                    logContents += 'Termination\n'
+                    logContents += '\t gapPct: %.2f \n' % gapPct
+                    logContents += '\t timeIntv: %f \n' % timeIntv
+                    record_logs(grbSetting['LogFile'], logContents)
+                    pricingM.terminate()
     #
     T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
     bigM1 = sum(r_i) * 2
@@ -158,7 +180,7 @@ def run(counter,
     #
     # Run Gurobi (Optimization)
     #
-    set_grbSettings(pricingM, grb_settings)
+    set_grbSettings(pricingM, grbSetting)
     pricingM.optimize(process_callback)
     if LOGGING_FEASIBILITY:
         logContents = 'newBundle!!\n'
@@ -188,13 +210,13 @@ def run(counter,
             else:
                 logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
         logContents += '\t\t\t\t\t\t %.3f \t %.3f\n' % (pricingM.objVal, p)
-        record_logs(grb_settings['LogFile'], logContents)
+        record_logs(grbSetting['LogFile'], logContents)
     #
     if pricingM.status == GRB.Status.INFEASIBLE:
         logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
         logContents += '!!!!!!!!Pricing infeasible!!!!!!!!'
         logContents += '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-        record_logs(grb_settings['LogFile'], logContents)
+        record_logs(grbSetting['LogFile'], logContents)
         return None
     else:
         nSolutions = pricingM.SolCount

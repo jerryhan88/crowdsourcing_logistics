@@ -34,16 +34,7 @@ def record_bpt(fpath, contents=[]):
             writer.writerow(contents)
 
 
-def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem):
-    with open(fpath, 'wt') as w_csvfile:
-        writer = csv.writer(w_csvfile, lineterminator='\n')
-        header = ['numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour',
-                  'method', 'objV', 'Gap', 'eliCpuTime', 'eliWallTime']
-        writer.writerow(header)
-        writer.writerow([nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem])
-
-
-def record_res1(fpath, objV, gap, eliCpuTime, eliWallTiem):
+def record_res(fpath, objV, gap, eliCpuTime, eliWallTiem):
     with open(fpath, 'wt') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
         header = ['objV', 'Gap', 'eliCpuTime', 'eliWallTime']

@@ -1,7 +1,7 @@
 from bnpTree import BnPTree
 
 
-ifpath = 'nt10-np20-nb4-tv3-td7.pkl'
+ifpath = 'nt05-np12-nb2-tv3-td5.pkl'
 #
 def test():
     import pickle

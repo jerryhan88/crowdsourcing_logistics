@@ -21,7 +21,6 @@ from _utils.mm_utils import *
 from _utils.recording import *
 
 
-
 class BnPNode(object):
     def __init__(self, nid, probSetting, grbSetting, etcSetting):
         self.nid = nid
@@ -69,7 +68,7 @@ class BnPNode(object):
         logContents += '\t chosen B.: %s\n' % str(B)
         logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
         record_logs(self.etcSetting['ghLogF'], logContents)
-        record_res1(self.etcSetting['ghResF'], objV, gap, eliCpuTime, eliWallTime)
+        record_res(self.etcSetting['ghResF'], objV, gap, eliCpuTime, eliWallTime)
         #
         logContents = '\n\n'
         logContents += '===========================================================\n'
@@ -94,18 +93,18 @@ class BnPNode(object):
         p_b = []
         logContents = 'Bundle-Path feasibility\n'
         for b in range(len(B)):
-            logContents += '%s\n' % str(B[b])
             bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
-            p = 0
             br = sum([r_i[i] for i in bundle])
+            logContents += '%s (%d) \n' % (str(bundle), br)
+            p = 0
             for k, w in enumerate(w_k):
                 probSetting = {'b': bundle, 'k': k, 't_ij': t_ij}
                 detourTime, route = optR_run(probSetting, grbSettingOP)
                 if detourTime <= _delta:
                     p += w * br
-                    logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
+                    logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 1, str(route))
                 else:
-                    logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
+                    logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 0, str(route))
             p_b.append(p)
             logContents += '\t\t\t\t\t\t %.3f\n' % p
         objV, gap = sum(p_b), None
@@ -119,9 +118,8 @@ class BnPNode(object):
         logContents += '\t Eli.Time: %f\n' % eliCpuTime
         logContents += '\t ObjV: %.3f\n' % objV
         logContents += '\t chosen B.: %s\n' % str(B)
-        logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
         record_logs(self.etcSetting['orLogF'], logContents)
-        record_res1(self.etcSetting['orResF'], objV, gap, eliCpuTime, eliWallTime)
+        record_res(self.etcSetting['orResF'], objV, gap, eliCpuTime, eliWallTime)
         #
         return B, p_b, e_bi
 
@@ -169,17 +167,12 @@ class BnPNode(object):
                                           name="taskAC[%d]" % i)
         numBC = masterM.addConstr(quicksum(q_b[b] for b in range(len(B))) == bB,
                                   name="numBC")
-        try:
-            for i, (i0, i1) in enumerate(self.inclusiveC):
-                masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) >= 1,
-                                  name="mIC[%d]" % i)
-            for i, (i0, i1) in enumerate(self.exclusiveC):
-                masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) <= 0,
-                                  name="mEC[%d]" % i)
-        except KeyError:
-            record_problem(self.etcSetting['EpklFile'], self.probSetting)
-            record_logs(self.etcSetting['EmsgFile'], 'keyError')
-            assert False
+        for i, (i0, i1) in enumerate(self.inclusiveC):
+            masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) >= 1,
+                              name="mIC[%d]" % i)
+        for i, (i0, i1) in enumerate(self.exclusiveC):
+            masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) <= 0,
+                              name="mEC[%d]" % i)
         masterM.update()
         #
         counter, is_feasible = 0, True
@@ -222,6 +215,8 @@ class BnPNode(object):
             logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeP)
             logContents += '\t\t End.Time: %s\n' % str(endWallTimeP)
             logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
+            logContents += '\t Relaxed objVal\n'
+            logContents += '\t\t z: %.3f\n' % relaxM.objVal
             logContents += '\t Dual V\n'
             logContents += '\t\t Pi: %s\n' % str([round(v, 3) for v in pi_i])
             logContents += '\t\t mu: %.3f\n' % mu
@@ -265,9 +260,9 @@ class BnPNode(object):
             #
             # Run MIP for the root node
             #
-            threading_object = threading.Thread(target=self.solveMIP, args=(masterM, B))
-            threading_object.daemon = True
-            threading_object.start()
+            self.rootNodeMIP = threading.Thread(target=self.solveMIP, args=(masterM, B))
+            self.rootNodeMIP.daemon = True
+            self.rootNodeMIP.start()
         #
         if is_feasible:
             relaxM = masterM.relax()
@@ -340,5 +335,5 @@ class BnPNode(object):
         logContents += '\t ObjV: %.3f\n' % masterM.objVal
         logContents += '\t chosen B.: %s\n' % str(chosenB)
         record_logs(self.etcSetting['cgLogF'], logContents)
-        record_res1(self.etcSetting['cgResF'], masterM.objVal, masterM.MIPGap, eliCpuTime, eliWallTime)
+        record_res(self.etcSetting['cgResF'], masterM.objVal, masterM.MIPGap, eliCpuTime, eliWallTime)
 
