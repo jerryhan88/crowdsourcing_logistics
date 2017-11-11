@@ -72,8 +72,6 @@ class BnPNode(object):
         logContents = '\n\n'
         logContents += '===========================================================\n'
         logContents = 'Initial bundles\n'
-        for i in unassigned_tasks:
-            B.append([i])
         for b in B:
             logContents += '\t %s\n' % str(b)
         logContents += '===========================================================\n'
