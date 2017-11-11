@@ -16,17 +16,11 @@ if opath.exists(c_fn):
 else:
     from setup import cythonize; cythonize(prefix)
 from greedyHeuristic import run as gHeuristic_run
-from minTimePD import run as minTimePD_run
-from pricingWIE import run as pricingWIE_run
+from optRouting import run as minTimePD_run
+from pricing import run as pricingWIE_run
 #
-from _utils.logging import *
+from _utils.recording import *
 from _utils.mm_utils import *
-
-
-import pickle
-ifpath = 'nt10-np20-nb4-tv3-td7.pkl'
-prefix = ifpath[:-len('.csv')]
-tsl_fpath = '%s.tsl' % prefix
 
 
 class BnBNode(object):
@@ -101,9 +95,18 @@ class BnBNode(object):
                                           name="taskAC[%d]" % i)
         numBC = masterM.addConstr(quicksum(q_b[b] for b in range(len(B))) == bB,
                                   name="numBC")
-        for i, (i0, i1) in enumerate(self.inclusiveC):
-            masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) >= 1,
-                              name="mIC[%d]" % i)
+
+        try:
+            for i, (i0, i1) in enumerate(self.inclusiveC):
+                masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) >= 1,
+                                  name="mIC[%d]" % i)
+        except KeyError:
+            import pickle
+            with open(path, 'wb') as fp:
+                pickle.dump(self.probSetting, self.grbSetting['LogFile'][:-len('.log')] + '.pkl')
+            assert False
+
+
         for i, (i0, i1) in enumerate(self.exclusiveC):
             masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) <= 0,
                               name="mEC[%d]" % i)
@@ -219,51 +222,47 @@ class BnBNode(object):
         return is_feasible
 
     def gen_initBundles(self):
-        if not opath.exists(tsl_fpath):
-            bB, \
-            T, r_i, v_i, _lambda, P, D, N, \
-            K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
-            #
-            # generate initial bundles with the greedy heuristic
-            #
-            _, _, B = gHeuristic_run(self.problem)
-            e_bi = []
-            for b in B:
-                vec = [0 for _ in range(len(T))]
-                for i in b:
-                    vec[i] = 1
-                e_bi.append(vec)
-            #
-            logContents = 'Initial bundles\n'
-            for b in B:
-                logContents += '\t %s\n' % str(b)
-            if self.grbSetting['LogFile']:
-                with open(self.grbSetting['LogFile'], 'wt') as f:
-                    f.write(logContents)
-            else:
-                print(logContents)
-            #
-            p_b = []
-            logContents = 'Bundle-Path feasibility\n'
-            for b in range(len(B)):
-                logContents += '%s\n' % str(B[b])
-                bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
-                p = 0
-                br = sum([r_i[i] for i in bundle])
-                for k, w in enumerate(w_k):
-                    detourTime, route = minTimePD_run(bundle, k, t_ij)
-                    if detourTime <= _delta:
-                        p += w * br
-                        logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
-                    else:
-                        logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
-                p_b.append(p)
-                logContents += '\t\t\t\t\t\t %.3f\n' % p
-            if LOGGING_FEASIBILITY:
-                record_logs(self.grbSetting['LogFile'], logContents)
+        bB, \
+        T, r_i, v_i, _lambda, P, D, N, \
+        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
+        #
+        # generate initial bundles with the greedy heuristic
+        #
+        _, _, B = gHeuristic_run(self.problem)
+        e_bi = []
+        for b in B:
+            vec = [0 for _ in range(len(T))]
+            for i in b:
+                vec[i] = 1
+            e_bi.append(vec)
+        #
+        logContents = 'Initial bundles\n'
+        for b in B:
+            logContents += '\t %s\n' % str(b)
+        if self.grbSetting['LogFile']:
+            with open(self.grbSetting['LogFile'], 'wt') as f:
+                f.write(logContents)
         else:
-            with open(tsl_fpath, 'rb') as fp:
-                B, p_b, e_bi = pickle.load(fp)
+            print(logContents)
+        #
+        p_b = []
+        logContents = 'Bundle-Path feasibility\n'
+        for b in range(len(B)):
+            logContents += '%s\n' % str(B[b])
+            bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
+            p = 0
+            br = sum([r_i[i] for i in bundle])
+            for k, w in enumerate(w_k):
+                detourTime, route = minTimePD_run(bundle, k, t_ij)
+                if detourTime <= _delta:
+                    p += w * br
+                    logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
+                else:
+                    logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
+            p_b.append(p)
+            logContents += '\t\t\t\t\t\t %.3f\n' % p
+        if LOGGING_FEASIBILITY:
+            record_logs(self.grbSetting['LogFile'], logContents)
         return B, p_b, e_bi
 
 
@@ -287,7 +286,7 @@ class BnBTree(treelib.Tree):
         logContents += '===========================================================\n'
         record_logs(self.grbSetting['LogFile'], logContents)
         #
-        is_feasible = rootNode.data.solve_cgM()
+        is_feasible = rootNode.data.startCG()
         if not is_feasible:
             logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
             logContents += '%s\n' % str(datetime.now())
@@ -419,7 +418,7 @@ class BnBTree(treelib.Tree):
             self.create_node(lTag, lIndentifier, parent=pIdentifier,
                              data=BnBNode(lIndentifier, lProbSetting, self.paraSetting, self.grbSetting))
             lcNode = self.get_node(lIndentifier)
-            lcNode_feasibility = lcNode.data.solve_cgM()
+            lcNode_feasibility = lcNode.data.startCG()
             if lcNode_feasibility:
                 heappush(self.leafNodes, (-(self.depth(lcNode) + 0.1), lcNode))
             #
@@ -431,7 +430,7 @@ class BnBTree(treelib.Tree):
             self.create_node(rTag, rIndentifier, parent=pIdentifier,
                              data=BnBNode(rIndentifier, rProbSetting, self.paraSetting, self.grbSetting))
             rcNode = self.get_node(rIndentifier)
-            rcNode_feasibility = rcNode.data.solve_cgM()
+            rcNode_feasibility = rcNode.data.startCG()
             if rcNode_feasibility:
                 heappush(self.leafNodes, (-self.depth(rcNode), rcNode))
             #
@@ -455,23 +454,25 @@ class BnBTree(treelib.Tree):
         nProbSetting['exclusiveC'] = pProbSetting['exclusiveC'][:]
         return nProbSetting
 
-
+#
+ifpath = None
 def test():
+    import pickle
+
     with open(ifpath, 'rb') as fp:
         inputs = pickle.load(fp)
-    _pfCst = 1.5
+    _pfCst = 1.2
 
     probSetting = {'problem': inputs,
                    'inclusiveC': [], 'exclusiveC': []}
+
+
     paraSetting = {'pfCst': _pfCst}
-    grbSetting = {'LogFile': 'temp(%.2f).log' % _pfCst,
+    grbSetting = {'LogFile': 'test(%.2f).log' % _pfCst,
                   'Threads': 8}
-
-
 
     bnbTree = BnBTree(probSetting, paraSetting, grbSetting)
     bnbTree.startBnP()
-    # objV, gap, eliCpuTime, eliWallTime = run(inputs, log_fpath=, pfCst=)
 
 
 if __name__ == '__main__':

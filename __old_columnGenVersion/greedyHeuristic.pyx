@@ -2,7 +2,7 @@ from init_project import *
 #
 from datetime import datetime
 #
-from _utils.logging import record_logs
+from _utils.recording import record_logs
 
 
 def run(problem, log_fpath=None):
@@ -192,7 +192,7 @@ def run(problem, log_fpath=None):
     logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
     logContents += '\t chosen B.: %s\n' % str(bundles)
     record_logs(log_fpath, logContents)
-    return [[t.tid for t in b.tasks.values()] for b in bundles], eliTime
+    return sum(b.bundle_attr for b in bundles), eliTime, [[t.tid for t in b.tasks.values()] for b in bundles]
 
 
 class task(object):
@@ -249,24 +249,6 @@ def convert_input4greedyHeuristic(travel_time,
 
 if __name__ == '__main__':
     from problems import *
-    import pickle
-    ifpath = 'nt18-np12-nb3-tv9-td6.pkl'
-    inputs = None
-    with open(ifpath, 'rb') as fp:
-        inputs = pickle.load(fp)
+    print(run(convert_input4greedyHeuristic(*ex2())))
 
-    B, eliCpuTime = run(inputs)
 
-    from colGenMM import convert_input4MathematicalModel, minTimePD
-    bB, \
-    T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
-    objV = 0
-    for b in B:
-        p = 0
-        br = sum([r_i[i] for i in b])
-        for k, w in enumerate(w_k):
-            if minTimePD(b, k, t_ij) < _delta:
-                p += w * br
-        objV += p
-    print(objV)

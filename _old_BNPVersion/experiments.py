@@ -2,89 +2,68 @@ from init_project import *
 #
 from cpuinfo import get_cpu_info
 from psutil import virtual_memory
-import platform
-import shutil, os
+from traceback import format_exc
 import pickle, csv
+import time
 #
-from __old.exactMM import run as exactMM_run
-
-try:
-    from greedyHeuristic import run as gHeuristic_run
-except ModuleNotFoundError:
-    from setup import cythonize
-
-    cythonize('greedyHeuristic')
-    #
-    from greedyHeuristic import run as gHeuristic_run
-
 from problems import *
-
+#
+from exactMM import run as exactMM_run
+from optRouting import run as minTimePD_run
+from colGenMM import run as colGenMM_run
+prefix = 'greedyHeuristic'
+pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
+if opath.exists(c_fn):
+    if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
+        from setup import cythonize; cythonize(prefix)
+else:
+    from setup import cythonize; cythonize(prefix)
+from greedyHeuristic import run as gHeuristic_run
+from bnpTest import BnPTree
 
 def gen_problems(problem_dpath):
     #
     # Generate problems
     #
-    problem_summary_fpath = opath.join(problem_dpath, '__problem_summary.csv')
-    with open(problem_summary_fpath, 'wt') as w_csvfile:
-        writer = csv.writer(w_csvfile, lineterminator='\n')
-        new_headers = ['fn', 'numTasks', 'numPaths', 'numBundles', 'thVolume', 'thDetour']
-        writer.writerow(new_headers)
+    if not opath.exists(problem_dpath):
+        os.mkdir(problem_dpath)
     #
     maxFlow = 3
     minReward, maxReward = 1, 3
     minVolume, maxVolume = 1, 3
-    volumeAlowProp, detourAlowProp = 1.5, 1.2
+    volumeAlowProp, detourAlowProp = 1.5, 0.6
     numCols, numRows = 1, 4
     #
-    numBundles = 4
-    # for numBundles in [20, 30]:
-    for numTasks in [10, 12]:
-        inputs = random_problem(numCols, numRows, maxFlow,
-                                numTasks, minReward, maxReward, minVolume, maxVolume,
-                                numBundles, volumeAlowProp, detourAlowProp)
-        save_aProblem(inputs, problem_dpath, problem_summary_fpath)
 
-
-def save_aProblem(inputs, problem_dpath, problem_summary_fpath):
+    numTasks, numBundles = 25, 7
+    inputs = random_problem(numCols, numRows, maxFlow,
+                            numTasks, minReward, maxReward, minVolume, maxVolume,
+                            numBundles, volumeAlowProp, detourAlowProp)
     travel_time, \
     flows, paths, \
     tasks, rewards, volumes, \
     numBundles, thVolume, thDetour = inputs
     numTasks, numPaths = map(len, [tasks, paths])
     fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
-    with open(problem_summary_fpath, 'a') as w_csvfile:
-        writer = csv.writer(w_csvfile, lineterminator='\n')
-        writer.writerow([fn, numTasks, numPaths, numBundles, thVolume, thDetour])
     ofpath = opath.join(problem_dpath, fn)
     with open(ofpath, 'wb') as fp:
         pickle.dump(inputs, fp)
 
 
-def init_expEnv(initEnv=False):
-    cpu_info = get_cpu_info()
-    # exp_dpath = opath.join(dpath['experiment'], str(cpu_info['brand']))
-    exp_dpath = opath.join(dpath['experiment'], str(platform.node()))
-    problem_dpath = opath.join(exp_dpath, '__problem')
-    log_dpath = opath.join(exp_dpath, 'log')
-    res_dpath = opath.join(exp_dpath, 'res')
-    if initEnv and opath.exists(exp_dpath):
-        shutil.rmtree(exp_dpath)
-    try:
-        if not opath.exists(exp_dpath):
-            for path in [exp_dpath, problem_dpath, log_dpath, res_dpath]:
-                os.makedirs(path)
-            #
-            cpu_spec_fpath = opath.join(exp_dpath, '__cpuSpec.txt')
-            with open(cpu_spec_fpath, 'w') as f:
-                f.write('numProcessor: %d\n' % int(cpu_info['count']))
-                f.write('bits: %d\n' % int(cpu_info['bits']))
-                f.write('brand:%s' % str(cpu_info['brand']))
-            gen_problems(problem_dpath)
-    except:
-        pass
-    #
-    return log_dpath, res_dpath, [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
-                                  if fn.endswith('.pkl')]
+    # for numTasks, numBundles in [(5, 3), (10, 4), (15, 5), (20, 6)]:
+    #     inputs = random_problem(numCols, numRows, maxFlow,
+    #                             numTasks, minReward, maxReward, minVolume, maxVolume,
+    #                             numBundles, volumeAlowProp, detourAlowProp)
+    #     travel_time, \
+    #     flows, paths, \
+    #     tasks, rewards, volumes, \
+    #     numBundles, thVolume, thDetour = inputs
+    #     numTasks, numPaths = map(len, [tasks, paths])
+    #     fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour)
+    #     ofpath = opath.join(problem_dpath, fn)
+    #     with open(ofpath, 'wb') as fp:
+    #         pickle.dump(inputs, fp)
+
 
 
 def record_res(fpath, nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTiem):
@@ -143,7 +122,8 @@ def run_multipleCores(machine_num):
         #     p = 0
         #     br = sum([r_i[i] for i in b])
         #     for k, w in enumerate(w_k):
-        #         if minTimePD(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m))) < _delta:
+        #         detour, _ = optR_run(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m)))
+        #         if detour < _delta:
         #             p += w * br
         #     objV += p
         # endCpuTime, endWallTime = time.clock(), time.time()
@@ -156,7 +136,6 @@ def run_multipleCores(machine_num):
         #
         # m = 'colGenMM'
         # for _pfCst in [1.2, 1.5]:
-        # for _pfCst in [1.5]:
         #     try:
         #         objV, gap, eliCpuTime, eliWallTime = colGenMM_run(inputs,
         #                                          log_fpath=opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
@@ -180,7 +159,44 @@ def run_multipleCores(machine_num):
             objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
         record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),
                    nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
-        os.remove(ifpath)
+        #
+        # m = 'bnpM'
+        # _pfCst = 1.2
+        # _PoolSolutions = 20
+        # probSetting = {'problem': inputs,
+        #                'inclusiveC': [], 'exclusiveC': []}
+        # paraSetting = {'pfCst': _pfCst}
+        # grbSetting = {'LogFile': opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
+        #               'Threads': _numThreads,
+        #               'TimeLimit': _TimeLimit,
+        #               'PoolSolutions': _PoolSolutions
+        #
+        #               }
+        # bnbTree = BnBTree(probSetting, paraSetting, grbSetting)
+        # objV, gap, eliCpuTime, eliWallTime = bnbTree.startBnP()
+        # print(objV, gap, eliCpuTime, eliWallTime)
+        #
+        # for _pfCst in [1.2, 1.5]:
+        #     try:
+        #         probSetting = {'problem': inputs,
+        #                        'inclusiveC': [], 'exclusiveC': []}
+        #         paraSetting = {'pfCst': _pfCst}
+        #         grbSetting = {'LogFile': opath.join(log_dpath, '%s-%s(%.2f).log' % (prefix, m, _pfCst)),
+        #                       'Threads': _numThreads,
+        #                       'TimeLimit': _TimeLimit,
+        #                       'PoolSolutions': _PoolSolutions
+        #
+        #                       }
+        #         bnbTree = BnBTree(probSetting, paraSetting, grbSetting)
+        #         objV, gap, eliCpuTime, eliWallTime = bnbTree.startBnP()
+        #     except:
+        #         import sys
+        #         with open('%s_error.txt' % sys.argv[0], 'w') as f:
+        #             f.write(format_exc())
+        #         objV, gap, eliCpuTime, eliWallTime = -1, -1, -1, -1
+        #     record_res(opath.join(res_dpath, '%s-%s(%.2f).csv' % (prefix, m, _pfCst)),
+        #                nt, np, nb, tv, td, m, objV, gap, eliCpuTime, eliWallTime)
+        # os.remove(ifpath)
 
 
 def summary():
@@ -194,6 +210,12 @@ def summary():
                   'ex_objV', 'ex_wallT(h)', 'ex_wallT(s)', 'ex_cpuT(s)', 'ex_mipG(%)',
                   ]
         for pfConst in powCnsts:
+            header += ['bnp(%.2f)_objV' % pfConst,
+                       'bnp(%.2f)_wallT(h)' % pfConst,
+                       'bnp(%.2f)_wallT(s)' % pfConst,
+                       'bnp(%.2f)_cpuT(s)' % pfConst,
+                       'bnp(%.2f)_optG(%%)' % pfConst]
+        for pfConst in powCnsts:
             header += ['cg(%.2f)_objV' % pfConst,
                        'cg(%.2f)_wallT(h)' % pfConst,
                        'cg(%.2f)_wallT(s)' % pfConst,
@@ -205,8 +227,13 @@ def summary():
         header += ['ghOR_cg(%.2f)G' % pfConst for pfConst in powCnsts]
         writer.writerow(header)
     for machineName in os.listdir(dpath['experiment']):
-        if not (machineName.startswith('_m') or machineName.startswith('m')):
+
+        if not machineName.startswith('_m (long)'):
             continue
+
+        # if not (machineName.startswith('_m') or machineName.startswith('m')):
+        #     continue
+
         dir_path = opath.join(dpath['experiment'], machineName)
         spec_fpath = opath.join(dir_path, '__cpuSpec.txt')
         spec = None
@@ -269,6 +296,24 @@ def summary():
                     ex_objV = float(objV)
                 else:
                     ex_objV = None
+                #
+                # bnp
+                #
+                for pfConst in powCnsts:
+                    cg_res_fpath = opath.join(res_dpath, '%s-bnpM(%.2f).csv' % (prefix, pfConst))
+                    if opath.exists(cg_res_fpath):
+                        with open(cg_res_fpath) as r_csvfile:
+                            reader = csv.DictReader(r_csvfile)
+                            for row in reader:
+                                objV, wallTs, cpuT = [row[cn] for cn in ['objV', 'eliWallTime', 'eliCpuTime']]
+                        if eval(objV) == -1:
+                            objV, wallTh, wallTs, cpuT, optG = '-', '4h*', '-', '-', '-'
+                        else:
+                            wallTh = eval(wallTs) / 3600
+                            optG = (ex_objV - eval(objV)) / ex_objV * 100 if type(ex_objV) is float else '-'
+                    else:
+                        objV, wallTh, wallTs, cpuT, optG = None, None, None, None, None
+                    new_row += [objV, wallTh, wallTs, cpuT, optG]
                 #
                 # colGenMM
                 #
@@ -333,18 +378,7 @@ def summary():
 
 
 if __name__ == '__main__':
-    summary()
+    # run_multipleCores(0)
+    # summary()
+    gen_problems(opath.join(dpath['experiment'], 'tempProb'))
 
-    # machine_dpath = opath.join(dpath['experiment'], 'm4')
-    # os.makedirs(machine_dpath)
-    # problem_dpath = opath.join(machine_dpath, '__problems')
-    # os.makedirs(problem_dpath)
-    # gen_problems(problem_dpath)
-
-    # cluster_run(0)
-    # run_multipleCores(2000)
-
-    # run(0, num_workers=8)
-    # local_run()
-    # single_run('nt6-np20-nb4-tv2-td4.pkl')
-    # run(0)

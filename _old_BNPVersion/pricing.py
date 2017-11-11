@@ -1,13 +1,11 @@
+from init_project import *
 from gurobipy import *
 #
 from _utils.recording import *
 from _utils.mm_utils import *
 
 
-def run(counter,
-        pi_i, mu, B, input4subProblem,
-        inclusiveC, exclusiveC,
-        grb_settings):
+def run(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None, TimeLimit=None, pfConst=None, numPoolSols=None):
     def process_callback(pricingM, where):
         if where == GRB.callback.MIPSOL:
             tNodes = []
@@ -25,6 +23,26 @@ def run(counter,
                     for i, j in route:
                         expr += pricingM._x_kij[k, i, j]
                     pricingM.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
+
+        if pfConst and where == GRB.callback.MIP and pricingM.cbGet(GRB.Callback.MIP_SOLCNT):
+            runTime = pricingM.cbGet(GRB.callback.RUNTIME)
+            objbst = pricingM.cbGet(GRB.Callback.MIP_OBJBST)
+            objbnd = pricingM.cbGet(GRB.Callback.MIP_OBJBND)
+            gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
+            timeIntv = runTime - pricingM._lastGapUpTime
+            #
+            if gap < pricingM._minGap:
+                pricingM._minGap = gap
+                pricingM._lastGapUpTime = runTime
+            else:
+                gapPct = gap * 100
+                if gapPct ** pricingM._pfConst < timeIntv:
+                    logContents = '\n\n'
+                    logContents += 'Termination\n'
+                    logContents += '\t gapPct: %.2f \n' % gapPct
+                    logContents += '\t timeIntv: %f \n' % timeIntv
+                    record_logs(log_fpath, logContents)
+                    pricingM.terminate()
     #
     T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
     bigM1 = sum(r_i) * 2
@@ -35,7 +53,6 @@ def run(counter,
     #
     pricingM = Model('PricingProblem %d' % counter)
     z_i, y_k, a_k, o_ki, x_kij = {}, {}, {}, {}, {}
-    s_PN = {}
     for i in T:
         z_i[i] = pricingM.addVar(vtype=GRB.BINARY, name='z[%d]' % i)
     for k in K:
@@ -47,10 +64,6 @@ def run(counter,
             o_ki[k, i] = pricingM.addVar(vtype=GRB.INTEGER, name='o[%d,%s]' % (k, i))
             for j in kN:
                 x_kij[k, i, j] = pricingM.addVar(vtype=GRB.BINARY, name='x[%d,%s,%s]' % (k, i, j))
-    for s in range(len(inclusiveC)):
-        sP, sN = 'sP[%d]' % s, 'sN[%d]' % s
-        s_PN[sP] = pricingM.addVar(vtype=GRB.BINARY, name=sP)
-        s_PN[sN] = pricingM.addVar(vtype=GRB.BINARY, name=sN)
     pricingM.update()
     #
     # Define objective
@@ -64,21 +77,6 @@ def run(counter,
     pricingM.setObjective(obj, GRB.MAXIMIZE)
     #
     # Define constrains
-    #
-    # Handling inclusive constraints
-    for s in range(len(inclusiveC)):
-        i0, i1 = inclusiveC[s]
-        sP, sN = 'sP[%d]' % s, 'sN[%d]' % s
-        pricingM.addConstr(s_PN[sP] + s_PN[sN] == 1,
-                           name='iC[%d]' % s)
-        pricingM.addConstr(2 * s_PN[sP] <= z_i[i0] + z_i[i1],
-                           name='iCP[%d]' % s)
-        pricingM.addConstr(z_i[i0] + z_i[i1] <= 2 * (1 - s_PN[sN]),
-                           name='iCN[%d]' % s)
-    # Handling exclusive constraints
-    for i, (i0, i1) in enumerate(exclusiveC):
-        pricingM.addConstr(z_i[i0] + z_i[i1] <= 1,
-                           name='eC[%d]' % i)
     # Linearization
     for k in K:  # eq:linAlpha
         pricingM.addConstr(a_k[k] >= quicksum(r_i[i] * z_i[i] for i in T) - bigM1 * (1 - y_k[k]),
@@ -150,15 +148,32 @@ def run(counter,
     #
     # For callback function
     #
-    pricingM.params.LazyConstraints = 1
     pricingM._B, pricingM._T, pricingM._K = B, T, K
     pricingM._z_i, pricingM._x_kij = z_i, x_kij
+    #
     pricingM._minGap = GRB.INFINITY
     pricingM._lastGapUpTime = -GRB.INFINITY
+    pricingM._pfConst = pfConst
+    #
+    pricingM.params.LazyConstraints = 1
+    #
+    # Settings
+    #
+    if TimeLimit is not None:
+        pricingM.setParam('TimeLimit', TimeLimit)
+    if numThreads is not None:
+        pricingM.setParam('Threads', numThreads)
+    if log_fpath is not None:
+        pricingM.setParam('LogFile', log_fpath)
+    if numPoolSols is not None:
+        pricingM.setParam('PoolSolutions', numPoolSols)
+
+
+
+    pricingM.Params.OutputFlag = O_GL
     #
     # Run Gurobi (Optimization)
     #
-    set_grbSettings(pricingM, grb_settings)
     pricingM.optimize(process_callback)
     if LOGGING_FEASIBILITY:
         logContents = 'newBundle!!\n'
@@ -188,13 +203,12 @@ def run(counter,
             else:
                 logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
         logContents += '\t\t\t\t\t\t %.3f \t %.3f\n' % (pricingM.objVal, p)
-        record_logs(grb_settings['LogFile'], logContents)
+        record_logs(log_fpath, logContents)
     #
     if pricingM.status == GRB.Status.INFEASIBLE:
-        logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-        logContents += '!!!!!!!!Pricing infeasible!!!!!!!!'
-        logContents += '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-        record_logs(grb_settings['LogFile'], logContents)
+        # m.computeIIS()
+        # m.write('subProblem.ilp')
+        # m.write('subProblem.lp')
         return None
     else:
         nSolutions = pricingM.SolCount
@@ -214,5 +228,8 @@ def run(counter,
         return bestSols
 
 
+
+
+
 if __name__ == '__main__':
-    pass
+    from problems import ex1, ex2

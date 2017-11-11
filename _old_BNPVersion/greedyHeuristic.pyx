@@ -1,3 +1,7 @@
+from init_project import *
+#
+import time
+#
 from _utils.recording import record_logs
 from problems import *
 
@@ -116,6 +120,8 @@ def run(problem, log_fpath=None):
             assert pd_name.startswith('d')
             return t.dp
     #
+    startCpuTime= time.clock()
+    #
     # initialize variable to accumulate task attractiveness score
     #
     for t in tasks:
@@ -176,7 +182,19 @@ def run(problem, log_fpath=None):
         candi_bundles = new_candi_bundles
     unassigned_tasks = tasks
     #
-    return sum(b.bundle_attr for b in bundles), [[t.tid for t in b.tasks.values()] for b in bundles], unassigned_tasks
+    endCpuTime = time.clock()
+    eliCpuTime = endCpuTime - startCpuTime
+    #
+    logContents = '\n\n'
+    logContents += 'Summary\n'
+    logContents += '\t Sta.Time: %s\n' % str(startCpuTime)
+    logContents += '\t End.Time: %s\n' % str(endCpuTime)
+    logContents += '\t Eli.Time: %f\n' % eliCpuTime
+    logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
+    logContents += '\t chosen B.: %s\n' % str([[t.tid for t in b.tasks.values()] for b in bundles])
+    logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
+    record_logs(log_fpath, logContents)
+    return sum(b.bundle_attr for b in bundles), eliCpuTime, [[t.tid for t in b.tasks.values()] for b in bundles]
 
 
 if __name__ == '__main__':

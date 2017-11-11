@@ -5,7 +5,7 @@ from datetime import datetime
 import numpy as np
 import time
 #
-from _utils.logging import record_logs, O_GL, X_GL
+from _utils.recording import record_logs, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
 #
 try:
@@ -15,7 +15,7 @@ except ModuleNotFoundError:
     cythonize('greedyHeuristic')
     #
     from greedyHeuristic import run as gHeuristic_run
-from __old.exactMM import convert_input4MathematicalModel
+from __old_columnGenVersion.exactMM import convert_input4MathematicalModel
 
 
 def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
@@ -38,6 +38,16 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
             vec[i] = 1
         e_bi.append(vec)
     p_b = []
+    for b in range(len(B)):
+        bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
+        p = 0
+        if bundle:
+            br = sum([r_i[i] for i in bundle])
+            for k, w in enumerate(w_k):
+                if minTimePD(bundle, k, t_ij) < _delta:
+                    p += w * br
+        p_b.append(p)
+    #
     logContents = 'Initial bundles\n'
     for b in B:
         logContents += '\t %s\n' % str(b)
@@ -46,23 +56,6 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
             f.write(logContents)
     else:
         print(logContents)
-    #
-    logContents = 'Bundle-Path feasibility\n'
-    for b in range(len(B)):
-        logContents += '%s\n' % str(B[b])
-        bundle = [i for i, v in enumerate(e_bi[b]) if v == 1]
-        p = 0
-        br = sum([r_i[i] for i in bundle])
-        for k, w in enumerate(w_k):
-            detourTime, route = minTimePD(bundle, k, t_ij)
-            if detourTime <= _delta:
-                p += w * br
-                logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
-            else:
-                logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
-        p_b.append(p)
-        logContents += '\t\t\t\t\t\t %.3f\n' % p
-    # record_logs(log_fpath, logContents)
     #
     # Define decision variables
     #
@@ -99,12 +92,9 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
         pi_i = [relax.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = relax.getConstrByName("numBC").Pi
 
-        # print([p_b[b] for b in range(len(B))])
-
-
         startCpuTimeS, startWallTimeS = time.clock(), time.time()
         c_b, bundle = subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath, numThreads, TimeLimit, pfCst)
-        if c_b == None or c_b < 0.000000001:
+        if c_b == None:
             break
         endCpuTimeS, endWallTimeS = time.clock(), time.time()
         eliCpuTimeS, eliWallTimeS = endCpuTimeS - startCpuTimeS, endWallTimeS - startWallTimeS
@@ -157,21 +147,10 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     # Run Gurobi (Optimization)
     #
     cgMM.optimize()
-
-
-    # cgMM.write('masterProblem.lp')
     #
     endCpuTimeM, endWallTimeM = time.clock(), time.time()
     eliCpuTimeM, eliWallTimeM = endCpuTimeM - startCpuTimeM, endWallTimeM - startWallTimeM
     chosenB = [B[b] for b in range(len(B)) if q_b[b].x > 0.5]
-
-    # print([q_b[b].x for b in range(len(B))])
-    relax = cgMM.relax()
-    relax.optimize()
-    relax.write('relax.lp')
-    print('here', [relax.getVarByName('q[%d]' % b).x for b in range(len(B))])
-
-
     #
     logContents = '\n\n'
     logContents += 'Summary\n'
@@ -302,18 +281,7 @@ def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
     #
     m.optimize(addSubTourElimC_minPD)
     #
-    _route = {}
-    for j in N:
-        for i in N:
-            if x_ij[i, j].x > 0.5:
-                _route[i] = j
-    i = _kP
-    route = []
-    while i != _kM:
-        route.append(i)
-        i = _route[i]
-    route.append(i)
-    return m.objVal, route
+    return m.objVal
 
 
 def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None, TimeLimit=None, pfConst=None):
@@ -326,9 +294,9 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
                     tNodes.append('p%d' % i); tNodes.append('d%d' % i)
                     selectedTasks.add(i)
             #
-            # for b in m._B:
-            #     if len(b) == len(selectedTasks):
-            #         m.cbLazy(quicksum(m._z_i[i] for i in b) <= len(b) - 1)
+            for b in m._B:
+                if len(b) == len(selectedTasks):
+                    m.cbLazy(quicksum(m._z_i[i] for i in b) <= len(b) - 1)
             #
             for k in m._K:
                 ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
@@ -458,11 +426,8 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
         #
         # Feasibility
         #  # eq:pathFeasibility
-        # m.addConstr(quicksum(t_ij[i, j] * x_kij[k, i, j] for i in kN for j in kN if not (i == kM and j == kP)) \
-        #             - t_ij[kP, kM] - _delta <= bigM3 * (1 - y_k[k]),
-        #             name='pf[%d]' % k)
-        m.addConstr(quicksum(t_ij[i, j] * x_kij[k, i, j] for i in kN for j in kN) \
-                    - t_ij[kM, kP] - t_ij[kP, kM] - _delta <= bigM3 * (1 - y_k[k]),
+        m.addConstr(quicksum(t_ij[i, j] * x_kij[k, i, j] for i in kN for j in kN if not (i == kM and j == kP)) \
+                    - t_ij[kP, kM] - _delta <= bigM3 * (1 - y_k[k]),
                     name='pf[%d]' % k)
     #
     # For callback function
@@ -489,41 +454,7 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
     # Run Gurobi (Optimization)
     #
     m.optimize(process_callback)
-
-
-    # logContents = 'newBundle!!\n'
-    # logContents += '%s\n' % [i for i in T if z_i[i].x > 0.05]
-    # p = 0
-    # for k in K:
-    #     kP, kM = 'ori%d' % k, 'dest%d' % k
-    #     kN = N.union({kP, kM})
-    #     detourTime = 0
-    #     _route = {}
-    #     for i in kN:
-    #         for j in kN:
-    #             if x_kij[k, i, j].x > 0.5:
-    #                 _route[i] = j
-    #                 detourTime += t_ij[i, j]
-    #     detourTime -= t_ij[kM, kP]
-    #     detourTime -= t_ij[kP, kM]
-    #     i = kP
-    #     route = []
-    #     while i != kM:
-    #         route.append(i)
-    #         i = _route[i]
-    #     route.append(i)
-    #     if int(y_k[k].x) > 0:
-    #         logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 1, str(route))
-    #         p += w_k[k]
-    #     else:
-    #         logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
-    # logContents += '\t\t\t\t\t\t %.3f \t %.3f\n' % (m.objVal, p)
-    # record_logs(log_fpath, logContents)
-
     if m.status == GRB.Status.INFEASIBLE:
-        # m.computeIIS()
-        # m.write('subProblem.ilp')
-        # m.write('subProblem.lp')
         return None, None
     elif m.status == GRB.Status.TIME_LIMIT:
         return None, None
@@ -531,30 +462,13 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
         return m.objVal, [i for i in T if z_i[i].x > 0.05]
 
 
-def calTime_test():
-    from problems import ex1, ex2
-    import time
-    cSTime, cTTime = time.clock(), time.time()
-
-    run(ex1(), pfCst=1.2, log_fpath='temp.log')
-    print(time.clock() - cSTime, time.time() - cTTime)
-
-
-def test():
-    import pickle
-
-
-    ifpath = 'nt04-np12-nb3-tv2-td6.pkl'
-    inputs = None
-    with open(ifpath, 'rb') as fp:
-        inputs = pickle.load(fp)
-
-    print(inputs)
-    _pfCst = 1.5
-    objV, gap, eliCpuTime, eliWallTime = run(inputs, log_fpath='temp(%.2f).log' % _pfCst, pfCst=_pfCst)
-
 
 if __name__ == '__main__':
-    # test()
-    calTime_test()
+    from problems import ex1
+    import time
+
+    cSTime, cTTime = time.clock(), time.time()
+
+    run(ex1(), pfCst=1.2)
+    print(time.clock() - cSTime, time.time() - cTTime)
 

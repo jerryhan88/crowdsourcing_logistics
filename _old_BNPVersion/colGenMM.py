@@ -14,10 +14,10 @@ if opath.exists(c_fn):
 else:
     from setup import cythonize; cythonize(prefix)
 from greedyHeuristic import run as gHeuristic_run
-from minTimePD import run as minTimePD_run
+from optRouting import run as minTimePD_run
 from pricing import run as pricing_run
 #
-from _utils.logging import *
+from _utils.recording import *
 from _utils.mm_utils import *
 
 

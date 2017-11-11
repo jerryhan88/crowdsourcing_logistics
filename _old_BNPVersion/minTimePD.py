@@ -1,7 +1,7 @@
 from gurobipy import *
 #
 from _utils.mm_utils import get_routeFromOri
-from _utils.logging import *
+from _utils.recording import *
 
 
 def run(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
