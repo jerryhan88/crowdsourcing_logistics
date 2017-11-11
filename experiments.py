@@ -10,16 +10,8 @@ from _utils.recording import *
 from problems import *
 #
 from exactMM import run as exactMM_run
-from optRouting import run as minTimePD_run
-prefix = 'greedyHeuristic'
-pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
-if opath.exists(c_fn):
-    if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
-        from setup import cythonize; cythonize(prefix)
-else:
-    from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
 from bnpTree import BnPTree
+
 
 def gen_problems(problem_dpath):
     #
@@ -107,18 +99,21 @@ def run_multipleCores(machine_num):
         etcSetting = {'exLogF': exLogF,
                       'exResF': exResF
                       }
-        exactMM_run(probSetting, grbSetting, etcSetting)
+        try:
+            exactMM_run(probSetting, grbSetting, etcSetting)
+        except:
+            pass
         #
         # Run others
         #
         ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'gh'))
         orLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'or'))
-        cgLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'gh'))
+        cgLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'cg'))
         bnpLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'bnp'))
         #
         ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'gh'))
         orResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'or'))
-        cgResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'gh'))
+        cgResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'cg'))
         bnpResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'bnp'))
         #
         bptFile = opath.join(bpt_dpath, '%s-%s.csv' % (prefix, 'bnpTree'))
@@ -140,7 +135,10 @@ def run_multipleCores(machine_num):
                       #
                       'EpklFile': epklFile, 'EmsgFile': emsgFile,
                       }
-        BnPTree(probSetting, grbSetting, etcSetting).startBnP()
+        try:
+            BnPTree(probSetting, grbSetting, etcSetting).startBnP()
+        except:
+            pass
         #
         os.remove(ifpath)
 

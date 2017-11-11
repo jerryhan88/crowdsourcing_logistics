@@ -66,7 +66,7 @@ class BnPTree(treelib.Tree):
         record_logs(self.etcSetting['bnpLogF'], logContents)
         record_res(self.etcSetting['bnpResF'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
         #
-        rootNode.data.rootNodeMIP.join()
+        rootNode.data.solveRootMIP()
 
     def branching_dfs_lcp(self):
         # Depth First Search and left child priority

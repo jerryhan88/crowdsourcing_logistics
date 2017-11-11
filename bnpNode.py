@@ -1,5 +1,4 @@
 import os.path as opath
-import threading
 import time, datetime
 import numpy as np
 from gurobipy import *
@@ -73,6 +72,8 @@ class BnPNode(object):
         logContents = '\n\n'
         logContents += '===========================================================\n'
         logContents = 'Initial bundles\n'
+        for i in unassigned_tasks:
+            B.append([i])
         for b in B:
             logContents += '\t %s\n' % str(b)
         logContents += '===========================================================\n'
@@ -257,12 +258,8 @@ class BnPNode(object):
                 record_logs(self.grbSetting['LogFile'], logContents)
         #
         if not self.inclusiveC and not self.exclusiveC:
-            #
-            # Run MIP for the root node
-            #
-            self.rootNodeMIP = threading.Thread(target=self.solveMIP, args=(masterM, B))
-            self.rootNodeMIP.daemon = True
-            self.rootNodeMIP.start()
+            self.rootMasterM = masterM
+            self.rootB = B
         #
         if is_feasible:
             relaxM = masterM.relax()
@@ -316,7 +313,8 @@ class BnPNode(object):
         #
         return is_feasible
 
-    def solveMIP(self, masterM, B):
+    def solveRootMIP(self):
+        masterM, B = self.rootMasterM, self.rootB
         startCpuTime, startWallTime = time.clock(), time.time()
         grbSettingR = {'LogFile': self.etcSetting['cgLogF'],
                        'Threads': self.grbSetting['Threads']}

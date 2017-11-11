@@ -1,4 +1,4 @@
-
+from problems import *
 
 def run(problem):
     travel_time, tasks, paths, detour_th, volume_th, num_bundles = convert_input4greedyHeuristic(*problem)
@@ -172,7 +172,7 @@ def run(problem):
                     insert_task(b, best_task, best_task_path_insertion)
                     new_candi_bundles += [b]
         candi_bundles = new_candi_bundles
-    unassigned_tasks = tasks
+    unassigned_tasks = [t.tid for t in tasks]
     #
     return sum(b.bundle_attr for b in bundles), [[t.tid for t in b.tasks.values()] for b in bundles], unassigned_tasks
 
