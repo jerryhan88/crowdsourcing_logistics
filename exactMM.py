@@ -1,7 +1,7 @@
+import time
 from gurobipy import *
 #
 from problems import *
-import time
 #
 from _utils.recording import *
 from _utils.mm_utils import *
@@ -14,7 +14,7 @@ def run(probSetting, grbSetting, etcSetting):
                 tNodes = []
                 for i in m._T:
                     if m.cbGetSolution(m._z_bi[b, i]) > 0.5:
-                        tNodes.append('p%d' % i)
+                        tNodes.append('p0%d' % i)
                         tNodes.append('d%d' % i)
                 for k in m._K:
                     ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
@@ -100,7 +100,7 @@ def run(probSetting, grbSetting, etcSetting):
             exactMM.addConstr(quicksum(x_bkij[b, k, i, 'dest%d' % k] for i in P) == 0,
                         name='XpPDi[%d,%d]' % (b, k))
             for i in T:  # eq:taskOutFlow
-                exactMM.addConstr(quicksum(x_bkij[b, k, 'p%d' % i, j] for j in N) == z_bi[b, i],
+                exactMM.addConstr(quicksum(x_bkij[b, k, 'p0%d' % i, j] for j in N) == z_bi[b, i],
                             name='tOF[%d,%d,%d]' % (b, k, i))
             for j in T:  # eq:taskInFlow
                 exactMM.addConstr(quicksum(x_bkij[b, k, i, 'd%d' % j] for i in N) == z_bi[b, j],
@@ -124,7 +124,7 @@ def run(probSetting, grbSetting, etcSetting):
             exactMM.addConstr(o_bki[b, k, kM] <= bigM2,
                         name='iOE[%d,%d]' % (b, k))
             for i in T:  # eq:pdSequnce
-                exactMM.addConstr(o_bki[b, k, 'p%d' % i] <= o_bki[b, k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
+                exactMM.addConstr(o_bki[b, k, 'p0%d' % i] <= o_bki[b, k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
                         name='pdS[%d,%d]' % (b, k))
             for i in kN:
                 for j in kN:  # eq:ordering
@@ -164,7 +164,7 @@ def run(probSetting, grbSetting, etcSetting):
     logContents += '\t ObjV: %.3f\n' % exactMM.objVal
     logContents += '\t Gap: %.3f\n' % exactMM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
-    record_logs(etcSetting['exLogF'], logContents)
+    record_log(etcSetting['exLogF'], logContents)
 
     logContents = '\n\n'
     for b in B:
@@ -173,8 +173,8 @@ def run(probSetting, grbSetting, etcSetting):
         logContents += '%s (%d) \n' % (str(bundle), br)
         p = 0
         for k in K:
-            _kP, _kM = 'ori%d' % k, 'dest%d' % k
-            kN = N.union({_kP, _kM})
+            kP, kM = 'ori%d' % k, 'dest%d' % k
+            kN = N.union({kP, kM})
             _route = {}
             detourTime = 0
             for j in kN:
@@ -184,9 +184,9 @@ def run(probSetting, grbSetting, etcSetting):
                         _route[i] = j
             detourTime -= t_ij[kM, kP]
             detourTime -= t_ij[kP, kM]
-            i = _kP
+            i = kP
             route = []
-            while i != _kM:
+            while i != kM:
                 route.append(i)
                 i = _route[i]
             route.append(i)
@@ -196,8 +196,11 @@ def run(probSetting, grbSetting, etcSetting):
             else:
                 logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 0, str(route))
         logContents += '\t\t\t\t\t\t %.3f\n' % p
-    record_logs(etcSetting['exLogF'], logContents)
-    record_res(etcSetting['exResF'], exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime)
+    record_log(etcSetting['exLogF'], logContents)
+    try:
+        record_res(etcSetting['exResF'], exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime)
+    except:
+        record_res(etcSetting['exResF'], -1, -1, eliCpuTime, eliWallTime)
 
 
 if __name__ == '__main__':

@@ -25,7 +25,7 @@ def run(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
     N = {_kP, _kM}
     P, D = set(), set()
     for i in b:
-        P.add('p%d' % i); D.add('d%d' % i)
+        P.add('p0%d' % i); D.add('d%d' % i)
     N = N.union(P)
     N = N.union(D)
     #
@@ -86,7 +86,7 @@ def run(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
     m.addConstr(o_i[_kM] == len(N),
                 name='ordDest')
     for i in b:  # eq:pdSequnce
-        m.addConstr(o_i['p%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
+        m.addConstr(o_i['p0%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
     for i in N:
         for j in N:  # eq:ordering
             if i == _kM or j == _kP:

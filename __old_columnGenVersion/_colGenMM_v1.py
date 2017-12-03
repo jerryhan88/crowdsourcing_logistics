@@ -298,10 +298,10 @@ def subSubProblem(b, k, input4subSubProblem):
          _kM: kM[k]}
     P, D = {}, {}
     for i in b:
-        P['p%d' % i] = iP[i]
+        P['p0%d' % i] = iP[i]
         D['d%d' % i] = iM[i]
         #
-        N['p%d' % i] = iP[i]
+        N['p0%d' % i] = iP[i]
         N['d%d' % i] = iM[i]
     _t_ij = {}
     for i in N:
@@ -356,7 +356,7 @@ def subSubProblem(b, k, input4subSubProblem):
     m.addConstr(quicksum(x_ij[i, _kM] for i in P) == 0, name='XdestP')
     #  # eq:reversedPD
     for i in b:
-        _iP, _iM = 'p%d' % i, 'd%d' % i
+        _iP, _iM = 'p0%d' % i, 'd%d' % i
         m.addConstr(x_ij[_iM, _iP] == 0, name='rPD_%d' % i)
     for i in N:
         for j in N:  # eq:direction
@@ -365,7 +365,7 @@ def subSubProblem(b, k, input4subSubProblem):
     m.addConstr(o_i[_kP] == 1, name='ordOri')
     m.addConstr(o_i[_kM] == len(N), name='ordDest')
     for i in b:  # eq:pdSequnce
-        _iP, _iM = 'p%d' % i, 'd%d' % i
+        _iP, _iM = 'p0%d' % i, 'd%d' % i
         m.addConstr(o_i[_iP] <= o_i[_iM], name='ord_%s' % i)
     for i in N:
         for j in N:  # eq:ordering

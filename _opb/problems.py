@@ -1,3 +1,5 @@
+from init_project import *
+#
 from random import randrange
 
 
@@ -7,6 +9,73 @@ class point(object):
 
     def __repr__(self):
         return 'pid%d' % self.pid
+
+
+class task(object):
+    def __init__(self, tid, pp, dp, v, r):
+        self.tid = tid
+        self.pp, self.dp = pp, dp
+        self.v, self.r = v, r
+
+    def set_attr(self, attr):
+        self.attr = attr
+
+    def __repr__(self):
+        return 't%d(%s->%s;%.03f)' % (self.tid, self.pp, self.dp, self.r)
+
+
+class path(object):
+    def __init__(self, ori, dest, w=None):
+        self.ori, self.dest, self.w = ori, dest, w
+
+    def __repr__(self):
+        if self.w != None:
+            return '%d->%d;%.03f' % (self.ori, self.dest, self.w)
+        else:
+            return '%d->%d' % (self.ori, self.dest)
+
+
+class bundle(object):
+    def __init__(self, bid, paths):
+        self.bid = bid
+        #
+        self.tasks = {}
+        self.path_pd_seq, self.path_detour = {}, {}
+        for p in paths:
+            self.path_pd_seq[p] = []
+            self.path_detour[p] = 0
+        self.bundle_attr = 0
+
+    def __repr__(self):
+        return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.values()]))
+
+
+class bundle4onePath(object):
+    def __init__(self, bid, p):
+        self.bid, self.p = bid, p
+        #
+        self.tasks = {}
+        self.path_pd_seq, self.path_detour = {}, {}
+        self.path_pd_seq = []
+        self.path_detour = 0
+        self.bundle_attr = 0
+
+    def __repr__(self):
+        return 'b%d(ts:%s)' % (self.bid, ','.join(['t%d' % t.tid for t in self.tasks.values()]))
+
+
+def convert_input4greedyHeuristic(travel_time,
+                                  flows, paths,
+                                  tasks, rewards, volumes,
+                                  num_bundles, volume_th, detour_th):
+    #
+    # Convert inputs for the greedy heuristic
+    #
+    tasks = [task(i, pp, dd, volumes[i], rewards[i]) for i, (pp, dd) in enumerate(tasks)]
+    total_flows = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
+    paths = [path(ori, dest, flows[ori][dest] / float(total_flows)) for ori, dest in paths]
+    #
+    return travel_time, tasks, paths, detour_th, volume_th, num_bundles
 
 
 def convert_input4MathematicalModel(travel_time, \
@@ -36,23 +105,23 @@ def convert_input4MathematicalModel(travel_time, \
     # Path
     #
     K = list(range(len(paths)))
-    _kP, _kM = list(zip(*[paths[k] for k in K]))
+    kP, kM = list(zip(*[paths[k] for k in K]))
     sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
     w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
     _delta = detour_th
     t_ij = {}
     for k in K:
-        kP, kM = 'ori%d' % k, 'dest%d' % k
-        t_ij[kP, kP] = travel_time[_kP[k], _kP[k]]
-        t_ij[kM, kM] = travel_time[_kM[k], _kM[k]]
-        t_ij[kP, kM] = travel_time[_kP[k], _kM[k]]
-        t_ij[kM, kP] = travel_time[_kM[k], _kP[k]]
+        _kP, _kM = 'ori%d' % k, 'dest%d' % k
+        t_ij[_kP, _kP] = travel_time[kP[k], kP[k]]
+        t_ij[_kM, _kM] = travel_time[kM[k], kM[k]]
+        t_ij[_kP, _kM] = travel_time[kP[k], kM[k]]
+        t_ij[_kM, _kP] = travel_time[kM[k], kP[k]]
         for i in _N:
-            t_ij[kP, i] = travel_time[_kP[k], _N[i]]
-            t_ij[i, kP] = travel_time[_N[i], _kP[k]]
+            t_ij[_kP, i] = travel_time[kP[k], _N[i]]
+            t_ij[i, _kP] = travel_time[_N[i], kP[k]]
             #
-            t_ij[kM, i] = travel_time[_kM[k], _N[i]]
-            t_ij[i, kM] = travel_time[_N[i], _kM[k]]
+            t_ij[_kM, i] = travel_time[kM[k], _N[i]]
+            t_ij[i, _kM] = travel_time[_N[i], kM[k]]
     for i in _N:
         for j in _N:
             t_ij[i, j] = travel_time[_N[i], _N[j]]

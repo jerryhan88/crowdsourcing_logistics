@@ -195,7 +195,7 @@ def subProblem(pi_i, mu, B, input4subProblem):
         m.addConstr(quicksum(x_kij[k, i, 'dest%d' % k] for i in P) == 0, name='XpPDi[%d]' % k)
         #
         for i in T:  # eq:taskOutFlow
-            m.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in N) == z_i[i], name='tOF[%d,%d]' % (k, i))
+            m.addConstr(quicksum(x_kij[k, 'p0%d' % i, j] for j in N) == z_i[i], name='tOF[%d,%d]' % (k, i))
         for j in T:  # eq:taskInFlow
             m.addConstr(quicksum(x_kij[k, i, 'd%d' % j] for i in N) == z_i[j], name='tIF[%d,%d]' % (k, j))
         kN = N.union({'ori%d' % k, 'dest%d' % k})
@@ -261,7 +261,7 @@ def addLazyC_subProblem(m, where):
         numTaskInBundle = 0
         for i in m._T:
             if m.cbGetSolution(m._z_i[i]) > 0.5:
-                tNodes.append('p%d' % i)
+                tNodes.append('p0%d' % i)
                 tNodes.append('d%d' % i)
                 numTaskInBundle += 1
         #
@@ -287,7 +287,7 @@ def addLazyC_subProblem(m, where):
                     m.cbLazy(m._o_ki[k, 'ori%d' % k] == 1)
                     m.cbLazy(m._o_ki[k, 'dest%d' % k] == 2 * (numTaskInBundle + 1))
                     for i in m._T:  # eq:pdSequnce
-                        m.cbLazy(m._o_ki[k, 'p%d' % i] <= m._o_ki[k, 'd%d' % i])
+                        m.cbLazy(m._o_ki[k, 'p0%d' % i] <= m._o_ki[k, 'd%d' % i])
                     for i in ptNodes:
                         for j in ptNodes:  # eq:ordering
                             if i == j: continue
@@ -302,7 +302,7 @@ def minTimePD(b, k, t_ij):
     N = {_kP, _kM}
     P, D = set(), set()
     for i in b:
-        P.add('p%d' % i)
+        P.add('p0%d' % i)
         D.add('d%d' % i)
     N = N.union(P)
     N = N.union(D)
@@ -355,7 +355,7 @@ def minTimePD(b, k, t_ij):
     m.addConstr(o_i[_kP] == 1, name='ordOri')
     m.addConstr(o_i[_kM] == len(N), name='ordDest')
     for i in b:  # eq:pdSequnce
-        m.addConstr(o_i['p%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
+        m.addConstr(o_i['p0%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
     for i in N:
         for j in N:  # eq:ordering
             if i == _kM or j == _kP:

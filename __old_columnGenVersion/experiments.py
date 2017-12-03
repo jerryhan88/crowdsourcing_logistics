@@ -140,12 +140,12 @@ def run_multipleCores(machine_num):
         # objV = 0
         # startCpuTime, startWallTime = time.clock(), time.time()
         # for b in B:
-        #     p = 0
+        #     p0 = 0
         #     br = sum([r_i[i] for i in b])
         #     for k, w in enumerate(w_k):
         #         if minTimePD(b, k, t_ij, log_fpath=opath.join(log_dpath, '%s-%s(minPD).log' % (prefix, m))) < _delta:
-        #             p += w * br
-        #     objV += p
+        #             p0 += w * br
+        #     objV += p0
         # endCpuTime, endWallTime = time.clock(), time.time()
         # eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
         # gap = None

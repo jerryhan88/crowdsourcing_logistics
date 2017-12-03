@@ -63,7 +63,7 @@ class BnBNode(object):
         logContents += '===========================================================\n'
         logContents += '%s\n' % str(datetime.now())
         logContents += 'Start column generation of bnbNode(%s)\n' % self.nid
-        record_logs(self.grbSetting['LogFile'], logContents)
+        record_log(self.grbSetting['LogFile'], logContents)
         #
         problem, B, p_b, e_bi = self.problem, self.B, self.p_b, self.e_bi
         bB, \
@@ -180,10 +180,10 @@ class BnBNode(object):
                 masterM.update()
             if numPRC == 0:
                 logContents += '\t No new bundles\n'
-                record_logs(self.grbSetting['LogFile'], logContents)
+                record_log(self.grbSetting['LogFile'], logContents)
                 break
             else:
-                record_logs(self.grbSetting['LogFile'], logContents)
+                record_log(self.grbSetting['LogFile'], logContents)
         #
         if is_feasible:
             relaxM = masterM.relax()
@@ -208,7 +208,7 @@ class BnBNode(object):
             logContents += '\t ObjV: %.3f\n' % relaxM.objVal
             logContents += '\t chosen B.: %s\n' % str(chosenB)
             logContents += '===========================================================\n'
-            record_logs(self.grbSetting['LogFile'], logContents)
+            record_log(self.grbSetting['LogFile'], logContents)
             #
             self.res['objVal'] = relaxM.objVal
             self.res['B'] = B
@@ -260,7 +260,7 @@ class BnBNode(object):
                 p_b.append(p)
                 logContents += '\t\t\t\t\t\t %.3f\n' % p
             if LOGGING_FEASIBILITY:
-                record_logs(self.grbSetting['LogFile'], logContents)
+                record_log(self.grbSetting['LogFile'], logContents)
         else:
             with open(tsl_fpath, 'rb') as fp:
                 B, p_b, e_bi = pickle.load(fp)
@@ -285,7 +285,7 @@ class BnBTree(treelib.Tree):
         logContents += '%s\n' % str(datetime.now())
         logContents += 'Start Branch and Pricing from the root\n'
         logContents += '===========================================================\n'
-        record_logs(self.grbSetting['LogFile'], logContents)
+        record_log(self.grbSetting['LogFile'], logContents)
         #
         is_feasible = rootNode.data.startCG()
         if not is_feasible:
@@ -293,7 +293,7 @@ class BnBTree(treelib.Tree):
             logContents += '%s\n' % str(datetime.now())
             logContents += 'The original (root) problem is infeasible\n'
             logContents += '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-            record_logs(self.grbSetting['LogFile'], logContents)
+            record_log(self.grbSetting['LogFile'], logContents)
             assert False
         self.branching(rootNode)
         incumRes = self.incumbent.data.res
@@ -319,7 +319,7 @@ class BnBTree(treelib.Tree):
         logContents += '\t Gap: %.3f\n' % BnPgap
         logContents += '\t chosen B.: %s\n' % str(chosenB)
         logContents += '===========================================================\n'
-        record_logs(self.grbSetting['LogFile'], logContents)
+        record_log(self.grbSetting['LogFile'], logContents)
         return incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP
 
     def branching_dfs_lcp(self):
@@ -335,7 +335,7 @@ class BnBTree(treelib.Tree):
         logContents += '%s\n' % str(datetime.now())
         logContents += 'Try Branching; bnbNode(%s)\n' % curNode.identifier
         logContents += '===========================================================\n'
-        record_logs(self.grbSetting['LogFile'], logContents)
+        record_log(self.grbSetting['LogFile'], logContents)
         curRes = curNode.data.res
         if self.bestBound is None:
             self.bestBound = curNode
@@ -347,7 +347,7 @@ class BnBTree(treelib.Tree):
                 logContents += '%s\n' % str(datetime.now())
                 logContents += 'bnbNode(%s) was pruned\n' % curNode.identifier
                 logContents += '===========================================================\n'
-                record_logs(self.grbSetting['LogFile'], logContents)
+                record_log(self.grbSetting['LogFile'], logContents)
                 self.branching_dfs_lcp()
                 return None
         #
@@ -379,7 +379,7 @@ class BnBTree(treelib.Tree):
                 else:
                     logContents += 'No change about the incumbent\n'
             logContents += '===========================================================\n'
-            record_logs(self.grbSetting['LogFile'], logContents)
+            record_log(self.grbSetting['LogFile'], logContents)
             self.branching_dfs_lcp()
         else:
             #
@@ -401,7 +401,7 @@ class BnBTree(treelib.Tree):
                 logContents += '%s\n' % str(datetime.now())
                 logContents += 'No suitable pairs\n'
                 logContents += '===========================================================\n'
-                record_logs(self.grbSetting['LogFile'], logContents)
+                record_log(self.grbSetting['LogFile'], logContents)
                 assert False
             logContents = '\n===========================================================\n'
             logContents += '%s\n' % str(datetime.now())
@@ -409,7 +409,7 @@ class BnBTree(treelib.Tree):
             logContents += '\t Chosen bundle %s\n' % str(candiBundle)
             logContents += '\t Chosen tasks %s\n' % str((i0, i1))
             logContents += '===========================================================\n'
-            record_logs(self.grbSetting['LogFile'], logContents)
+            record_log(self.grbSetting['LogFile'], logContents)
             #
             # Left child
             #

@@ -2,7 +2,7 @@ from init_project import *
 #
 from datetime import datetime
 #
-from _utils.recording import record_logs
+from _utils.recording import record_log
 
 
 def run(problem, log_fpath=None):
@@ -12,7 +12,7 @@ def run(problem, log_fpath=None):
         b.tasks[t1.tid] = t1
         path_ws = 0
         if path_insertion_estimation == None:
-            seq = ['p%d' % t1.tid, 'd%d' % t1.tid]
+            seq = ['p0%d' % t1.tid, 'd%d' % t1.tid]
             for p in paths:
                 b.path_pd_seq[p] = seq[:]
                 detour = travel_time[p.ori, t1.pp] + \
@@ -28,7 +28,7 @@ def run(problem, log_fpath=None):
                 if b.path_detour[p] + additional_detour < detour_th:
                     path_ws += p.w
                     b.path_detour[p] += additional_detour
-                    b.path_pd_seq[p].insert(i0, 'p%d' % t1.tid)
+                    b.path_pd_seq[p].insert(i0, 'p0%d' % t1.tid)
                     b.path_pd_seq[p].insert(j0 + 1, 'd%d' % t1.tid)
                 else:
                     b.path_detour[p] = 1e400
@@ -112,8 +112,8 @@ def run(problem, log_fpath=None):
             return bundle_attr, task_path_insertion_estimation
     #
     def get_point(b, pd_name):
-        t = b.tasks[int(pd_name[len('p'):])]
-        if pd_name.startswith('p'):
+        t = b.tasks[int(pd_name[len('p0'):])]
+        if pd_name.startswith('p0'):
             return t.pp
         else:
             assert pd_name.startswith('d')
@@ -152,7 +152,7 @@ def run(problem, log_fpath=None):
             if not b.tasks:
                 for i, t0 in enumerate(tasks):
                     path_ws = 0
-                    seq = ['p%d' % t0.tid, 'd%d' % t0.tid]
+                    seq = ['p0%d' % t0.tid, 'd%d' % t0.tid]
                     for p in paths:
                         b.path_pd_seq[p] = seq[:]
                         detour = travel_time[p.ori, t0.pp] + \
@@ -191,7 +191,7 @@ def run(problem, log_fpath=None):
     logContents += '\t Eli.Time: %d\n' % eliTime
     logContents += '\t ObjV: %.3f\n' % sum(b.bundle_attr for b in bundles)
     logContents += '\t chosen B.: %s\n' % str(bundles)
-    record_logs(log_fpath, logContents)
+    record_log(log_fpath, logContents)
     return sum(b.bundle_attr for b in bundles), eliTime, [[t.tid for t in b.tasks.values()] for b in bundles]
 
 

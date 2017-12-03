@@ -82,10 +82,10 @@ def convert_input4MathematicalModel(travel_time, \
     P, D = set(), set()
     _N = {}
     for i in T:
-        P.add('p%d' % i)
+        P.add('p0%d' % i)
         D.add('d%d' % i)
         #
-        _N['p%d' % i] = iP[i]
+        _N['p0%d' % i] = iP[i]
         _N['d%d' % i] = iM[i]
     #
     # Path

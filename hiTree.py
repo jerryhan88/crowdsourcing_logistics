@@ -3,21 +3,21 @@ import datetime
 from heapq import heappush, heappop
 import treelib
 #
-from bnpNode import BnPNode
+from hiNode import HiNode
 from itertools import combinations
 #
 from _utils.recording import *
 from _utils.mm_utils import *
 
 
-class BnPTree(treelib.Tree):
+class HiTree(treelib.Tree):
     def __init__(self, probSetting, grbSetting, etcSetting):
         treelib.Tree.__init__(self)
         self.probSetting, self.grbSetting, self.etcSetting = probSetting, grbSetting, etcSetting
         #
         tag, indentifier = '-', '*'
         self.create_node(tag, indentifier,
-                         data=BnPNode(indentifier, self.probSetting, self.grbSetting, self.etcSetting))
+                         data=HiNode(indentifier, self.probSetting, self.grbSetting, self.etcSetting))
         self.bestBound, self.incumbent = None, None
         self.leafNodes = []
 
@@ -198,7 +198,7 @@ class BnPTree(treelib.Tree):
             lProbSetting = self.duplicate_probSetting(pProbSetting)
             lProbSetting['inclusiveC'] += [(i0, i1)]
             self.create_node(lTag, lIndentifier, parent=pIdentifier,
-                             data=BnPNode(lIndentifier, lProbSetting, self.grbSetting, self.etcSetting))
+                             data=HiNode(lIndentifier, lProbSetting, self.grbSetting, self.etcSetting))
             lcNode = self.get_node(lIndentifier)
             lcNode_feasibility = lcNode.data.startCG()
             if lcNode_feasibility:
@@ -210,7 +210,7 @@ class BnPTree(treelib.Tree):
             rProbSetting = self.duplicate_probSetting(pProbSetting)
             rProbSetting['exclusiveC'] += [(i0, i1)]
             self.create_node(rTag, rIndentifier, parent=pIdentifier,
-                             data=BnPNode(rIndentifier, rProbSetting, self.grbSetting, self.etcSetting))
+                             data=HiNode(rIndentifier, rProbSetting, self.grbSetting, self.etcSetting))
             rcNode = self.get_node(rIndentifier)
             rcNode_feasibility = rcNode.data.startCG()
             if rcNode_feasibility:

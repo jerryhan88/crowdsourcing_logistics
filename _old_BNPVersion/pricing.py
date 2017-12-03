@@ -12,7 +12,7 @@ def run(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None,
             selectedTasks = set()
             for i in pricingM._T:
                 if pricingM.cbGetSolution(pricingM._z_i[i]) > 0.5:
-                    tNodes.append('p%d' % i); tNodes.append('d%d' % i)
+                    tNodes.append('p0%d' % i); tNodes.append('d%d' % i)
                     selectedTasks.add(i)
             for k in pricingM._K:
                 ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
@@ -41,7 +41,7 @@ def run(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None,
                     logContents += 'Termination\n'
                     logContents += '\t gapPct: %.2f \n' % gapPct
                     logContents += '\t timeIntv: %f \n' % timeIntv
-                    record_logs(log_fpath, logContents)
+                    record_log(log_fpath, logContents)
                     pricingM.terminate()
     #
     T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
@@ -107,7 +107,7 @@ def run(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None,
                     name='XpPDi[%d]' % k)
         #
         for i in T:  # eq:taskOutFlow
-            pricingM.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in N) == z_i[i],
+            pricingM.addConstr(quicksum(x_kij[k, 'p0%d' % i, j] for j in N) == z_i[i],
                         name='tOF[%d,%d]' % (k, i))
         for j in T:  # eq:taskInFlow
             pricingM.addConstr(quicksum(x_kij[k, i, 'd%d' % j] for i in N) == z_i[j],
@@ -132,7 +132,7 @@ def run(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None,
         pricingM.addConstr(o_ki[k, kM] <= bigM2,
                     name='iOE[%d]' % k)
         for i in T:  # eq:pdSequnce
-            pricingM.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
+            pricingM.addConstr(o_ki[k, 'p0%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
                         name='pdS[%d]' % k)
         for i in kN:
             for j in kN:  # eq:ordering
@@ -203,7 +203,7 @@ def run(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThreads=None,
             else:
                 logContents += '\t k%d, dt %.2f; %d;\t %s\n' % (k, detourTime, 0, str(route))
         logContents += '\t\t\t\t\t\t %.3f \t %.3f\n' % (pricingM.objVal, p)
-        record_logs(log_fpath, logContents)
+        record_log(log_fpath, logContents)
     #
     if pricingM.status == GRB.Status.INFEASIBLE:
         # m.computeIIS()

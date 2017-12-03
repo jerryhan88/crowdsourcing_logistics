@@ -1,16 +1,19 @@
-from bnpTree import BnPTree
-
-
+from hiTree import HiTree
+import os.path as opath
+import pickle
 ifpath = 'nt05-np12-nb2-tv3-td4.pkl'
 #
 def test():
-    import pickle
+
     with open(ifpath, 'rb') as fp:
         inputs = pickle.load(fp)
 
-    ghLogF, orLogF, cgLogF, bnpLogF = 'gh.log', 'or.log', 'cg.log', 'bnp.log'
-    ghResF, orResF, cgResF, bnpResF = 'gh.csv', 'or.csv', 'cg.csv', 'bnp.csv'
-    bptFile = 'bpt.csv'
+    prefix = ifpath[:-len('.pkl')]
+    ghLogF, orLogF, cgLogF, bnpLogF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in
+                                       ['Hgh.log', 'Hor.log', 'Hcg.log', 'Hbnp.log']]
+    ghResF, orResF, cgResF, bnpResF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in
+                                       ['Hgh.csv', 'Hor.csv', 'Hcg.csv', 'Hbnp.csv']]
+    bptFile = opath.join('z_files', '%s-%s' % (prefix, 'Hbpt.csv'))
     emsgFile, epklFile = 'E.txt', 'E.pkl'
     #
     probSetting = {'problem': inputs,
@@ -25,7 +28,7 @@ def test():
                   #
                   'EpklFile': epklFile, 'EmsgFile': emsgFile,
                   }
-    bnbTree = BnPTree(probSetting, grbSetting, etcSetting)
+    bnbTree = HiTree(probSetting, grbSetting, etcSetting)
     bnbTree.startBnP()
     # objV, gap, eliCpuTime, eliWallTime = run(inputs, log_fpath=, pfCst=)
 

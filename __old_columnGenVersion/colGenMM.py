@@ -5,7 +5,7 @@ from datetime import datetime
 import numpy as np
 import time
 #
-from _utils.recording import record_logs, O_GL, X_GL
+from _utils.recording import record_log, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
 #
 try:
@@ -115,7 +115,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
         logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeS)
         logContents += '\t\t End.Time: %s\n' % str(endWallTimeS)
         logContents += '\t\t Eli.Time: %f\n' % eliWallTimeS
-        record_logs(log_fpath, logContents)
+        record_log(log_fpath, logContents)
         for i in bundle:
             vec[i] = 1
         p = c_b + (np.array(vec) * np.array(pi_i)).sum() + mu
@@ -165,7 +165,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     logContents += '\t ObjV: %.3f\n' % cgMM.objVal
     logContents += '\t Gap: %.3f\n' % cgMM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
-    record_logs(log_fpath, logContents)
+    record_log(log_fpath, logContents)
     #
     return cgMM.objVal, cgMM.MIPGap, eliCpuTimeM, eliWallTimeM
 
@@ -191,7 +191,7 @@ def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
     N = {_kP, _kM}
     P, D = set(), set()
     for i in b:
-        P.add('p%d' % i); D.add('d%d' % i)
+        P.add('p0%d' % i); D.add('d%d' % i)
     N = N.union(P)
     N = N.union(D)
     #
@@ -252,7 +252,7 @@ def minTimePD(b, k, t_ij, log_fpath=None, numThreads=None, TimeLimit=None):
     m.addConstr(o_i[_kM] == len(N),
                 name='ordDest')
     for i in b:  # eq:pdSequnce
-        m.addConstr(o_i['p%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
+        m.addConstr(o_i['p0%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
     for i in N:
         for j in N:  # eq:ordering
             if i == _kM or j == _kP:
@@ -291,7 +291,7 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
             selectedTasks = set()
             for i in m._T:
                 if m.cbGetSolution(m._z_i[i]) > 0.5:
-                    tNodes.append('p%d' % i); tNodes.append('d%d' % i)
+                    tNodes.append('p0%d' % i); tNodes.append('d%d' % i)
                     selectedTasks.add(i)
             #
             for b in m._B:
@@ -325,7 +325,7 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
                     logContents += 'Termination\n'
                     logContents += '\t gapPct: %.2f \n' % gapPct
                     logContents += '\t timeIntv: %f \n' % timeIntv
-                    record_logs(log_fpath, logContents)
+                    record_log(log_fpath, logContents)
                     m.terminate()
     #
     T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
@@ -391,7 +391,7 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
                     name='XpPDi[%d]' % k)
         #
         for i in T:  # eq:taskOutFlow
-            m.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in N) == z_i[i],
+            m.addConstr(quicksum(x_kij[k, 'p0%d' % i, j] for j in N) == z_i[i],
                         name='tOF[%d,%d]' % (k, i))
         for j in T:  # eq:taskInFlow
             m.addConstr(quicksum(x_kij[k, i, 'd%d' % j] for i in N) == z_i[j],
@@ -416,7 +416,7 @@ def subProblem(pi_i, mu, B, input4subProblem, counter, log_fpath=None, numThread
         m.addConstr(o_ki[k, kM] <= bigM2,
                     name='iOE[%d]' % k)
         for i in T:  # eq:pdSequnce
-            m.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
+            m.addConstr(o_ki[k, 'p0%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
                         name='pdS[%d]' % k)
         for i in kN:
             for j in kN:  # eq:ordering

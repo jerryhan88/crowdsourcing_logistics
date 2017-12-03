@@ -1,42 +1,44 @@
+import datetime
 import os.path as opath
-import time, datetime
-import numpy as np
+import time
 from gurobipy import *
-#
 
+import numpy as np
+
+from _opb.pricing4opb import run as pricing4opb_run
+#
 from optRouting import run as optR_run
-from pricing import run as pricing_run
-prefix = 'greedyHeuristic'
+
+prefix = 'greedyHeuristic4opb'
 pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
 if opath.exists(c_fn):
     if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
         from setup import cythonize; cythonize(prefix)
 else:
     from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
+from greedyHeuristic4opb import run as gHeuristic_run
 #
 from problems import *
 from _utils.mm_utils import *
 from _utils.recording import *
 
 
-class BnPNode(object):
+class Node(object):
     def __init__(self, nid, probSetting, grbSetting, etcSetting):
         self.nid = nid
         self.probSetting, self.grbSetting, self.etcSetting = probSetting, grbSetting, etcSetting
         assert 'problem' in self.probSetting
-        self.problem, self.inclusiveC, self.exclusiveC = list(map(self.probSetting.get,
-                                                                  ['problem', 'inclusiveC', 'exclusiveC']))
-        if not self.inclusiveC and not self.exclusiveC:
-            assert 'B' not in self.probSetting
-            assert 'p_b' not in self.probSetting
-            assert 'e_bi' not in self.probSetting
+        print(nid, self.probSetting['inclusiveC'], self.probSetting['exclusiveC'])
+        if not self.probSetting['inclusiveC'] and not self.probSetting['exclusiveC']:
+            assert self.probSetting['B'] is None, print(self.probSetting['B'])
+            assert self.probSetting['p_b'] is None, print(self.probSetting['p_b'])
+            assert self.probSetting['e_bi'] is None, print(self.probSetting['e_bi'])
             #
             # Generate initial bundles
             #
             self.B, self.p_b, self.e_bi = self.gen_initBundles()
             #
-            record_bpt(self.etcSetting['bptFile'])
+            record_bpt(self.etcSetting['bbtFile'])
         else:
             self.B, self.p_b, self.e_bi = list(map(self.probSetting.get,
                                                    ['B', 'p_b', 'e_bi']))
@@ -48,30 +50,14 @@ class BnPNode(object):
     def gen_initBundles(self):
         bB, \
         T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
+        _, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.probSetting['problem'])
         #
         # Run the greedy heuristic
         #
-        startCpuTime, startWallTime = time.clock(), time.time()
-        objV, B, unassigned_tasks = gHeuristic_run(self.problem)
-        gap, eliWallTime = None, None
-        endCpuTime, endWallTime = time.clock(), time.time()
-        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        #
-        logContents = '\n\n'
-        logContents += 'Summary\n'
-        logContents += '\t Sta.Time: %s\n' % str(startCpuTime)
-        logContents += '\t End.Time: %s\n' % str(endCpuTime)
-        logContents += '\t Eli.Time: %f\n' % eliCpuTime
-        logContents += '\t ObjV: %.3f\n' % objV
-        logContents += '\t chosen B.: %s\n' % str(B)
-        logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
-        record_log(self.etcSetting['ghLogF'], logContents)
-        record_res(self.etcSetting['ghResF'], objV, gap, eliCpuTime, eliWallTime)
+        objV, B, unassigned_tasks = gHeuristic_run(self.probSetting['problem'], self.probSetting['k'])
         #
         # Run the optimal routing
         #
-        startCpuTime, startWallTime = time.clock(), time.time()
         if unassigned_tasks:
             logContents = 'There are unassigned tasks\n'
             logContents += 'Greedy heuristic\n'
@@ -87,11 +73,7 @@ class BnPNode(object):
                     logContents += '===========================================================\n'
                     logContents = 'Infeasible problem!!\n'
                     logContents += '===========================================================\n'
-                    record_log(self.etcSetting['orLogF'], logContents)
-                    record_log(self.etcSetting['bnpLogF'], logContents)
-            logContents += 'Modified bundles\n'
-            logContents += '\t B: %s' % str(B)
-            record_log(self.etcSetting['orLogF'], logContents)
+                    record_log(self.etcSetting['opbLogF'], logContents)
         #
         logContents = '\n\n'
         logContents += '===========================================================\n'
@@ -99,45 +81,23 @@ class BnPNode(object):
         for b in B:
             logContents += '\t %s\n' % str(b)
         logContents += '===========================================================\n'
-        record_log(self.etcSetting['bnpLogF'], logContents)
+        record_log(self.etcSetting['opbLogF'], logContents)
         #
-        grbSettingOP = {'LogFile': self.etcSetting['orLogF'],
-                        'Threads': self.grbSetting['Threads']}
-        logContents = 'Bundle-Path feasibility\n'
+        grbSettingOP = {'Threads': self.grbSetting['Threads']}
         p_b, e_bi = [], []
         for b in B:
             br = sum([r_i[i] for i in b])
-            logContents += '%s (%d) \n' % (str(b), br)
-            p = 0
-            for k, w in enumerate(w_k):
-                probSetting = {'b': b, 'k': k, 't_ij': t_ij}
-                detourTime, route = optR_run(probSetting, grbSettingOP)
-                if detourTime <= _delta:
-                    p += w * br
-                    logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 1, str(route))
-                else:
-                    logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 0, str(route))
-            p_b.append(p)
-            logContents += '\t\t\t\t\t\t %.3f\n' % p
+            probSetting = {'b': b, 'k': self.probSetting['k'], 't_ij': t_ij}
+            detourTime, route = optR_run(probSetting, grbSettingOP)
+            if detourTime <= _delta:
+                p_b.append(br)
+            else:
+                p_b.append(0)
             #
             vec = [0 for _ in range(len(T))]
             for i in b:
                 vec[i] = 1
             e_bi.append(vec)
-        #
-        objV, gap = sum(p_b), None
-        endCpuTime, endWallTime = time.clock(), time.time()
-        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        #
-        logContents += '\n\n'
-        logContents += 'Summary\n'
-        logContents += '\t Sta.Time: %s\n' % str(startCpuTime)
-        logContents += '\t End.Time: %s\n' % str(endCpuTime)
-        logContents += '\t Eli.Time: %f\n' % eliCpuTime
-        logContents += '\t ObjV: %.3f\n' % objV
-        logContents += '\t chosen B.: %s\n' % str(B)
-        record_log(self.etcSetting['orLogF'], logContents)
-        record_res(self.etcSetting['orResF'], objV, gap, eliCpuTime, eliWallTime)
         #
         return B, p_b, e_bi
 
@@ -149,13 +109,14 @@ class BnPNode(object):
         logContents += 'Start column generation of bnbNode(%s)\n' % self.nid
         record_log(self.grbSetting['LogFile'], logContents)
         #
-        problem, B, p_b, e_bi = self.problem, self.B, self.p_b, self.e_bi
+        problem, B, p_b, e_bi = self.probSetting['problem'], self.B, self.p_b, self.e_bi
+        k = self.probSetting['k']
         bB, \
         T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
-        input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
+        _, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+        input4subProblem = [T, r_i, v_i, _lambda, P, D, N, w_k, t_ij, _delta]
         B_i0i1 = {}
-        for i0, i1 in set(self.inclusiveC).union(set(self.exclusiveC)):
+        for i0, i1 in set(self.probSetting['inclusiveC']).union(set(self.probSetting['exclusiveC'])):
             for b in range(len(B)):
                 if i0 in B[b] and i1 in B[b]:
                     if (i0, i1) not in B_i0i1:
@@ -181,14 +142,14 @@ class BnPNode(object):
         #
         taskAC = {}
         for i in T:  # eq:taskA
-            taskAC[i] = masterM.addConstr(quicksum(e_bi[b][i] * q_b[b] for b in range(len(B))) == 1,
+            taskAC[i] = masterM.addConstr(quicksum(e_bi[b][i] * q_b[b] for b in range(len(B))) <= 1,
                                           name="taskAC[%d]" % i)
-        numBC = masterM.addConstr(quicksum(q_b[b] for b in range(len(B))) == bB,
+        numBC = masterM.addConstr(quicksum(q_b[b] for b in range(len(B))) <= bB,
                                   name="numBC")
-        for i, (i0, i1) in enumerate(self.inclusiveC):
+        for i, (i0, i1) in enumerate(self.probSetting['inclusiveC']):
             masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) >= 1,
                               name="mIC[%d]" % i)
-        for i, (i0, i1) in enumerate(self.exclusiveC):
+        for i, (i0, i1) in enumerate(self.probSetting['exclusiveC']):
             masterM.addConstr(quicksum(q_b[b] for b in B_i0i1[i0, i1]) <= 0,
                               name="mEC[%d]" % i)
         masterM.update()
@@ -210,16 +171,19 @@ class BnPNode(object):
             counter += 1
             pi_i = [relaxM.getConstrByName("taskAC[%d]" % i).Pi for i in T]
             mu = relaxM.getConstrByName("numBC").Pi
+            _q_b = [relaxM.getVarByName("q[%d]" % b).x for b in range(len(B))]
             startCpuTimeP, startWallTimeP = time.clock(), time.time()
-            bestSols = pricing_run(counter,
-                                   pi_i, mu, B, input4subProblem,
-                                   self.inclusiveC, self.exclusiveC,
-                                   self.grbSetting)
+            bestSols = pricing4opb_run(counter,
+                                       k, pi_i, mu, B, input4subProblem,
+                                       self.probSetting['inclusiveC'], self.probSetting['exclusiveC'],
+                                       self.grbSetting)
             if bestSols is None:
                 logContents = '\n\n'
                 logContents += '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
                 logContents += 'No solution!\n'
                 break
+
+
             endCpuTimeP, endWallTimeP = time.clock(), time.time()
             eliCpuTimeP, eliWallTimeP = endCpuTimeP - startCpuTimeP, endWallTimeP - startWallTimeP
             #
@@ -235,6 +199,8 @@ class BnPNode(object):
             logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
             logContents += '\t Relaxed objVal\n'
             logContents += '\t\t z: %.3f\n' % relaxM.objVal
+            logContents += '\t\t B: %s\n' % str(B)
+            logContents += '\t\t q_b: %s\n' % str(_q_b)
             logContents += '\t Dual V\n'
             logContents += '\t\t Pi: %s\n' % str([round(v, 3) for v in pi_i])
             logContents += '\t\t mu: %.3f\n' % mu
@@ -262,21 +228,17 @@ class BnPNode(object):
                 q_b[len(B)] = masterM.addVar(obj=p_b[len(B)], vtype=GRB.BINARY, name="q[%d]" % len(B), column=col)
                 B.append(bundle)
                 masterM.update()
-            record_bpt(self.etcSetting['bptFile'], [self.nid,
-                                         datetime.datetime.fromtimestamp(startWallTimeP),
-                                         eliWallTimeP, eliCpuTimeP,
-                                         'S',
-                                         {'numIter': counter, 'numGBs': len(posBundles), 'GBs': posBundles}])
+            record_bpt(self.etcSetting['bbtFile'], [self.nid,
+                                     datetime.datetime.fromtimestamp(startWallTimeP),
+                                     eliWallTimeP, eliCpuTimeP,
+                                     'S',
+                                     {'numIter': counter, 'numGBs': len(posBundles), 'GBs': posBundles}])
             if not posBundles:
                 logContents += '\t No new bundles\n'
                 record_log(self.grbSetting['LogFile'], logContents)
                 break
             else:
                 record_log(self.grbSetting['LogFile'], logContents)
-        #
-        if not self.inclusiveC and not self.exclusiveC:
-            self.rootMasterM = masterM
-            self.rootB = B
         #
         if is_feasible:
             relaxM = masterM.relax()
@@ -310,45 +272,22 @@ class BnPNode(object):
             self.res['objVal'] = relaxM.objVal
             self.res['q_b'] = q_b
             #
-            record_bpt(self.etcSetting['bptFile'], [self.nid,
+            record_bpt(self.etcSetting['bbtFile'], [self.nid,
                                          datetime.datetime.fromtimestamp(startWallTimeM),
                                          eliWallTimeM, eliCpuTimeM,
                                          'M',
                                          {'objVal': relaxM.objVal,
-                                          'inclusiveC': str(self.inclusiveC),
-                                          'exclusiveC': str(self.exclusiveC)}])
+                                          'inclusiveC': str(self.probSetting['inclusiveC']),
+                                          'exclusiveC': str(self.probSetting['exclusiveC'])}])
         else:
             endCpuTimeM, endWallTimeM = time.clock(), time.time()
             eliCpuTimeM, eliWallTimeM = endCpuTimeM - startCpuTimeM, endWallTimeM - startWallTimeM
-            record_bpt(self.etcSetting['bptFile'], [self.nid,
+            record_bpt(self.etcSetting['bbtFile'], [self.nid,
                                          datetime.datetime.fromtimestamp(startWallTimeM),
                                          eliWallTimeM, eliCpuTimeM,
                                          'M',
                                          {'objVal': -1,
-                                          'inclusiveC': str(self.inclusiveC),
-                                          'exclusiveC': str(self.exclusiveC)}])
+                                          'inclusiveC': str(self.probSetting['inclusiveC']),
+                                          'exclusiveC': str(self.probSetting['exclusiveC'])}])
         #
         return is_feasible
-
-    def solveRootMIP(self):
-        masterM, B = self.rootMasterM, self.rootB
-        startCpuTime, startWallTime = time.clock(), time.time()
-        grbSettingR = {'LogFile': self.etcSetting['cgLogF'],
-                       'Threads': self.grbSetting['Threads']}
-        set_grbSettings(masterM, grbSettingR)
-        masterM.optimize()
-        q_b = [masterM.getVarByName("q[%d]" % b).x for b in range(len(B))]
-        chosenB = [B[b] for b in range(len(B)) if q_b[b] > 0.5]
-        endCpuTime, endWallTime = time.clock(), time.time()
-        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        #
-        logContents = '\n\n'
-        logContents += 'Summary\n'
-        logContents += '\t Sta.Time: %s\n' % str(startCpuTime)
-        logContents += '\t End.Time: %s\n' % str(endCpuTime)
-        logContents += '\t Eli.Time: %f\n' % eliCpuTime
-        logContents += '\t ObjV: %.3f\n' % masterM.objVal
-        logContents += '\t chosen B.: %s\n' % str(chosenB)
-        record_log(self.etcSetting['cgLogF'], logContents)
-        record_res(self.etcSetting['cgResF'], masterM.objVal, masterM.MIPGap, eliCpuTime, eliWallTime)
-

@@ -16,7 +16,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
                 tNodes = []
                 for i in m._T:
                     if m.cbGetSolution(m._z_bi[b, i]) > 0.5:
-                        tNodes.append('p%d' % i)
+                        tNodes.append('p0%d' % i)
                         tNodes.append('d%d' % i)
                 for k in m._K:
                     ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
@@ -101,7 +101,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
             exactMM.addConstr(quicksum(x_bkij[b, k, i, 'dest%d' % k] for i in P) == 0,
                         name='XpPDi[%d,%d]' % (b, k))
             for i in T:  # eq:taskOutFlow
-                exactMM.addConstr(quicksum(x_bkij[b, k, 'p%d' % i, j] for j in N) == z_bi[b, i],
+                exactMM.addConstr(quicksum(x_bkij[b, k, 'p0%d' % i, j] for j in N) == z_bi[b, i],
                             name='tOF[%d,%d,%d]' % (b, k, i))
             for j in T:  # eq:taskInFlow
                 exactMM.addConstr(quicksum(x_bkij[b, k, i, 'd%d' % j] for i in N) == z_bi[b, j],
@@ -125,7 +125,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
             exactMM.addConstr(o_bki[b, k, kM] <= bigM2,
                         name='iOE[%d,%d]' % (b, k))
             for i in T:  # eq:pdSequnce
-                exactMM.addConstr(o_bki[b, k, 'p%d' % i] <= o_bki[b, k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
+                exactMM.addConstr(o_bki[b, k, 'p0%d' % i] <= o_bki[b, k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
                         name='pdS[%d,%d]' % (b, k))
             for i in kN:
                 for j in kN:  # eq:ordering
@@ -174,7 +174,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     logContents += '\t ObjV: %.3f\n' % exactMM.objVal
     logContents += '\t Gap: %.3f\n' % exactMM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
-    record_logs(log_fpath, logContents)
+    record_log(log_fpath, logContents)
     #
     return exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime
 

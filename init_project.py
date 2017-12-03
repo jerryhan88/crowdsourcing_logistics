@@ -7,13 +7,12 @@ dpath['geo'] = opath.join(taxi_data_home, 'geo')
 # --------------------------------------------------------------
 dpath['home'] = opath.join(taxi_data_home, 'crowdsourcingLogistics')
 dpath['experiment'] = opath.join(dpath['home'], 'experiment')
+dpath['dayInstance'] = opath.join(dpath['home'], 'dayInstance')
 
-
-# dpath['dayInstance'] = opath.join(dpath['home'], 'dayInstance')
 # dpath['problem'] = opath.join(dpath['home'], 'problem')
 
 
-for dn in ['home', 'experiment']:
+for dn in ['home', 'experiment', 'dayInstance']:
     try:
         if not opath.exists(dpath[dn]):
             os.makedirs(dpath[dn])

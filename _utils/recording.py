@@ -7,7 +7,7 @@ O_GL, X_GL = True, False
 LOGGING_FEASIBILITY = False
 
 
-def record_logs(fpath, contents):
+def record_log(fpath, contents):
     if fpath:
         with open(fpath, 'a') as f:
             f.write(contents)

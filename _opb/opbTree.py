@@ -1,23 +1,25 @@
-import time
 import datetime
+import time
 from heapq import heappush, heappop
-import treelib
-#
-from bnpNode import BnPNode
 from itertools import combinations
+
+import treelib
+
+#
+from _opb.opbNode import Node
+from _utils.mm_utils import *
 #
 from _utils.recording import *
-from _utils.mm_utils import *
 
 
-class BnPTree(treelib.Tree):
+class Tree(treelib.Tree):
     def __init__(self, probSetting, grbSetting, etcSetting):
         treelib.Tree.__init__(self)
         self.probSetting, self.grbSetting, self.etcSetting = probSetting, grbSetting, etcSetting
         #
         tag, indentifier = '-', '*'
         self.create_node(tag, indentifier,
-                         data=BnPNode(indentifier, self.probSetting, self.grbSetting, self.etcSetting))
+                         data=Node(indentifier, self.probSetting, self.grbSetting, self.etcSetting))
         self.bestBound, self.incumbent = None, None
         self.leafNodes = []
 
@@ -28,7 +30,7 @@ class BnPTree(treelib.Tree):
         logContents += '%s\n' % str(datetime.datetime.now())
         logContents += 'Start Branch and Pricing from the root\n'
         logContents += '===========================================================\n'
-        record_log(self.etcSetting['bnpLogF'], logContents)
+        record_log(self.etcSetting['opbLogF'], logContents)
         #
         is_feasible = rootNode.data.startCG()
         if not is_feasible:
@@ -36,7 +38,7 @@ class BnPTree(treelib.Tree):
             logContents += '%s\n' % str(datetime.datetime.now())
             logContents += 'The original (root) problem is infeasible\n'
             logContents += '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-            record_log(self.etcSetting['bnpLogF'], logContents)
+            record_log(self.etcSetting['opbLogF'], logContents)
             assert False
         self.branching(rootNode)
         incumProb = self.incumbent.data.probSetting
@@ -63,10 +65,7 @@ class BnPTree(treelib.Tree):
         logContents += '\t Gap: %.3f\n' % BnPgap
         logContents += '\t chosen B.: %s\n' % str(chosenB)
         logContents += '===========================================================\n'
-        record_log(self.etcSetting['bnpLogF'], logContents)
-        record_res(self.etcSetting['bnpResF'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
-        #
-        rootNode.data.solveRootMIP()
+        record_log(self.etcSetting['opbLogF'], logContents)
 
     def branching_dfs_lcp(self):
         # Depth First Search and left child priority
@@ -82,8 +81,8 @@ class BnPTree(treelib.Tree):
         logContents += '%s\n' % str(now)
         logContents += 'Try Branching; bnbNode(%s)\n' % curNode.identifier
         logContents += '===========================================================\n'
-        record_log(self.etcSetting['bnpLogF'], logContents)
-        record_bpt(self.etcSetting['bptFile'], [curNode.identifier,
+        record_log(self.etcSetting['opbLogF'], logContents)
+        record_bpt(self.etcSetting['bbtFile'], [curNode.identifier,
                                                 now,
                                                 None, None,
                                                 'TB',
@@ -102,8 +101,8 @@ class BnPTree(treelib.Tree):
                 logContents += '%s\n' % str(now)
                 logContents += 'bnbNode(%s) was pruned\n' % curNode.identifier
                 logContents += '===========================================================\n'
-                record_log(self.etcSetting['bnpLogF'], logContents)
-                record_bpt(self.etcSetting['bptFile'], [curNode.identifier,
+                record_log(self.etcSetting['opbLogF'], logContents)
+                record_bpt(self.etcSetting['bbtFile'], [curNode.identifier,
                                                         now,
                                                         None, None,
                                                         'PR',
@@ -127,7 +126,7 @@ class BnPTree(treelib.Tree):
             logContents = '\n===========================================================\n'
             logContents += '%s\n' % str(now)
             logContents += 'Found a integral solution\n'
-            record_bpt(self.etcSetting['bptFile'], [curNode.identifier,
+            record_bpt(self.etcSetting['bbtFile'], [curNode.identifier,
                                                     now,
                                                     None, None,
                                                     'INT',
@@ -135,7 +134,7 @@ class BnPTree(treelib.Tree):
             if self.incumbent is None:
                 self.incumbent = curNode
                 logContents += 'The first incumbent, bnbNode(%s)\n' % self.incumbent.identifier
-                record_bpt(self.etcSetting['bptFile'], [curNode.identifier,
+                record_bpt(self.etcSetting['bbtFile'], [curNode.identifier,
                                                         now,
                                                         None, None,
                                                         'IC',
@@ -145,7 +144,7 @@ class BnPTree(treelib.Tree):
                 if incumRes['objVal'] < curRes['objVal']:
                     logContents += 'The incumbent was changed\n'
                     logContents += 'bnbNode(%s) -> bnbNode(%s)\n' % (self.incumbent.identifier, curNode.identifier)
-                    record_bpt(self.etcSetting['bptFile'], [curNode.identifier,
+                    record_bpt(self.etcSetting['bbtFile'], [curNode.identifier,
                                                             now,
                                                             None, None,
                                                             'IC',
@@ -153,13 +152,13 @@ class BnPTree(treelib.Tree):
                     self.incumbent = curNode
                 else:
                     logContents += 'No change about the incumbent\n'
-                    record_bpt(self.etcSetting['bptFile'], [curNode.identifier,
+                    record_bpt(self.etcSetting['bbtFile'], [curNode.identifier,
                                                             now,
                                                             None, None,
                                                             'NI',
                                                             None])
             logContents += '===========================================================\n'
-            record_log(self.etcSetting['bnpLogF'], logContents)
+            record_log(self.etcSetting['opbLogF'], logContents)
             self.branching_dfs_lcp()
         else:
             #
@@ -181,7 +180,7 @@ class BnPTree(treelib.Tree):
                 logContents += '%s\n' % str(datetime.datetime.now())
                 logContents += 'No suitable pairs\n'
                 logContents += '===========================================================\n'
-                record_log(self.etcSetting['bnpLogF'], logContents)
+                record_log(self.etcSetting['opbLogF'], logContents)
                 assert False
             logContents = '\n===========================================================\n'
             logContents += '%s\n' % str(datetime.datetime.now())
@@ -190,7 +189,7 @@ class BnPTree(treelib.Tree):
             logContents += '\t Chosen bundle %s\n' % str(candiBundle)
             logContents += '\t Chosen tasks %s\n' % str((i0, i1))
             logContents += '===========================================================\n'
-            record_log(self.etcSetting['bnpLogF'], logContents)
+            record_log(self.etcSetting['opbLogF'], logContents)
             #
             # Left child
             #
@@ -198,7 +197,7 @@ class BnPTree(treelib.Tree):
             lProbSetting = self.duplicate_probSetting(pProbSetting)
             lProbSetting['inclusiveC'] += [(i0, i1)]
             self.create_node(lTag, lIndentifier, parent=pIdentifier,
-                             data=BnPNode(lIndentifier, lProbSetting, self.grbSetting, self.etcSetting))
+                             data=Node(lIndentifier, lProbSetting, self.grbSetting, self.etcSetting))
             lcNode = self.get_node(lIndentifier)
             lcNode_feasibility = lcNode.data.startCG()
             if lcNode_feasibility:
@@ -210,7 +209,7 @@ class BnPTree(treelib.Tree):
             rProbSetting = self.duplicate_probSetting(pProbSetting)
             rProbSetting['exclusiveC'] += [(i0, i1)]
             self.create_node(rTag, rIndentifier, parent=pIdentifier,
-                             data=BnPNode(rIndentifier, rProbSetting, self.grbSetting, self.etcSetting))
+                             data=Node(rIndentifier, rProbSetting, self.grbSetting, self.etcSetting))
             rcNode = self.get_node(rIndentifier)
             rcNode_feasibility = rcNode.data.startCG()
             if rcNode_feasibility:
@@ -228,7 +227,7 @@ class BnPTree(treelib.Tree):
             self.branching_dfs_lcp()
 
     def duplicate_probSetting(self, pProbSetting):
-        nProbSetting = {'problem': pProbSetting['problem']}
+        nProbSetting = {'problem': pProbSetting['problem'], 'k': pProbSetting['k']}
         nProbSetting['B'] = [bundle[:] for bundle in pProbSetting['B']]
         nProbSetting['p_b'] = pProbSetting['p_b'][:]
         nProbSetting['e_bi'] = [vec[:] for vec in pProbSetting['e_bi']]

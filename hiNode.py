@@ -5,7 +5,7 @@ from gurobipy import *
 #
 
 from optRouting import run as optR_run
-from pricing import run as pricing_run
+from hiPricing import run as pricing_run
 prefix = 'greedyHeuristic'
 pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
 if opath.exists(c_fn):
@@ -20,7 +20,7 @@ from _utils.mm_utils import *
 from _utils.recording import *
 
 
-class BnPNode(object):
+class HiNode(object):
     def __init__(self, nid, probSetting, grbSetting, etcSetting):
         self.nid = nid
         self.probSetting, self.grbSetting, self.etcSetting = probSetting, grbSetting, etcSetting

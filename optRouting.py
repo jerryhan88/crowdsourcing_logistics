@@ -117,3 +117,41 @@ def run(probSetting, grbSetting):
         i = _route[i]
     route.append(i)
     return orM.objVal, route
+
+
+def test():
+    from greedyHeuristic import run as gHeuristic_run
+    from problems import convert_input4MathematicalModel
+    import pickle
+    ifpath = 'nt05-np12-nb2-tv3-td4.pkl'
+    with open(ifpath, 'rb') as fp:
+        inputs = pickle.load(fp)
+    objV, B, _ = gHeuristic_run(inputs)
+
+    print(objV, B)
+
+    bB, \
+    T, r_i, v_i, _lambda, P, D, N, \
+    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+
+    logContents = ''
+    grbSettingOP = {}
+    for b in B:
+        br = sum([r_i[i] for i in b])
+        logContents += '%s (%d) \n' % (str(b), br)
+        p = 0
+        for k, w in enumerate(w_k):
+            probSetting = {'b': b, 'k': k, 't_ij': t_ij}
+            detourTime, route = run(probSetting, grbSettingOP)
+            if detourTime <= _delta:
+                p += w * br
+                logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 1, str(route))
+            else:
+                logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 0, str(route))
+        logContents += '\t\t\t\t\t\t %.3f\n' % p
+
+    print(logContents)
+
+
+if __name__ == '__main__':
+    test()

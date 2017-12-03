@@ -67,7 +67,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
         p_b.append(p)
         logContents += '\t\t\t\t\t\t %.3f\n' % p
     if LOGGING_FEASIBILITY:
-        record_logs(log_fpath, logContents)
+        record_log(log_fpath, logContents)
     #
     # Define decision variables
     #
@@ -151,10 +151,10 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
             cgMM.update()
         if numPRC == 0:
             logContents += '\t No bundles\n'
-            record_logs(log_fpath, logContents)
+            record_log(log_fpath, logContents)
             break
         else:
-            record_logs(log_fpath, logContents)
+            record_log(log_fpath, logContents)
     #
     # Settings
     #
@@ -187,7 +187,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     logContents += '\t ObjV: %.3f\n' % cgMM.objVal
     logContents += '\t Gap: %.3f\n' % cgMM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
-    record_logs(log_fpath, logContents)
+    record_log(log_fpath, logContents)
     #
     return cgMM.objVal, cgMM.MIPGap, eliCpuTimeM, eliWallTimeM
 
