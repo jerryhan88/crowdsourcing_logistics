@@ -105,7 +105,8 @@ def run_multipleCores(machine_num):
                       'Threads': _numThreads,
                       'TimeLimit': _TimeLimit,
                       'PoolSolutions': _PoolSolutions,
-                      # 'Method': 1
+                      'Method': 1  # dual simplex
+                      # 'Method': 2  # barrier
 
                       }
         etcSetting = {'ghLogF': ghLogF, 'orLogF': orLogF, 'cgLogF': cgLogF, 'bnpLogF': bnpLogF,

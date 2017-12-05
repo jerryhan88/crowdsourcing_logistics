@@ -167,14 +167,16 @@ def ghS_BNP_test():
                                        ['gh.log', 'or.log', 'cg.log', 'bnp.log']]
     ghResF, orResF, cgResF, bnpResF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in
                                        ['gh.csv', 'or.csv', 'cg.csv', 'bnp.csv']]
-    bptFile = opath.join('z_files', '%s-%s' % (prefix, 'Hbpt.csv'))
+    bptFile = opath.join('z_files', '%s-%s' % (prefix, 'bpt.csv'))
     emsgFile, epklFile = 'E.txt', 'E.pkl'
     #
     probSetting = {'problem': problem,
                    'inclusiveC': [], 'exclusiveC': []}
     grbSetting = {'LogFile': bnpLogF,
                   'Threads': 8,
-                  'Method': 1}
+                  # 'Method': 1  # dual simplex
+                  'Method': 2  # barrier
+                  }
     etcSetting = {'ghLogF': ghLogF, 'orLogF': orLogF, 'cgLogF': cgLogF, 'bnpLogF': bnpLogF,
                   #
                   'ghResF': ghResF, 'orResF': orResF, 'cgResF': cgResF, 'bnpResF': bnpResF,
