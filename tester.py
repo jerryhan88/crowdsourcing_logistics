@@ -174,8 +174,8 @@ def ghS_BNP_test():
                    'inclusiveC': [], 'exclusiveC': []}
     grbSetting = {'LogFile': bnpLogF,
                   'Threads': 8,
-                  # 'Method': 1  # dual simplex
-                  'Method': 2  # barrier
+                  'Method': 1  # dual simplex
+                  # 'Method': 2  # barrier
                   }
     etcSetting = {'ghLogF': ghLogF, 'orLogF': orLogF, 'cgLogF': cgLogF, 'bnpLogF': bnpLogF,
                   #
