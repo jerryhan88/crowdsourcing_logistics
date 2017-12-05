@@ -14,7 +14,7 @@ def run(probSetting, grbSetting, etcSetting):
                 tNodes = []
                 for i in m._T:
                     if m.cbGetSolution(m._z_bi[b, i]) > 0.5:
-                        tNodes.append('p0%d' % i)
+                        tNodes.append('p%d' % i)
                         tNodes.append('d%d' % i)
                 for k in m._K:
                     ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
@@ -29,9 +29,13 @@ def run(probSetting, grbSetting, etcSetting):
     #
     startCpuTime, startWallTime = time.clock(), time.time()
     problem = probSetting['problem']
-    bB, \
-    T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+    inputs = convert_p2i(*problem)
+    bB = inputs['bB']
+    T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
+    P, D, N = list(map(inputs.get, ['P', 'D', 'N']))
+    K, w_k = list(map(inputs.get, ['K', 'w_k']))
+    t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
+    #
     B = list(range(bB))
     bigM1 = sum(r_i) * 2
     bigM2 = (len(T) + 1) * 2
@@ -39,22 +43,22 @@ def run(probSetting, grbSetting, etcSetting):
     #
     # Define decision variables
     #
-    exactMM = Model('exactModel')
+    exM = Model('exM')
     z_bi, y_bk, a_bk, x_bkij, o_bki = {}, {}, {}, {}, {}
     #
     for b in B:
         for i in T:
-            z_bi[b, i] = exactMM.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (b, i))
+            z_bi[b, i] = exM.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (b, i))
         for k in K:
-            y_bk[b, k] = exactMM.addVar(vtype=GRB.BINARY, name='y[%d,%d]' % (b, k))
-            a_bk[b, k] = exactMM.addVar(vtype=GRB.CONTINUOUS, name='a[%d,%d]' % (b, k))
+            y_bk[b, k] = exM.addVar(vtype=GRB.BINARY, name='y[%d,%d]' % (b, k))
+            a_bk[b, k] = exM.addVar(vtype=GRB.CONTINUOUS, name='a[%d,%d]' % (b, k))
         for k in K:
             kN = N.union({'ori%d' % k, 'dest%d' % k})
             for i in kN:
-                o_bki[b, k, i] = exactMM.addVar(vtype=GRB.INTEGER, name='o[%d,%d,%s]' % (b, k, i))
+                o_bki[b, k, i] = exM.addVar(vtype=GRB.INTEGER, name='o[%d,%d,%s]' % (b, k, i))
                 for j in kN:
-                    x_bkij[b, k, i, j] = exactMM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%s,%s]' % (b, k, i, j))
-    exactMM.update()
+                    x_bkij[b, k, i, j] = exM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%s,%s]' % (b, k, i, j))
+    exM.update()
     #
     # Define objective
     #
@@ -62,90 +66,90 @@ def run(probSetting, grbSetting, etcSetting):
     for b in B:
         for k in K:  # eq:linear_proObj
             obj += w_k[k] * a_bk[b, k]
-    exactMM.setObjective(obj, GRB.MAXIMIZE)
+    exM.setObjective(obj, GRB.MAXIMIZE)
     #
     # Define constrains
     # Linearization
     for b in B:
         for k in K:  # eq:linAlpha
-            exactMM.addConstr(a_bk[b, k] >= quicksum(r_i[i] * z_bi[b, i] for i in T) - bigM1 * (1 - y_bk[b, k]),
+            exM.addConstr(a_bk[b, k] >= quicksum(r_i[i] * z_bi[b, i] for i in T) - bigM1 * (1 - y_bk[b, k]),
                         name='la1[%d,%d]' % (b, k))
-            exactMM.addConstr(a_bk[b, k] <= bigM1 * y_bk[b, k],
+            exM.addConstr(a_bk[b, k] <= bigM1 * y_bk[b, k],
                         name='la2[%d,%d]' % (b, k))
-            exactMM.addConstr(a_bk[b, k] <= quicksum(r_i[i] * z_bi[b, i] for i in T),
+            exM.addConstr(a_bk[b, k] <= quicksum(r_i[i] * z_bi[b, i] for i in T),
                         name='la3[%d,%d]' % (b, k))
     #
     # Bundle
     for i in T:  # eq:taskA
-        exactMM.addConstr(quicksum(z_bi[b, i] for b in B) == 1,
+        exM.addConstr(quicksum(z_bi[b, i] for b in B) == 1,
                     name='ta[%d]' % i)
     for b in B:  # eq:volTh
-        exactMM.addConstr(quicksum(z_bi[b, i] * v_i[i] for i in T) <= _lambda,
+        exM.addConstr(quicksum(z_bi[b, i] * v_i[i] for i in T) <= _lambda,
                     name='vt[%d]' % b)
     #
     # Flow based routing
     for b in B:
         for k in K:
             #  # eq:circularF
-            exactMM.addConstr(x_bkij[b, k, 'dest%d' % k, 'ori%d' % k] == 1,
+            exM.addConstr(x_bkij[b, k, 'dest%d' % k, 'ori%d' % k] == 1,
                         name='cf[%d,%d]' % (b, k))
             #  # eq:pathPD
-            exactMM.addConstr(quicksum(x_bkij[b, k, 'ori%d' % k, j] for j in P) == 1,
+            exM.addConstr(quicksum(x_bkij[b, k, 'ori%d' % k, j] for j in P) == 1,
                         name='pPDo[%d,%d]' % (b, k))
-            exactMM.addConstr(quicksum(x_bkij[b, k, i, 'dest%d' % k] for i in D) == 1,
+            exM.addConstr(quicksum(x_bkij[b, k, i, 'dest%d' % k] for i in D) == 1,
                         name='pPDi[%d,%d]' % (b, k))
             #  # eq:XpathPD
-            exactMM.addConstr(quicksum(x_bkij[b, k, 'ori%d' % k, j] for j in D) == 0,
+            exM.addConstr(quicksum(x_bkij[b, k, 'ori%d' % k, j] for j in D) == 0,
                         name='XpPDo[%d,%d]' % (b, k))
-            exactMM.addConstr(quicksum(x_bkij[b, k, i, 'dest%d' % k] for i in P) == 0,
+            exM.addConstr(quicksum(x_bkij[b, k, i, 'dest%d' % k] for i in P) == 0,
                         name='XpPDi[%d,%d]' % (b, k))
             for i in T:  # eq:taskOutFlow
-                exactMM.addConstr(quicksum(x_bkij[b, k, 'p0%d' % i, j] for j in N) == z_bi[b, i],
+                exM.addConstr(quicksum(x_bkij[b, k, 'p%d' % i, j] for j in N) == z_bi[b, i],
                             name='tOF[%d,%d,%d]' % (b, k, i))
             for j in T:  # eq:taskInFlow
-                exactMM.addConstr(quicksum(x_bkij[b, k, i, 'd%d' % j] for i in N) == z_bi[b, j],
+                exM.addConstr(quicksum(x_bkij[b, k, i, 'd%d' % j] for i in N) == z_bi[b, j],
                             name='tIF[%d,%d,%d]' % (b, k, j))
             #
             kP, kM = 'ori%d' % k, 'dest%d' % k
             kN = N.union({kP, kM})
             for i in kN:  # eq:XselfFlow
-                exactMM.addConstr(x_bkij[b, k, i, i] == 0,
+                exM.addConstr(x_bkij[b, k, i, i] == 0,
                             name='Xsf[%d,%d,%s]' % (b, k, i))
             for j in kN:  # eq:flowCon
-                exactMM.addConstr(quicksum(x_bkij[b, k, i, j] for i in kN) == quicksum(x_bkij[b, k, j, i] for i in kN),
+                exM.addConstr(quicksum(x_bkij[b, k, i, j] for i in kN) == quicksum(x_bkij[b, k, j, i] for i in kN),
                             name='fc[%d,%d,%s]' % (b, k, j))
             for i in kN:
                 for j in kN:  # eq:direction
                     if i == j: continue
-                    exactMM.addConstr(x_bkij[b, k, i, j] + x_bkij[b, k, j, i] <= 1,
+                    exM.addConstr(x_bkij[b, k, i, j] + x_bkij[b, k, j, i] <= 1,
                                 name='dir[%d,%d,%s,%s]' % (b, k, i, j))
-            exactMM.addConstr(o_bki[b, k, kP] == 1,
+            exM.addConstr(o_bki[b, k, kP] == 1,
                         name='iOF[%d,%d]' % (b, k))
-            exactMM.addConstr(o_bki[b, k, kM] <= bigM2,
+            exM.addConstr(o_bki[b, k, kM] <= bigM2,
                         name='iOE[%d,%d]' % (b, k))
             for i in T:  # eq:pdSequnce
-                exactMM.addConstr(o_bki[b, k, 'p0%d' % i] <= o_bki[b, k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
+                exM.addConstr(o_bki[b, k, 'p%d' % i] <= o_bki[b, k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
                         name='pdS[%d,%d]' % (b, k))
             for i in kN:
                 for j in kN:  # eq:ordering
                     if i == j: continue
                     if i == kM or j == kP: continue
-                    exactMM.addConstr(o_bki[b, k, i] + 1 <= o_bki[b, k, j] + bigM2 * (1 - x_bkij[b, k, i, j]))
+                    exM.addConstr(o_bki[b, k, i] + 1 <= o_bki[b, k, j] + bigM2 * (1 - x_bkij[b, k, i, j]))
             #
             # Feasibility
             #  # eq:pathFeasibility
-            exactMM.addConstr(quicksum(t_ij[i, j] * x_bkij[b, k, i, j] for i in kN for j in kN) \
+            exM.addConstr(quicksum(t_ij[i, j] * x_bkij[b, k, i, j] for i in kN for j in kN) \
                               - t_ij[kM, kP] - t_ij[kP, kM] <= _delta + bigM3 * (1 - y_bk[b, k]),
                         name='pf[%d,%d]' % (b, k))
     #
-    exactMM._B, exactMM._T, exactMM._K = B, T, K
-    exactMM._z_bi, exactMM._x_bkij = z_bi, x_bkij
-    exactMM.params.LazyConstraints = 1
+    exM._B, exM._T, exM._K = B, T, K
+    exM._z_bi, exM._x_bkij = z_bi, x_bkij
+    exM.params.LazyConstraints = 1
     #
     # Run Gurobi (Optimization)
     #
-    set_grbSettings(exactMM, grbSetting)
-    exactMM.optimize(addLazyC)
+    set_grbSettings(exM, grbSetting)
+    exM.optimize(addLazyC)
     #
     endCpuTime, endWallTime = time.clock(), time.time()
     eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
@@ -161,8 +165,8 @@ def run(probSetting, grbSetting, etcSetting):
     logContents += '\t\t Sta.Time: %s\n' % str(startWallTime)
     logContents += '\t\t End.Time: %s\n' % str(endWallTime)
     logContents += '\t\t Eli.Time: %f\n' % eliWallTime
-    logContents += '\t ObjV: %.3f\n' % exactMM.objVal
-    logContents += '\t Gap: %.3f\n' % exactMM.MIPGap
+    logContents += '\t ObjV: %.3f\n' % exM.objVal
+    logContents += '\t Gap: %.3f\n' % exM.MIPGap
     logContents += '\t chosen B.: %s\n' % str(chosenB)
     record_log(etcSetting['exLogF'], logContents)
 
@@ -198,7 +202,7 @@ def run(probSetting, grbSetting, etcSetting):
         logContents += '\t\t\t\t\t\t %.3f\n' % p
     record_log(etcSetting['exLogF'], logContents)
     try:
-        record_res(etcSetting['exResF'], exactMM.objVal, exactMM.MIPGap, eliCpuTime, eliWallTime)
+        record_res(etcSetting['exResF'], exM.objVal, exM.MIPGap, eliCpuTime, eliWallTime)
     except:
         record_res(etcSetting['exResF'], -1, -1, eliCpuTime, eliWallTime)
 

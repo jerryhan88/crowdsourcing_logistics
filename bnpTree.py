@@ -1,13 +1,14 @@
-import time
 import datetime
+import time
 from heapq import heappush, heappop
+from itertools import combinations
+
 import treelib
+
+from _utils.mm_utils import *
+from _utils.recording import *
 #
 from bnpNode import BnPNode
-from itertools import combinations
-#
-from _utils.recording import *
-from _utils.mm_utils import *
 
 
 class BnPTree(treelib.Tree):

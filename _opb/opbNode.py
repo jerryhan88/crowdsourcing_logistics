@@ -16,7 +16,7 @@ if opath.exists(c_fn):
         from setup import cythonize; cythonize(prefix)
 else:
     from setup import cythonize; cythonize(prefix)
-from greedyHeuristic4opb import run as gHeuristic_run
+from _opb.greedyHeuristic4opb import run as gHeuristic_run
 #
 from problems import *
 from _utils.mm_utils import *
@@ -50,7 +50,7 @@ class Node(object):
     def gen_initBundles(self):
         bB, \
         T, r_i, v_i, _lambda, P, D, N, \
-        _, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.probSetting['problem'])
+        _, w_k, t_ij, _delta = convert_p2i(*self.probSetting['problem'])
         #
         # Run the greedy heuristic
         #
@@ -113,7 +113,7 @@ class Node(object):
         k = self.probSetting['k']
         bB, \
         T, r_i, v_i, _lambda, P, D, N, \
-        _, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+        _, w_k, t_ij, _delta = convert_p2i(*problem)
         input4subProblem = [T, r_i, v_i, _lambda, P, D, N, w_k, t_ij, _delta]
         B_i0i1 = {}
         for i0, i1 in set(self.probSetting['inclusiveC']).union(set(self.probSetting['exclusiveC'])):

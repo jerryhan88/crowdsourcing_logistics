@@ -1,22 +1,38 @@
+import os.path as opath
 from gurobipy import *
+#
+prefix = 'gh_sBundling'
+pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
+if opath.exists(c_fn):
+    if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
+        from setup import cythonize; cythonize(prefix)
+else:
+    from setup import cythonize; cythonize(prefix)
+from gh_sBundling import run as ghS_run
 #
 from _utils.recording import *
 from _utils.mm_utils import *
 
 
-PRICING_TIME_LIMIT = 60 * 10
+# PRICING_TIME_LIMIT = 60 * 10
+PRICING_TIME_LIMIT = 60 * 2
 
-def run(counter,
-        pi_i, mu, B, input4subProblem,
-        inclusiveC, exclusiveC,
-        grbSetting):
+
+def run(counter, inputs, grbSetting, use_ghS=False):
+    pi_i, mu, B = [inputs.get(k) for k in ['pi_i', 'mu', 'B']]
+    inclusiveC, exclusiveC = [inputs.get(k) for k in ['inclusiveC', 'exclusiveC']]
+    #
+    T, r_i, v_i, _lambda = [inputs.get(k) for k in ['T', 'r_i', 'v_i', '_lambda']]
+    P, D, N = [inputs.get(k) for k in ['P', 'D', 'N']]
+    K, w_k, t_ij, _delta = [inputs.get(k) for k in ['K', 'w_k', 't_ij', '_delta']]
+    #
     def process_callback(pricingM, where):
         if where == GRB.callback.MIPSOL:
             tNodes = []
             selectedTasks = set()
             for i in pricingM._T:
                 if pricingM.cbGetSolution(pricingM._z_i[i]) > 0.5:
-                    tNodes.append('p0%d' % i); tNodes.append('d%d' % i)
+                    tNodes.append('p%d' % i); tNodes.append('d%d' % i)
                     selectedTasks.add(i)
             for k in pricingM._K:
                 ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
@@ -48,7 +64,6 @@ def run(counter,
                     record_log(grbSetting['LogFile'], logContents)
                     pricingM.terminate()
     #
-    T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta = input4subProblem
     bigM1 = sum(r_i) * 2
     bigM2 = (len(T) + 1) * 2
     bigM3 = sum(t_ij.values())
@@ -56,8 +71,7 @@ def run(counter,
     # Define decision variables
     #
     pricingM = Model('PricingProblem %d' % counter)
-    z_i, y_k, a_k, o_ki, x_kij = {}, {}, {}, {}, {}
-    s_PN = {}
+    z_i, y_k, a_k, o_ki, x_kij, s_PN = {}, {}, {}, {}, {}, {}
     for i in T:
         z_i[i] = pricingM.addVar(vtype=GRB.BINARY, name='z[%d]' % i)
     for k in K:
@@ -131,7 +145,7 @@ def run(counter,
                     name='XpPDi[%d]' % k)
         #
         for i in T:  # eq:taskOutFlow
-            pricingM.addConstr(quicksum(x_kij[k, 'p0%d' % i, j] for j in N) == z_i[i],
+            pricingM.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in N) == z_i[i],
                         name='tOF[%d,%d]' % (k, i))
         for j in T:  # eq:taskInFlow
             pricingM.addConstr(quicksum(x_kij[k, i, 'd%d' % j] for i in N) == z_i[j],
@@ -156,7 +170,7 @@ def run(counter,
         pricingM.addConstr(o_ki[k, kM] <= bigM2,
                     name='iOE[%d]' % k)
         for i in T:  # eq:pdSequnce
-            pricingM.addConstr(o_ki[k, 'p0%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
+            pricingM.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
                         name='pdS[%d]' % k)
         for i in kN:
             for j in kN:  # eq:ordering
@@ -180,7 +194,33 @@ def run(counter,
     #
     # Run Gurobi (Optimization)
     #
+
+    if use_ghS:
+        rc, dvs = ghS_run(inputs)
+        logContents = '\n\n'
+        logContents += 'Initial solution\n'
+        logContents += '\t rc: %.2f \n' % rc
+        logContents += '\t b: %s \n' % str([i for i in T if dvs['_z_i'][i] > 0.5])
+        record_log(grbSetting['LogFile'], logContents)
+        #
+        for i in T:
+            z_i[i].start = dvs['_z_i'][i]
+        for k in K:
+            y_k[k].start = dvs['_y_k'][k]
+            a_k[k].start = dvs['_a_k'][k]
+        for k in K:
+            kN = N.union({'ori%d' % k, 'dest%d' % k})
+            for i in kN:
+                o_ki[k, i].start = dvs['_o_ki'][k, i]
+                for j in kN:
+                    x_kij[k, i, j].start = dvs['_x_kij'][k, i, j]
+        for s in range(len(inclusiveC)):
+            sP, sN = 'sP[%d]' % s, 'sN[%d]' % s
+            s_PN[sP].start = dvs['_s_PN'][sP]
+            s_PN[sN].start = dvs['_s_PN'][sN]
+    #
     set_grbSettings(pricingM, grbSetting)
+    #
     pricingM.optimize(process_callback)
     if LOGGING_FEASIBILITY:
         logContents = 'newBundle!!\n'

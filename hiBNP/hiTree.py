@@ -1,13 +1,15 @@
-import time
 import datetime
+import time
 from heapq import heappush, heappop
-import treelib
-#
-from hiNode import HiNode
 from itertools import combinations
+
+import treelib
+
+from _utils.mm_utils import *
 #
 from _utils.recording import *
-from _utils.mm_utils import *
+#
+from hiBNP.hiNode import HiNode
 
 
 class HiTree(treelib.Tree):

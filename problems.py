@@ -9,10 +9,10 @@ class point(object):
         return 'pid%d' % self.pid
 
 
-def convert_input4MathematicalModel(travel_time, \
-                                    flows, paths, \
-                                    tasks, rewards, volumes, \
-                                    num_bundles, volume_th, detour_th):
+def convert_p2i(travel_time, \
+                flows, paths, \
+                tasks, rewards, volumes, \
+                num_bundles, volume_th, detour_th):
     #
     # Bundle
     #
@@ -22,7 +22,7 @@ def convert_input4MathematicalModel(travel_time, \
     # Task
     #
     T = list(range(len(tasks)))
-    iP, iM = list(zip(*[tasks[i] for i in T]))
+    iPs, iMs = list(zip(*[tasks[i] for i in T]))
     r_i, v_i = rewards, volumes
     P, D = set(), set()
     _N = {}
@@ -30,8 +30,8 @@ def convert_input4MathematicalModel(travel_time, \
         P.add('p%d' % i)
         D.add('d%d' % i)
         #
-        _N['p%d' % i] = iP[i]
-        _N['d%d' % i] = iM[i]
+        _N['p%d' % i] = iPs[i]
+        _N['d%d' % i] = iMs[i]
     #
     # Path
     #
@@ -58,9 +58,12 @@ def convert_input4MathematicalModel(travel_time, \
             t_ij[i, j] = travel_time[_N[i], _N[j]]
     N = set(_N.keys())
     #
-    return bB, \
-           T, r_i, v_i, _lambda, P, D, N, \
-           K, w_k, t_ij, _delta
+    return {'bB': bB,
+            'T': T, 'r_i': r_i, 'v_i': v_i, '_lambda': _lambda,
+            'P': P, 'D': D, 'N': N,
+            'K': K, 'w_k': w_k,
+            't_ij': t_ij, '_delta': _delta,
+            '_N': _N}
 
 
 def input_validity(points, flows, paths, tasks, numBundles, thVolume):

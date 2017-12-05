@@ -9,13 +9,13 @@ import pickle, csv
 from __old_columnGenVersion.exactMM import run as exactMM_run
 
 try:
-    from greedyHeuristic import run as gHeuristic_run
+    from gh_mBundling import run as gHeuristic_run
 except ModuleNotFoundError:
     from setup import cythonize
 
     cythonize('greedyHeuristic')
     #
-    from greedyHeuristic import run as gHeuristic_run
+    from gh_mBundling import run as gHeuristic_run
 
 from problems import *
 
@@ -128,7 +128,7 @@ def run_multipleCores(machine_num):
         # gHeuristic
         #
         # m = 'gHeuristic'
-        # objV, eliCpuTime, B = gHeuristic_run(inputs,
+        # objV, eliCpuTime, B = ghM_run(inputs,
         #                                log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
         # gap, eliWallTime = None, None
         # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),

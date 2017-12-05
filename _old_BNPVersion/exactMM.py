@@ -32,7 +32,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+    K, w_k, t_ij, _delta = convert_p2i(*problem)
     B = list(range(bB))
     bigM1 = sum(r_i) * 2
     bigM2 = (len(T) + 1) * 2

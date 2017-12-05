@@ -441,4 +441,4 @@ if __name__ == '__main__':
     from problems import *
 
     # masterProblem(convert_input4MathematicalModel(*ex1()))
-    run(convert_input4MathematicalModel(*ex8()))
+    run(convert_p2i(*ex8()))

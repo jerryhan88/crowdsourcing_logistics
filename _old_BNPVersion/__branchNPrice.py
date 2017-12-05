@@ -1,12 +1,15 @@
-from gurobipy import *
-from datetime import datetime
-from itertools import combinations
-import numpy as np
 import time
-import treelib
+from datetime import datetime
+from gurobipy import *
 from heapq import heappush, heappop
+from itertools import combinations
+
+import numpy as np
+import treelib
+
 #
 from problems import *
+
 #
 prefix = 'greedyHeuristic'
 pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
@@ -15,7 +18,7 @@ if opath.exists(c_fn):
         from setup import cythonize; cythonize(prefix)
 else:
     from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
+from gh_mBundling import run as gHeuristic_run
 from optRouting import run as minTimePD_run
 from pricing import run as pricingWIE_run
 #
@@ -62,7 +65,7 @@ class BnBNode(object):
         problem, B, p_b, e_bi = self.problem, self.B, self.p_b, self.e_bi
         bB, \
         T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+        K, w_k, t_ij, _delta = convert_p2i(*problem)
         input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
         B_i0i1 = {}
         for i0, i1 in set(self.inclusiveC).union(set(self.exclusiveC)):
@@ -224,7 +227,7 @@ class BnBNode(object):
     def gen_initBundles(self):
         bB, \
         T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
+        K, w_k, t_ij, _delta = convert_p2i(*self.problem)
         #
         # generate initial bundles with the greedy heuristic
         #

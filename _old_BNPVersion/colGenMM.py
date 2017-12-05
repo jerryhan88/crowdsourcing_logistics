@@ -1,10 +1,13 @@
 import os.path as opath
 import time
-import numpy as np
 from datetime import datetime
 from gurobipy import *
+
+import numpy as np
+
 #
 from problems import *
+
 #
 prefix = 'greedyHeuristic'
 pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
@@ -13,7 +16,7 @@ if opath.exists(c_fn):
         from setup import cythonize; cythonize(prefix)
 else:
     from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
+from gh_mBundling import run as gHeuristic_run
 from optRouting import run as minTimePD_run
 from pricing import run as pricing_run
 #
@@ -28,7 +31,7 @@ def run(problem, log_fpath=None, numThreads=None, TimeLimit=None, pfCst=None):
     #
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+    K, w_k, t_ij, _delta = convert_p2i(*problem)
     input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
     #
     # generate initial bundles with the greedy heuristic

@@ -417,5 +417,5 @@ if __name__ == '__main__':
     from problems import *
     from time import clock, time
     cSTime, cTTime = clock(), time()
-    run(convert_input4MathematicalModel(*ex1()))
+    run(convert_p2i(*ex1()))
     print(clock() - cSTime, time() - cTTime)

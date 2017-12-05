@@ -1,19 +1,22 @@
+import datetime
 import os.path as opath
-import time, datetime
-import numpy as np
+import time
 from gurobipy import *
-#
+
+import numpy as np
 
 from optRouting import run as optR_run
 from pricing import run as pricing_run
-prefix = 'greedyHeuristic'
+# from pricingPure_ghS import run as pricing_run
+#
+prefix = 'gh_mBundling'
 pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
 if opath.exists(c_fn):
     if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
         from setup import cythonize; cythonize(prefix)
 else:
     from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
+from gh_mBundling import run as ghM_run
 #
 from problems import *
 from _utils.mm_utils import *
@@ -46,14 +49,11 @@ class BnPNode(object):
         return 'bnbNode(%s)' % self.nid
 
     def gen_initBundles(self):
-        bB, \
-        T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
         #
         # Run the greedy heuristic
         #
         startCpuTime, startWallTime = time.clock(), time.time()
-        objV, B, unassigned_tasks = gHeuristic_run(self.problem)
+        objV, B = ghM_run(self.problem)
         gap, eliWallTime = None, None
         endCpuTime, endWallTime = time.clock(), time.time()
         eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
@@ -65,34 +65,17 @@ class BnPNode(object):
         logContents += '\t Eli.Time: %f\n' % eliCpuTime
         logContents += '\t ObjV: %.3f\n' % objV
         logContents += '\t chosen B.: %s\n' % str(B)
-        logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
         record_log(self.etcSetting['ghLogF'], logContents)
         record_res(self.etcSetting['ghResF'], objV, gap, eliCpuTime, eliWallTime)
         #
         # Run the optimal routing
         #
-        startCpuTime, startWallTime = time.clock(), time.time()
-        if unassigned_tasks:
-            logContents = 'There are unassigned tasks\n'
-            logContents += 'Greedy heuristic\n'
-            logContents += '\t objVal: %.3f\n' % objV
-            logContents += '\t B: %s\n' % str(B)
-            for k, i0 in enumerate(unassigned_tasks):
-                for b in B:
-                    if sum(v_i[i] for i in b) + v_i[0] <= _lambda:
-                        b.append(i0)
-                        break
-                else:
-                    logContents = '\n\n'
-                    logContents += '===========================================================\n'
-                    logContents = 'Infeasible problem!!\n'
-                    logContents += '===========================================================\n'
-                    record_log(self.etcSetting['orLogF'], logContents)
-                    record_log(self.etcSetting['bnpLogF'], logContents)
-            logContents += 'Modified bundles\n'
-            logContents += '\t B: %s' % str(B)
-            record_log(self.etcSetting['orLogF'], logContents)
+        inputs = convert_p2i(*self.problem)
+        T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
+        K, w_k = list(map(inputs.get, ['K', 'w_k']))
+        t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
         #
+        startCpuTime, startWallTime = time.clock(), time.time()
         logContents = '\n\n'
         logContents += '===========================================================\n'
         logContents = 'Initial bundles\n'
@@ -150,10 +133,20 @@ class BnPNode(object):
         record_log(self.grbSetting['LogFile'], logContents)
         #
         problem, B, p_b, e_bi = self.problem, self.B, self.p_b, self.e_bi
-        bB, \
-        T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
-        input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
+        inputs = convert_p2i(*problem)
+        bB = inputs['bB']
+        T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
+        P, D, N = list(map(inputs.get, ['P', 'D', 'N']))
+        K, w_k = list(map(inputs.get, ['K', 'w_k']))
+        t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
+        _N = inputs['_N']
+        input4subProblem = {
+                            'T': T, 'r_i': r_i, 'v_i': v_i, '_lambda': _lambda,
+                            'P': P, 'D': D, 'N': N,
+                            'K': K, 'w_k': w_k,
+                            't_ij': t_ij, '_delta': _delta,
+                            '_N': _N
+                            }
         B_i0i1 = {}
         for i0, i1 in set(self.inclusiveC).union(set(self.exclusiveC)):
             for b in range(len(B)):
@@ -211,10 +204,14 @@ class BnPNode(object):
             pi_i = [relaxM.getConstrByName("taskAC[%d]" % i).Pi for i in T]
             mu = relaxM.getConstrByName("numBC").Pi
             startCpuTimeP, startWallTimeP = time.clock(), time.time()
-            bestSols = pricing_run(counter,
-                                   pi_i, mu, B, input4subProblem,
-                                   self.inclusiveC, self.exclusiveC,
-                                   self.grbSetting)
+            #
+            input4subProblem['pi_i'] = pi_i
+            input4subProblem['mu'] = mu
+            input4subProblem['inclusiveC'] = self.inclusiveC
+            input4subProblem['exclusiveC'] = self.exclusiveC
+            input4subProblem['B'] = B
+            #
+            bestSols = pricing_run(counter, input4subProblem, self.grbSetting, self.etcSetting['use_ghS'])
             if bestSols is None:
                 logContents = '\n\n'
                 logContents += '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))

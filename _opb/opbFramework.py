@@ -14,7 +14,7 @@ def run(probSetting, grbSetting, etcSetting):
     #
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*probSetting['problem'])
+    K, w_k, t_ij, _delta = convert_p2i(*probSetting['problem'])
     #
     K_bundles = {}
     for k in K:

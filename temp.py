@@ -23,7 +23,7 @@ print(sum([rewards[i] for i in B]))
 
 bB, \
 T, r_i, v_i, _lambda, P, D, N, \
-K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+K, w_k, t_ij, _delta = convert_p2i(*inputs)
 
 
 B = [[0, 6], [1, 7, 9, 14], [2, 4, 11], [3, 10, 12], [5, 8, 13]]

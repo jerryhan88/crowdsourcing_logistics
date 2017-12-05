@@ -7,7 +7,6 @@ from psutil import virtual_memory
 from _utils.recording import *
 #
 from exactMM import run as exactMM_run
-from bnpTree import BnPTree
 from problems import *
 
 
@@ -83,42 +82,64 @@ def run_multipleCores(machine_num):
         with open(ifpath, 'rb') as fp:
             inputs = pickle.load(fp)
         prefix = opath.basename(ifpath)[:-len('.pkl')]
+        #
+        # Run one path based
+        #
+        # opbResF = opath.join(res_dpath, '%s-opb.csv' % prefix)
+        # bbtDir = opath.join(bbt_dpath, '%s-opbBBT' % prefix)
+        # logDir = opath.join(log_dpath, '%s-opbLog' % prefix)
+        # lastLogF = opath.join(logDir, '%s-obpLast.log' % prefix)
+        # for dirPath in [bbtDir, logDir]:
+        #     if not opath.exists(dirPath):
+        #         os.mkdir(dirPath)
+        # #
+        # probSetting = {'problem': inputs}
+        # grbSetting = {
+        #     'Threads': 8}
+        # etcSetting = {
+        #     'opbResF': opbResF,
+        #     #
+        #     'prefix': prefix,
+        #     'bbtDir': bbtDir,
+        #     'logDir': logDir,
+        #     'lastLogF': lastLogF,
+        # }
+        # try:
+        #     opbFramework_run(probSetting, grbSetting, etcSetting)
+        # except:
+        #     pass
+        #
         # Run others
-        ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'gh'))
-        orLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'or'))
-        cgLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'cg'))
-        bnpLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'bnp'))
         #
-        ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'gh'))
-        orResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'or'))
-        cgResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'cg'))
-        bnpResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'bnp'))
-        #
-        bptFile = opath.join(bbt_dpath, '%s-%s.csv' % (prefix, 'bnpTree'))
-        #
-        emsgFile = opath.join(err_dpath, '%s-%s.txt' % (prefix, 'bnp'))
-        epklFile = opath.join(err_dpath, '%s-%s.pkl' % (prefix, 'bnp'))
-        #
-        probSetting = {'problem': inputs,
-                       'inclusiveC': [], 'exclusiveC': []}
-        grbSetting = {'LogFile': bnpLogF,
-                      'Threads': _numThreads,
-                      'TimeLimit': _TimeLimit,
-                      'PoolSolutions': _PoolSolutions,
-                      # 'Method': 1
-
-                      }
-        etcSetting = {'ghLogF': ghLogF, 'orLogF': orLogF, 'cgLogF': cgLogF, 'bnpLogF': bnpLogF,
-                      #
-                      'ghResF': ghResF, 'orResF': orResF, 'cgResF': cgResF, 'bnpResF': bnpResF,
-                      #
-                      'bptFile': bptFile,
-                      #
-                      'EpklFile': epklFile, 'EmsgFile': emsgFile,
-                      #
-                      'use_ghS': True
-                      }
-        BnPTree(probSetting, grbSetting, etcSetting).startBnP()
+        # ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'gh'))
+        # orLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'or'))
+        # cgLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'cg'))
+        # bnpLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'bnp'))
+        # #
+        # ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'gh'))
+        # orResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'or'))
+        # cgResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'cg'))
+        # bnpResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'bnp'))
+        # #
+        # bptFile = opath.join(bbt_dpath, '%s-%s.csv' % (prefix, 'bnpTree'))
+        # #
+        # emsgFile = opath.join(err_dpath, '%s-%s.txt' % (prefix, 'bnp'))
+        # epklFile = opath.join(err_dpath, '%s-%s.pkl' % (prefix, 'bnp'))
+        # #
+        # probSetting = {'problem': inputs,
+        #                'inclusiveC': [], 'exclusiveC': []}
+        # grbSetting = {'LogFile': bnpLogF,
+        #               'Threads': _numThreads,
+        #               'TimeLimit': _TimeLimit,
+        #               'PoolSolutions': _PoolSolutions}
+        # etcSetting = {'ghLogF': ghLogF, 'orLogF': orLogF, 'cgLogF': cgLogF, 'bnpLogF': bnpLogF,
+        #               #
+        #               'ghResF': ghResF, 'orResF': orResF, 'cgResF': cgResF, 'bnpResF': bnpResF,
+        #               #
+        #               'bptFile': bptFile,
+        #               #
+        #               'EpklFile': epklFile, 'EmsgFile': emsgFile,
+        #               }
         # try:
         #     BnPTree(probSetting, grbSetting, etcSetting).startBnP()
         # except:
@@ -126,20 +147,20 @@ def run_multipleCores(machine_num):
         #
         # Run the exact model
         #
-        # exLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'ex'))
-        # exResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'ex'))
-        # #
-        # probSetting = {'problem': inputs}
-        # grbSetting = {'LogFile': exLogF,
-        #               'Threads': _numThreads,
-        #               'TimeLimit': _TimeLimit}
-        # etcSetting = {'exLogF': exLogF,
-        #               'exResF': exResF
-        #               }
-        # try:
-        #     exactMM_run(probSetting, grbSetting, etcSetting)
-        # except:
-        #     pass
+        exLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'ex'))
+        exResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'ex'))
+        #
+        probSetting = {'problem': inputs}
+        grbSetting = {'LogFile': exLogF,
+                      'Threads': _numThreads,
+                      'TimeLimit': _TimeLimit}
+        etcSetting = {'exLogF': exLogF,
+                      'exResF': exResF
+                      }
+        try:
+            exactMM_run(probSetting, grbSetting, etcSetting)
+        except:
+            pass
         #
         os.remove(ifpath)
 

@@ -1,14 +1,19 @@
-from hiTree import HiTree
 import os.path as opath
 import pickle
-ifpath = 'nt05-np12-nb2-tv3-td4.pkl'
+
+from hiBNP.hiTree import HiTree
+
+prob_dir = opath.join('z_files', '_problems')
+fn = 'nt05-np12-nb2-tv3-td4.pkl'
+prefix = fn[:-len('.pkl')]
+ifpath = opath.join(prob_dir, fn)
 #
 def test():
 
     with open(ifpath, 'rb') as fp:
         inputs = pickle.load(fp)
 
-    prefix = ifpath[:-len('.pkl')]
+
     ghLogF, orLogF, cgLogF, bnpLogF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in
                                        ['Hgh.log', 'Hor.log', 'Hcg.log', 'Hbnp.log']]
     ghResF, orResF, cgResF, bnpResF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in

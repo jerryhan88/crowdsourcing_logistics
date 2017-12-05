@@ -1,19 +1,21 @@
-import os.path as opath
-import time, datetime
-import numpy as np
+import datetime
+import time
 from gurobipy import *
-#
 
+import numpy as np
+
+from hiBNP.hiPricing import run as pricing_run
 from optRouting import run as optR_run
-from hiPricing import run as pricing_run
-prefix = 'greedyHeuristic'
-pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
-if opath.exists(c_fn):
-    if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
-        from setup import cythonize; cythonize(prefix)
-else:
-    from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
+
+#
+# prefix = 'greedyHeuristic'
+# pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
+# if opath.exists(c_fn):
+#     if opath.getctime(c_fn) < opath.getmtime(pyx_fn):
+#         from setup import cythonize; cythonize(prefix)
+# else:
+#     from setup import cythonize; cythonize(prefix)
+from gh_mBundling import run as ghM_run
 #
 from problems import *
 from _utils.mm_utils import *
@@ -46,14 +48,11 @@ class HiNode(object):
         return 'bnbNode(%s)' % self.nid
 
     def gen_initBundles(self):
-        bB, \
-        T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*self.problem)
         #
         # Run the greedy heuristic
         #
         startCpuTime, startWallTime = time.clock(), time.time()
-        objV, B, unassigned_tasks = gHeuristic_run(self.problem)
+        objV, B = ghM_run(self.problem)
         gap, eliWallTime = None, None
         endCpuTime, endWallTime = time.clock(), time.time()
         eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
@@ -65,33 +64,37 @@ class HiNode(object):
         logContents += '\t Eli.Time: %f\n' % eliCpuTime
         logContents += '\t ObjV: %.3f\n' % objV
         logContents += '\t chosen B.: %s\n' % str(B)
-        logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
+        # logContents += '\t unassigned T.: %d\n' % len(unassigned_tasks)
         record_log(self.etcSetting['ghLogF'], logContents)
         record_res(self.etcSetting['ghResF'], objV, gap, eliCpuTime, eliWallTime)
         #
         # Run the optimal routing
         #
+        inputs = convert_p2i(*self.problem)
+        T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
+        K, w_k = list(map(inputs.get, ['K', 'w_k']))
+        t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
         startCpuTime, startWallTime = time.clock(), time.time()
-        if unassigned_tasks:
-            logContents = 'There are unassigned tasks\n'
-            logContents += 'Greedy heuristic\n'
-            logContents += '\t objVal: %.3f\n' % objV
-            logContents += '\t B: %s\n' % str(B)
-            for k, i0 in enumerate(unassigned_tasks):
-                for b in B:
-                    if sum(v_i[i] for i in b) + v_i[0] <= _lambda:
-                        b.append(i0)
-                        break
-                else:
-                    logContents = '\n\n'
-                    logContents += '===========================================================\n'
-                    logContents = 'Infeasible problem!!\n'
-                    logContents += '===========================================================\n'
-                    record_log(self.etcSetting['orLogF'], logContents)
-                    record_log(self.etcSetting['bnpLogF'], logContents)
-            logContents += 'Modified bundles\n'
-            logContents += '\t B: %s' % str(B)
-            record_log(self.etcSetting['orLogF'], logContents)
+        # if unassigned_tasks:
+        #     logContents = 'There are unassigned tasks\n'
+        #     logContents += 'Greedy heuristic\n'
+        #     logContents += '\t objVal: %.3f\n' % objV
+        #     logContents += '\t B: %s\n' % str(B)
+        #     for k, i0 in enumerate(unassigned_tasks):
+        #         for b in B:
+        #             if sum(v_i[i] for i in b) + v_i[0] <= _lambda:
+        #                 b.append(i0)
+        #                 break
+        #         else:
+        #             logContents = '\n\n'
+        #             logContents += '===========================================================\n'
+        #             logContents = 'Infeasible problem!!\n'
+        #             logContents += '===========================================================\n'
+        #             record_log(self.etcSetting['orLogF'], logContents)
+        #             record_log(self.etcSetting['bnpLogF'], logContents)
+        #     logContents += 'Modified bundles\n'
+        #     logContents += '\t B: %s' % str(B)
+        #     record_log(self.etcSetting['orLogF'], logContents)
         #
         logContents = '\n\n'
         logContents += '===========================================================\n'
@@ -150,9 +153,12 @@ class HiNode(object):
         record_log(self.grbSetting['LogFile'], logContents)
         #
         problem, B, p_b, e_bi = self.problem, self.B, self.p_b, self.e_bi
-        bB, \
-        T, r_i, v_i, _lambda, P, D, N, \
-        K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+        inputs = convert_p2i(*problem)
+        bB = inputs['bB']
+        T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
+        P, D, N = list(map(inputs.get, ['P', 'D', 'N']))
+        K, w_k = list(map(inputs.get, ['K', 'w_k']))
+        t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
         input4subProblem = [T, r_i, v_i, _lambda, P, D, N, K, w_k, t_ij, _delta]
         B_i0i1 = {}
         for i0, i1 in set(self.inclusiveC).union(set(self.exclusiveC)):

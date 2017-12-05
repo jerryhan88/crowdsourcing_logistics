@@ -2,9 +2,11 @@ from problems import *
 
 
 def run(problem):
-    bB, \
-    T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*problem)
+    inputs = convert_p2i(*problem)
+    bB = inputs['bB']
+    T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
+    K, w_k = list(map(inputs.get, ['K', 'w_k']))
+    t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
     #
     a_t = []
     for i in T:
@@ -20,7 +22,6 @@ def run(problem):
     B_seq = [{} for _ in range(bB)]
     a_b = [0 for _ in range(bB)]
     while T:
-        print(a_b)
         for b in range(len(B)):
             if _lambda <= sum(v_i[i] for i in B[b]):
                 continue

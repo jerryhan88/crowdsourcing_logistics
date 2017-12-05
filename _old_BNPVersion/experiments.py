@@ -1,16 +1,16 @@
-from init_project import *
+import csv
+import pickle
+
 #
 from cpuinfo import get_cpu_info
 from psutil import virtual_memory
-from traceback import format_exc
-import pickle, csv
-import time
-#
-from problems import *
+
 #
 from exactMM import run as exactMM_run
-from optRouting import run as minTimePD_run
-from colGenMM import run as colGenMM_run
+from init_project import *
+#
+from problems import *
+
 prefix = 'greedyHeuristic'
 pyx_fn, c_fn = '%s.pyx' % prefix, '%s.c' % prefix
 if opath.exists(c_fn):
@@ -18,8 +18,7 @@ if opath.exists(c_fn):
         from setup import cythonize; cythonize(prefix)
 else:
     from setup import cythonize; cythonize(prefix)
-from greedyHeuristic import run as gHeuristic_run
-from bnpTest import BnPTree
+
 
 def gen_problems(problem_dpath):
     #
@@ -107,7 +106,7 @@ def run_multipleCores(machine_num):
         # gHeuristic
         #
         # m = 'gHeuristic'
-        # objV, eliCpuTime, B = gHeuristic_run(inputs,
+        # objV, eliCpuTime, B = ghM_run(inputs,
         #                                log_fpath=opath.join(log_dpath, '%s-%s.log' % (prefix, m)))
         # gap, eliWallTime = None, None
         # record_res(opath.join(res_dpath, '%s-%s.csv' % (prefix, m)),

@@ -473,4 +473,4 @@ def convert_input4MathematicalModel(travel_time, \
 if __name__ == '__main__':
     from problems import *
 
-    print(masterProblem(convert_input4MathematicalModel(*ex2())))
+    print(masterProblem(convert_p2i(*ex2())))

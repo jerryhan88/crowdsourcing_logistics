@@ -31,7 +31,7 @@ def run(probSetting, grbSetting):
     #
     # Define decision variables
     #
-    orM = Model('minTimePD')
+    orM = Model('orM')
     x_ij, o_i = {}, {}
     for i in N:
         o_i[i] = orM.addVar(vtype=GRB.INTEGER, name='o[%s]' % i)
@@ -120,22 +120,21 @@ def run(probSetting, grbSetting):
 
 
 def test():
-    from greedyHeuristic import run as gHeuristic_run
-    from problems import convert_input4MathematicalModel
+    from gh_mBundling import run as ghM_run
+    from problems import convert_p2i
     import pickle
     ifpath = 'nt05-np12-nb2-tv3-td4.pkl'
     with open(ifpath, 'rb') as fp:
         inputs = pickle.load(fp)
-    objV, B, _ = gHeuristic_run(inputs)
-
-    print(objV, B)
-
+    objV, B = ghM_run(inputs)
+    #
     bB, \
     T, r_i, v_i, _lambda, P, D, N, \
-    K, w_k, t_ij, _delta = convert_input4MathematicalModel(*inputs)
+    K, w_k, t_ij, _delta = convert_p2i(*inputs)
 
     logContents = ''
     grbSettingOP = {}
+    ps = 0
     for b in B:
         br = sum([r_i[i] for i in b])
         logContents += '%s (%d) \n' % (str(b), br)
@@ -149,8 +148,10 @@ def test():
             else:
                 logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w, detourTime, 0, str(route))
         logContents += '\t\t\t\t\t\t %.3f\n' % p
+        ps += p
 
     print(logContents)
+    print(ps)
 
 
 if __name__ == '__main__':

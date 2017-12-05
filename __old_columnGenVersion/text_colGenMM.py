@@ -9,12 +9,12 @@ from _utils.recording import record_log, O_GL, X_GL
 from _utils.mm_utils import get_routeFromOri
 #
 try:
-    from greedyHeuristic import run as gHeuristic_run
+    from gh_mBundling import run as gHeuristic_run
 except ModuleNotFoundError:
     from setup import cythonize
     cythonize('greedyHeuristic')
     #
-    from greedyHeuristic import run as gHeuristic_run
+    from gh_mBundling import run as gHeuristic_run
 from __old_columnGenVersion.exactMM import convert_input4MathematicalModel
 
 

@@ -20,24 +20,25 @@ def cythonize(fileName):
     print('******** CYTHON COMPLETE ******')
 
 
-plf = platform.platform()
-if plf.startswith('Linux'):
-    # Linux server
-    args = sys.argv
-    if len(args) == len(['pyFile', 'fileName']):
-        _, fileName = args
+def terminal_exec():
+    plf = platform.platform()
+    if plf.startswith('Linux'):
+        # Linux server
+        args = sys.argv
+        if len(args) == len(['pyFile', 'fileName']):
+            _, fileName = args
+            cythonize(fileName)
+        else:
+            print('******** Error ******')
+            print('******** Type packageName and fileName ******')
+    elif plf.startswith('Darwin'):
+        # Mac
+        fileName = 'gh_mBundling'
         cythonize(fileName)
     else:
-        print('******** Error ******')
-        print('******** Type packageName and fileName ******')
-elif plf.startswith('Darwin'):
-    # Mac
-    fileName = 'greedyHeuristic'
-    cythonize(fileName)
-else:
-    # Window ?
-    pass
+        # Window ?
+        pass
 
 
 if __name__ == '__main__':
-    cythonize('greedyHeuristic')
+    cythonize('gh_mBundling')
