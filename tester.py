@@ -126,12 +126,16 @@ def or_test():
 
 def gBNP_test():
     from bnpTree import BnPTree
-    fn = 'nt05-np12-nb2-tv3-td4.pkl'
-    prefix = fn[:-len('.pkl')]
-    #
-    ifpath = opath.join(prob_dir, fn)
-    with open(ifpath, 'rb') as fp:
-        problem = pickle.load(fp)
+    # fn = 'nt05-np12-nb2-tv3-td4.pkl'
+    # prefix = fn[:-len('.pkl')]
+    # #
+    # ifpath = opath.join(prob_dir, fn)
+    # with open(ifpath, 'rb') as fp:
+    #     problem = pickle.load(fp)
+
+    prefix = 'paperExample'
+    problem = paperExample()
+
 
     ghLogF, orLogF, cgLogF, bnpLogF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in
                                        ['gh.log', 'or.log', 'cg.log', 'bnp.log']]
@@ -198,9 +202,9 @@ def ghS_BNP_test():
 
 
 if __name__ == '__main__':
-    ex_test()
+    # ex_test()
     # ghM_test()
     # or_test()
-    # gBNP_test()
+    gBNP_test()
     # ghS_test()
     # ghS_BNP_test()
