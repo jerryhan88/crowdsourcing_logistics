@@ -200,6 +200,12 @@ class BnPNode(object):
                 logContents += 'No solution!\n'
                 record_log(self.grbSetting['LogFile'], logContents)
                 is_feasible = False
+
+                relaxM.computeIIS()
+                relaxM.write('temp.ilp')
+                relaxM.write('temp.lp')
+                assert False
+
                 break
             #
             counter += 1
