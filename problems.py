@@ -6,7 +6,7 @@ class point(object):
         self.pid, self.i, self.j = pid, i, j
 
     def __repr__(self):
-        return 'pid%d' % self.pid
+        return 'pid%d(%d,%d)' % (self.pid, self.i, self.j)
 
 
 def convert_p2i(travel_time, \
@@ -37,8 +37,13 @@ def convert_p2i(travel_time, \
     #
     K = list(range(len(paths)))
     _kP, _kM = list(zip(*[paths[k] for k in K]))
-    sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
-    w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
+    if type(flows) == list:
+        sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
+        w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
+    else:
+        assert type(flows) == dict
+        sum_f_k = sum(flows.values())
+        w_k = [flows[i, j] / float(sum_f_k) for i, j in paths]
     _delta = detour_th
     t_ij = {}
     for k in K:
@@ -69,11 +74,11 @@ def convert_p2i(travel_time, \
 def input_validity(points, flows, paths, tasks, numBundles, thVolume):
     # assert len(flows) == len(points)
     #
-    for i, f in enumerate(flows):
-        assert f[i] == 0
-        # assert len(f) == len(points)
-    #
-    assert len(paths) == len(flows) * (len(flows) - 1)
+    if type(flows) == list:
+        for i, f in enumerate(flows):
+            assert f[i] == 0
+        #
+        assert len(paths) == len(flows) * (len(flows) - 1)
     #
     for pp, dp in tasks:
         assert pp in points
@@ -281,19 +286,79 @@ def ex2():
     #
     return inputs
 
-if __name__ == '__main__':
-    maxFlow = 3
-    minReward, maxReward = 1, 3
-    minVolume, maxVolume = 1, 3
-    volumeAlowProp, detourAlowProp = 1.5, 1.2
-    numCols, numRows = 1, 4
+
+def paperExample():
     #
-    numBundles = 4
-    # for numBundles in [20, 30]:
-    for numTasks in [10, 12]:
-        inputs = random_problem(numCols, numRows, maxFlow,
-                                numTasks, minReward, maxReward, minVolume, maxVolume,
-                                numBundles, volumeAlowProp, detourAlowProp)
+    # Define a network
+    #
+    points, travel_time = {}, {}
+    pid = 0
+    ij_pid = {}
+
+
+    for i in range(5):
+        for j in range(5):
+            points[pid] = point(pid, i, j)
+            ij_pid[i, j] = pid
+            pid += 1
+    for p0 in points.values():
+        for p1 in points.values():
+            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+    #
+    # Define flows and paths
+    #
+    flows = {(ij_pid[2, 0], ij_pid[3, 4]): 3,
+             (ij_pid[0, 0], ij_pid[4, 3]): 1,
+             (ij_pid[0, 3], ij_pid[4, 1]): 2,
+             }
+    paths = list(flows.keys())
+    #
+    # Inputs about tasks
+    #
+    tasks = [
+             # (pickup point, delivery point)
+             (ij_pid[2, 2], ij_pid[2, 2]),  # (1^+, 1^-)
+             (ij_pid[1, 4], ij_pid[2, 2]),  # (2^+, 2^-)
+             (ij_pid[2, 0], ij_pid[3, 4]),  # (3^+, 3^-)
+             (ij_pid[0, 1], ij_pid[4, 1]),  # (4^+, 4^-)
+             (ij_pid[2, 3], ij_pid[3, 1]),  # (5^+, 5^-)
+             ]
+    rewards = [1, 1, 1, 1, 1]
+    volumes = [1, 1, 1, 1, 1]
+    #
+    # Inputs about bundles
+    #
+    numBundles = 2
+    thVolume = 3
+    thDetour = 2
+    #
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
+    #
+    inputs = [travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    #
+    return inputs
+
+
+
+if __name__ == '__main__':
+    print(convert_p2i(*paperExample()))
+
+
+    # maxFlow = 3
+    # minReward, maxReward = 1, 3
+    # minVolume, maxVolume = 1, 3
+    # volumeAlowProp, detourAlowProp = 1.5, 1.2
+    # numCols, numRows = 1, 4
+    # #
+    # numBundles = 4
+    # # for numBundles in [20, 30]:
+    # for numTasks in [10, 12]:
+    #     inputs = random_problem(numCols, numRows, maxFlow,
+    #                             numTasks, minReward, maxReward, minVolume, maxVolume,
+    #                             numBundles, volumeAlowProp, detourAlowProp)
 
 
 

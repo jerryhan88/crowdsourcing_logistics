@@ -18,7 +18,7 @@ from _utils.mm_utils import *
 PRICING_TIME_LIMIT = 60 * 2
 
 
-def run(counter, inputs, grbSetting, use_ghS=False):
+def run(counter, inputs, grbSetting, etcSetting):
     pi_i, mu, B = [inputs.get(k) for k in ['pi_i', 'mu', 'B']]
     inclusiveC, exclusiveC = [inputs.get(k) for k in ['inclusiveC', 'exclusiveC']]
     #
@@ -183,6 +183,9 @@ def run(counter, inputs, grbSetting, use_ghS=False):
         pricingM.addConstr(quicksum(t_ij[i, j] * x_kij[k, i, j] for i in kN for j in kN) \
                     - t_ij[kM, kP] - t_ij[kP, kM] - _delta <= bigM3 * (1 - y_k[k]),
                     name='pf[%d]' % k)
+
+
+
     #
     # For callback function
     #
@@ -194,8 +197,7 @@ def run(counter, inputs, grbSetting, use_ghS=False):
     #
     # Run Gurobi (Optimization)
     #
-
-    if use_ghS:
+    if etcSetting['use_ghS']:
         rc, dvs = ghS_run(inputs)
         logContents = '\n\n'
         logContents += 'Initial solution\n'
@@ -218,6 +220,11 @@ def run(counter, inputs, grbSetting, use_ghS=False):
             sP, sN = 'sP[%d]' % s, 'sN[%d]' % s
             s_PN[sP].start = dvs['_s_PN'][sP]
             s_PN[sN].start = dvs['_s_PN'][sN]
+
+
+    if 'mpsF' in etcSetting:
+        pricingM.write(etcSetting['mpsF'])
+        assert False, 'Done a mps file writing'
     #
     set_grbSettings(pricingM, grbSetting)
     #

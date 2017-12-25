@@ -3,7 +3,7 @@ import pickle
 
 #
 from problems import *
-
+from bnpTree import BnPTree
 #
 prob_dir = opath.join('z_files', '_problems')
 
@@ -155,13 +155,15 @@ def gBNP_test():
 
 
 def ghS_BNP_test():
-    from bnpTree import BnPTree
-    fn = 'nt100-np12-nb40-tv3-td4.pkl'
-    prefix = fn[:-len('.pkl')]
-    #
-    ifpath = opath.join(prob_dir, fn)
-    with open(ifpath, 'rb') as fp:
-        problem = pickle.load(fp)
+    # fn = 'nt100-np12-nb40-tv3-td4.pkl'
+    # prefix = fn[:-len('.pkl')]
+    # #
+    # ifpath = opath.join(prob_dir, fn)
+    # with open(ifpath, 'rb') as fp:
+    #     problem = pickle.load(fp)
+    prefix = 'paperExample'
+    problem = paperExample()
+
 
     ghLogF, orLogF, cgLogF, bnpLogF = [opath.join('z_files', '%s-%s' % (prefix, fn)) for fn in
                                        ['gh.log', 'or.log', 'cg.log', 'bnp.log']]
@@ -184,7 +186,8 @@ def ghS_BNP_test():
                   'bptFile': bptFile,
                   #
                   'EpklFile': epklFile, 'EmsgFile': emsgFile,
-                  'use_ghS': True
+                  'use_ghS': True,
+                  'mpsF': opath.join('z_files', '%s.mps' % prefix)
                   }
     bnbTree = BnPTree(probSetting, grbSetting, etcSetting)
     bnbTree.startBnP()

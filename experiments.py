@@ -105,7 +105,7 @@ def run_multipleCores(machine_num):
                       'Threads': _numThreads,
                       'TimeLimit': _TimeLimit,
                       'PoolSolutions': _PoolSolutions,
-                      'Method': 1  # dual simplex
+                      # 'Method': 1  # dual simplex
                       # 'Method': 2  # barrier
 
                       }
@@ -119,11 +119,10 @@ def run_multipleCores(machine_num):
                       #
                       'use_ghS': True
                       }
-        BnPTree(probSetting, grbSetting, etcSetting).startBnP()
-        # try:
-        #     BnPTree(probSetting, grbSetting, etcSetting).startBnP()
-        # except:
-        #     pass
+        try:
+            BnPTree(probSetting, grbSetting, etcSetting).startBnP()
+        except:
+            pass
         #
         # Run the exact model
         #
@@ -331,7 +330,7 @@ def read_result(resF):
     return objV, mipG, wallTs, cpuT
 
 if __name__ == '__main__':
-    run_multipleCores(0)
+    run_multipleCores(10)
     # summary()
     # gen_problems(opath.join(dpath['experiment'], 'tempProb'))
 

@@ -7,6 +7,7 @@ import numpy as np
 
 from optRouting import run as optR_run
 from pricing import run as pricing_run
+
 # from pricingPure_ghS import run as pricing_run
 #
 prefix = 'gh_mBundling'
@@ -211,7 +212,7 @@ class BnPNode(object):
             input4subProblem['exclusiveC'] = self.exclusiveC
             input4subProblem['B'] = B
             #
-            bestSols = pricing_run(counter, input4subProblem, self.grbSetting, self.etcSetting['use_ghS'])
+            bestSols = pricing_run(counter, input4subProblem, self.grbSetting, self.etcSetting)
             if bestSols is None:
                 logContents = '\n\n'
                 logContents += '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
