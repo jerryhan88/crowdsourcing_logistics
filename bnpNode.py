@@ -198,6 +198,7 @@ class BnPNode(object):
                 logContents = '\n\n'
                 logContents += 'Relaxed model is infeasible!!\n'
                 logContents += 'No solution!\n'
+                record_log(self.grbSetting['LogFile'], logContents)
                 is_feasible = False
                 break
             #
