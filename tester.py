@@ -3,19 +3,22 @@ import pickle
 
 #
 from problems import *
-from bnpTree import BnPTree
+
 #
 prob_dir = opath.join('z_files', '_problems')
 
 
 def ex_test():
     from exactMM import run as exactMM_run
-    fn = 'nt05-np12-nb2-tv3-td4.pkl'
-    prefix = fn[:-len('.pkl')]
+    # fn = 'nt05-np12-nb2-tv3-td4.pkl'
+    # prefix = fn[:-len('.pkl')]
+    # ifpath = opath.join(prob_dir, fn)
+    # with open(ifpath, 'rb') as fp:
+    #     problem = pickle.load(fp)
     #
-    ifpath = opath.join(prob_dir, fn)
-    with open(ifpath, 'rb') as fp:
-        problem = pickle.load(fp)
+    prefix = 'paperExample'
+    problem = paperExample()
+
     exLogF = opath.join('z_files', '%s-%s.log' % (prefix, 'ex'))
     exResF = opath.join('z_files', '%s-%s.csv' % (prefix, 'ex'))
     #
@@ -155,6 +158,7 @@ def gBNP_test():
 
 
 def ghS_BNP_test():
+    from bnpTree import BnPTree
     # fn = 'nt100-np12-nb40-tv3-td4.pkl'
     # prefix = fn[:-len('.pkl')]
     # #
@@ -194,9 +198,9 @@ def ghS_BNP_test():
 
 
 if __name__ == '__main__':
-    # ex_test()
+    ex_test()
     # ghM_test()
     # or_test()
     # gBNP_test()
     # ghS_test()
-    ghS_BNP_test()
+    # ghS_BNP_test()
