@@ -264,6 +264,14 @@ def run(counter, inputs, grbSetting, etcSetting):
         logContents += '!!!!!!!!Pricing infeasible!!!!!!!!'
         logContents += '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
         record_log(grbSetting['LogFile'], logContents)
+
+        # relaxM.computeIIS()
+        # relaxM.write('relexM.ilp')
+        # relaxM.write('relexM.lp')
+        pricingM.computeIIS()
+        pricingM.write('temp.ilp')
+        pricingM.write('temp.lp')
+        assert False
         return None
     else:
         bestSols = []
