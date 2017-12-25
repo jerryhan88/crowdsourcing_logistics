@@ -222,9 +222,9 @@ def run(counter, inputs, grbSetting, etcSetting):
             s_PN[sN].start = dvs['_s_PN'][sN]
 
 
-    if 'mpsF' in etcSetting:
-        pricingM.write(etcSetting['mpsF'])
-        assert False, 'Done a mps file writing'
+    # if 'mpsF' in etcSetting:
+    #     pricingM.write(etcSetting['mpsF'])
+    #     assert False, 'Done a mps file writing'
     #
     set_grbSettings(pricingM, grbSetting)
     #
