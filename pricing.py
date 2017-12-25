@@ -266,20 +266,23 @@ def run(counter, inputs, grbSetting, etcSetting):
         record_log(grbSetting['LogFile'], logContents)
         return None
     else:
-        nSolutions = pricingM.SolCount
-        if nSolutions == 0:
-            return None
         bestSols = []
-        if nSolutions == 1:
-            bestSols.append((pricingM.objVal, [i for i in T if z_i[i].x > 0.5]))
-        else:
-            bestSols = {}
-            for e in range(nSolutions):
-                pricingM.setParam(GRB.Param.SolutionNumber, e)
-                bundle = tuple([i for i in T if z_i[i].Xn > 0.5])
-                if bundle not in bestSols:
-                    bestSols[bundle] = pricingM.PoolObjVal
-            bestSols = [(objV, list(bundle)) for bundle, objV in bestSols.items()]
+        bestSols.append((pricingM.objVal, [i for i in T if z_i[i].x > 0.5]))
+
+        # nSolutions = pricingM.SolCount
+        # if nSolutions == 0:
+        #     return None
+        # bestSols = []
+        # if nSolutions == 1:
+        #     bestSols.append((pricingM.objVal, [i for i in T if z_i[i].x > 0.5]))
+        # else:
+        #     bestSols = {}
+        #     for e in range(nSolutions):
+        #         pricingM.setParam(GRB.Param.SolutionNumber, e)
+        #         bundle = tuple([i for i in T if z_i[i].Xn > 0.5])
+        #         if bundle not in bestSols:
+        #             bestSols[bundle] = pricingM.PoolObjVal
+        #     bestSols = [(objV, list(bundle)) for bundle, objV in bestSols.items()]
         return bestSols
 
 
