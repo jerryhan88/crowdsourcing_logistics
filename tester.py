@@ -1,6 +1,5 @@
 import os.path as opath
 import pickle
-
 #
 from problems import *
 
@@ -202,9 +201,9 @@ def ghS_BNP_test():
 
 
 if __name__ == '__main__':
-    # ex_test()
+    ex_test()
     # ghM_test()
     # or_test()
-    gBNP_test()
+    # gBNP_test()
     # ghS_test()
     # ghS_BNP_test()

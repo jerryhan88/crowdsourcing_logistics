@@ -75,6 +75,9 @@ class BnPNode(object):
         T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
         K, w_k = list(map(inputs.get, ['K', 'w_k']))
         t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
+        # Add singleton bundles
+        for i in T:
+            B.append([i])
         #
         startCpuTime, startWallTime = time.clock(), time.time()
         logContents = '\n\n'

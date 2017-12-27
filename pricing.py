@@ -44,25 +44,25 @@ def run(counter, inputs, grbSetting, etcSetting):
                         expr += pricingM._x_kij[k, i, j]
                     pricingM.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
 
-        # if where == GRB.callback.MIP and pricingM.cbGet(GRB.Callback.MIP_SOLCNT):
-        #     runTime = pricingM.cbGet(GRB.callback.RUNTIME)
-        #     objbst = pricingM.cbGet(GRB.Callback.MIP_OBJBST)
-        #     objbnd = pricingM.cbGet(GRB.Callback.MIP_OBJBND)
-        #     gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
-        #     timeIntv = runTime - pricingM._lastGapUpTime
-        #     #
-        #     if gap < pricingM._minGap:
-        #         pricingM._minGap = gap
-        #         pricingM._lastGapUpTime = runTime
-        #     else:
-        #         gapPct = gap * 100
-        #         if PRICING_TIME_LIMIT < timeIntv:
-        #             logContents = '\n\n'
-        #             logContents += 'Termination\n'
-        #             logContents += '\t gapPct: %.2f \n' % gapPct
-        #             logContents += '\t timeIntv: %f \n' % timeIntv
-        #             record_log(grbSetting['LogFile'], logContents)
-        #             pricingM.terminate()
+        if where == GRB.callback.MIP and pricingM.cbGet(GRB.Callback.MIP_SOLCNT):
+            runTime = pricingM.cbGet(GRB.callback.RUNTIME)
+            objbst = pricingM.cbGet(GRB.Callback.MIP_OBJBST)
+            objbnd = pricingM.cbGet(GRB.Callback.MIP_OBJBND)
+            gap = abs(objbst - objbnd) / (1.0 + abs(objbst))
+            timeIntv = runTime - pricingM._lastGapUpTime
+            #
+            if gap < pricingM._minGap:
+                pricingM._minGap = gap
+                pricingM._lastGapUpTime = runTime
+            else:
+                gapPct = gap * 100
+                if PRICING_TIME_LIMIT < timeIntv:
+                    logContents = '\n\n'
+                    logContents += 'Termination\n'
+                    logContents += '\t gapPct: %.2f \n' % gapPct
+                    logContents += '\t timeIntv: %f \n' % timeIntv
+                    record_log(grbSetting['LogFile'], logContents)
+                    pricingM.terminate()
     #
     bigM1 = sum(r_i) * 2
     bigM2 = (len(T) + 1) * 2
@@ -184,8 +184,6 @@ def run(counter, inputs, grbSetting, etcSetting):
                     - t_ij[kM, kP] - t_ij[kP, kM] - _delta <= bigM3 * (1 - y_k[k]),
                     name='pf[%d]' % k)
 
-
-
     #
     # For callback function
     #
@@ -264,33 +262,22 @@ def run(counter, inputs, grbSetting, etcSetting):
         logContents += '!!!!!!!!Pricing infeasible!!!!!!!!'
         logContents += '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
         record_log(grbSetting['LogFile'], logContents)
-
-        # relaxM.computeIIS()
-        # relaxM.write('relexM.ilp')
-        # relaxM.write('relexM.lp')
-        pricingM.computeIIS()
-        pricingM.write('temp.ilp')
-        pricingM.write('temp.lp')
-        assert False
         return None
     else:
+        nSolutions = pricingM.SolCount
+        if nSolutions == 0:
+            return None
         bestSols = []
-        bestSols.append((pricingM.objVal, [i for i in T if z_i[i].x > 0.5]))
-
-        # nSolutions = pricingM.SolCount
-        # if nSolutions == 0:
-        #     return None
-        # bestSols = []
-        # if nSolutions == 1:
-        #     bestSols.append((pricingM.objVal, [i for i in T if z_i[i].x > 0.5]))
-        # else:
-        #     bestSols = {}
-        #     for e in range(nSolutions):
-        #         pricingM.setParam(GRB.Param.SolutionNumber, e)
-        #         bundle = tuple([i for i in T if z_i[i].Xn > 0.5])
-        #         if bundle not in bestSols:
-        #             bestSols[bundle] = pricingM.PoolObjVal
-        #     bestSols = [(objV, list(bundle)) for bundle, objV in bestSols.items()]
+        if nSolutions == 1:
+            bestSols.append((pricingM.objVal, [i for i in T if z_i[i].x > 0.5]))
+        else:
+            bestSols = {}
+            for e in range(nSolutions):
+                pricingM.setParam(GRB.Param.SolutionNumber, e)
+                bundle = tuple([i for i in T if z_i[i].Xn > 0.5])
+                if bundle not in bestSols:
+                    bestSols[bundle] = pricingM.PoolObjVal
+            bestSols = [(objV, list(bundle)) for bundle, objV in bestSols.items()]
         return bestSols
 
 
