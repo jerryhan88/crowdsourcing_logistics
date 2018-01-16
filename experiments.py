@@ -1,7 +1,7 @@
 from init_project import *
 #
-from cpuinfo import get_cpu_info
-from psutil import virtual_memory
+# from cpuinfo import get_cpu_info
+# from psutil import virtual_memory
 
 #
 from _utils.recording import *
@@ -9,6 +9,40 @@ from _utils.recording import *
 from exactMM import run as exactMM_run
 from bnpTree import BnPTree
 from problems import *
+
+
+def gen_mrtProblems(problem_dpath):
+    seedNum, numTasks, thVolume, thDetour = 0, 10, 3, 30
+    #
+    if not opath.exists(problem_dpath):
+        os.mkdir(problem_dpath)
+    for numTasks in [15]:
+        _flows, \
+        _tasks, rewards, volumes, \
+        _points, _travel_time, \
+        numBundles, thVolume, thDetour = get_mrtNetExample(seedNum, numTasks, thVolume, thDetour)
+        #
+        for thD in [20, 30, 40, 50, 60]:
+            flows, tasks, points, travel_time = convert_mrtNet2ID(_flows, _tasks, _points, _travel_time)
+            #
+            paths = list(flows.keys())
+            #
+            input_validity(points, flows, paths, tasks, numBundles, thVolume)
+            #
+            inputs = [travel_time,
+                      flows, paths,
+                      tasks, rewards, volumes,
+                      numBundles, thVolume, thD]
+            #
+            travel_time, \
+            flows, paths, \
+            tasks, rewards, volumes, \
+            numBundles, thVolume, thD = inputs
+            numTasks, numPaths = map(len, [tasks, paths])
+            fn = 'nt%02d-np%d-nb%d-tv%d-td%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thD)
+            ofpath = opath.join(problem_dpath, fn)
+            with open(ofpath, 'wb') as fp:
+                pickle.dump(inputs, fp)
 
 
 def gen_problems(problem_dpath):
@@ -55,8 +89,9 @@ def gen_problems(problem_dpath):
 
 
 def run_multipleCores(machine_num):
-    cpu_info = get_cpu_info()
-    _numThreads, _TimeLimit = int(cpu_info['count']), 4 * 60 * 60
+    # cpu_info = get_cpu_info()
+    # _numThreads, _TimeLimit = int(cpu_info['count']), 4 * 60 * 60
+    _numThreads, _TimeLimit = 8, 4 * 60 * 60
     _PoolSolutions = 1000
     #
     # log_dpath, res_dpath, problem_dpath = init_expEnv()
@@ -64,12 +99,12 @@ def run_multipleCores(machine_num):
     problem_dpath = opath.join(machine_dpath, '__problems')
     for path in [machine_dpath, problem_dpath]:
         assert opath.exists(path), path
-    cpu_spec_fpath = opath.join(machine_dpath, '__cpuSpec.txt')
-    with open(cpu_spec_fpath, 'w') as f:
-        f.write('numProcessor: %d\n' % int(cpu_info['count']))
-        f.write('bits: %d\n' % int(cpu_info['bits']))
-        f.write('brand:%s\n' % str(cpu_info['brand']))
-        f.write('memory:%d kb' % virtual_memory().total)
+    # cpu_spec_fpath = opath.join(machine_dpath, '__cpuSpec.txt')
+    # with open(cpu_spec_fpath, 'w') as f:
+    #     f.write('numProcessor: %d\n' % int(cpu_info['count']))
+    #     f.write('bits: %d\n' % int(cpu_info['bits']))
+    #     f.write('brand:%s\n' % str(cpu_info['brand']))
+    #     f.write('memory:%d kb' % virtual_memory().total)
     log_dpath = opath.join(machine_dpath, 'log')
     res_dpath = opath.join(machine_dpath, 'res')
     bbt_dpath = opath.join(machine_dpath, 'bpt')
@@ -119,10 +154,10 @@ def run_multipleCores(machine_num):
                       #
                       'use_ghS': True
                       }
-        try:
-            BnPTree(probSetting, grbSetting, etcSetting).startBnP()
-        except:
-            pass
+        # try:
+        BnPTree(probSetting, grbSetting, etcSetting).startBnP()
+        # except:
+        #     pass
         #
         # Run the exact model
         #
@@ -330,7 +365,8 @@ def read_result(resF):
     return objV, mipG, wallTs, cpuT
 
 if __name__ == '__main__':
-    run_multipleCores(10)
-    # summary()
+    # run_multipleCores(1)
+    summary()
     # gen_problems(opath.join(dpath['experiment'], 'tempProb'))
+    # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
 

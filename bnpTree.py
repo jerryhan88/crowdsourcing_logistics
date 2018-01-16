@@ -45,7 +45,10 @@ class BnPTree(treelib.Tree):
         incumProb = self.incumbent.data.probSetting
         incumRes = self.incumbent.data.res
         bbRes = self.bestBound.data.res
-        BnPgap = abs(incumRes['objVal'] - bbRes['objVal']) / incumRes['objVal']
+        if incumRes['objVal'] != 0:
+            BnPgap = abs(incumRes['objVal'] - bbRes['objVal']) / incumRes['objVal']
+        else:
+            BnPgap = None
         chosenB = [incumProb['B'][b] for b in range(len(incumProb['B'])) if incumRes['q_b'][b] > 0.5]
         endCpuTimeBnP, endWallTimeBnP = time.clock(), time.time()
         eliCpuTimeBnP, eliWallTimeBnP = endCpuTimeBnP - startCpuTimeBnP, endWallTimeBnP - startWallTimeBnP
@@ -63,7 +66,11 @@ class BnPTree(treelib.Tree):
         logContents += '\t\t End.Time: %s\n' % str(endWallTimeBnP)
         logContents += '\t\t Eli.Time: %f\n' % eliWallTimeBnP
         logContents += '\t ObjV: %.3f\n' % incumRes['objVal']
-        logContents += '\t Gap: %.3f\n' % BnPgap
+        if type(BnPgap) == float:
+            logContents += '\t Gap: %.3f\n' % BnPgap
+        else:
+            assert BnPgap is None
+            logContents += '\t Gap: NA\n'
         logContents += '\t chosen B.: %s\n' % str(chosenB)
         logContents += '===========================================================\n'
         record_log(self.etcSetting['bnpLogF'], logContents)

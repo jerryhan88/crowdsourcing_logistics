@@ -14,8 +14,8 @@ from _utils.recording import *
 from _utils.mm_utils import *
 
 
-# PRICING_TIME_LIMIT = 60 * 10
-PRICING_TIME_LIMIT = 60 * 2
+PRICING_TIME_LIMIT = 60 * 10
+# PRICING_TIME_LIMIT = 60 * 2
 
 
 def run(counter, inputs, grbSetting, etcSetting):
