@@ -1,8 +1,5 @@
-from problems import *
 
-
-def run(problem):
-    inputs = convert_p2i(*problem)
+def run(inputs):
     bB = inputs['bB']
     T, r_i, v_i, _lambda = list(map(inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
     K, w_k = list(map(inputs.get, ['K', 'w_k']))
