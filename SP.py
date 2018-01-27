@@ -10,27 +10,30 @@ def run(probSetting, etcSetting, grbSetting):
     T, r_i, v_i, _lambda = [inputs.get(k) for k in ['T', 'r_i', 'v_i', '_lambda']]
     P, D, N = [inputs.get(k) for k in ['P', 'D', 'N']]
     K, w_k, t_ij, _delta = [inputs.get(k) for k in ['K', 'w_k', 't_ij', '_delta']]
+    C = probSetting['C']
     #
     pi_i, mu = [probSetting.get(k) for k in ['pi_i', 'mu']]
     inclusiveC, exclusiveC = [probSetting.get(k) for k in ['inclusiveC', 'exclusiveC']]
     #
     def callbackF(m, where):
         if where == GRB.callback.MIPSOL:
+            selectedTasks = [i for i in m._T if m.cbGetSolution(m._z_i[i]) > 0.5]
+            #
             tNodes = []
-            selectedTasks = set()
-            for i in m._T:
-                if m.cbGetSolution(m._z_i[i]) > 0.5:
-                    tNodes.append('p%d' % i); tNodes.append('d%d' % i)
-                    selectedTasks.add(i)
+            for i in selectedTasks:
+                tNodes.append('p%d' % i)
+                tNodes.append('d%d' % i)
             for k in m._K:
                 ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
                 selectedEdges = [(i, j) for j in ptNodes for i in ptNodes if m.cbGetSolution(m._x_kij[k, i, j]) > 0.5]
                 route = get_routeFromOri(selectedEdges, ptNodes)
                 if len(route) != len(ptNodes) - 1:
-                    expr = 0
-                    for i, j in route:
-                        expr += m._x_kij[k, i, j]
-                    m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
+                    m.cbLazy(quicksum(m._x_kij[k, i, j] for i, j in route) <= len(route) - 1)  # eq:subTourElim
+            #
+            for bc in m._C:
+                if len(selectedTasks) == len(bc):
+                    m.cbLazy(quicksum(m._z_i[i] for i in bc) <= len(bc) - 1)
+        #
         if where == GRB.Callback.MIP:
             if time.clock() - etcSetting['startTS'] > etcSetting['TimeLimit']:
                 logContents = '\n\n'
@@ -78,6 +81,13 @@ def run(probSetting, etcSetting, grbSetting):
     #
     # Define constrains
     #
+
+
+    SP.addConstr(quicksum(z_i[i] for i in T) >= 2,
+                 name='mTT')  # eq:moreThanTwo
+
+
+
     # Handling inclusive constraints
     for s in range(len(inclusiveC)):
         i0, i1 = inclusiveC[s]
@@ -94,8 +104,6 @@ def run(probSetting, etcSetting, grbSetting):
                            name='eC[%d]' % i)
     # Linearization
     for k in K:  # eq:linAlpha
-        SP.addConstr(a_k[k] >= quicksum(r_i[i] * z_i[i] for i in T) - bigM1 * (1 - y_k[k]),
-                    name='la1[%d]' % k)
         SP.addConstr(a_k[k] <= bigM1 * y_k[k],
                     name='la2[%d]' % k)
         SP.addConstr(a_k[k] <= quicksum(r_i[i] * z_i[i] for i in T),
@@ -166,8 +174,7 @@ def run(probSetting, etcSetting, grbSetting):
     SP.params.LazyConstraints = 1
     SP._T, SP._K = T, K
     SP._z_i, SP._x_kij = z_i, x_kij
-    SP._minGap = GRB.INFINITY
-    SP._lastGapUpTime = -GRB.INFINITY
+    SP._C = C
     SP._is_terminated = False
     #
     # Run Gurobi (Optimization)

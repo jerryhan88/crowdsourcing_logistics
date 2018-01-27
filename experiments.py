@@ -56,20 +56,23 @@ def gen_problems(problem_dpath):
     if not opath.exists(problem_dpath):
         os.mkdir(problem_dpath)
     #
-    numTasks = 6
-    numBundles = 3
+    minTravlTime4OD, maxFlow = 5, 4
+    #
     thVolume = 3
-    numPaths = 5
-    minTravlTime4OD = 5
-    maxFlow = 3
+    numPaths = 10
     thDetour = 3
 
-    problem = randomProb_5by5(numTasks, numBundles, thVolume, numPaths, minTravlTime4OD, maxFlow, thDetour)
+    numTasks, numBundles = 6, 3
 
-    fn = 'nt%02d-np%d-nb%d-tv%d-td%d-%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour, int(time.time()))
-    ofpath = opath.join(problem_dpath, fn)
-    with open(ofpath, 'wb') as fp:
-        pickle.dump(problem, fp)
+
+    for numPaths in [10, 20]:
+        for numTasks, numBundles in [(10, 4), (20, 8), (30, 12)]:
+            problem = randomProb_5by5(numTasks, numBundles, thVolume, numPaths, minTravlTime4OD, maxFlow, thDetour)
+
+            fn = 'nt%02d-np%d-nb%d-tv%d-td%d-%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour, int(time.time()))
+            ofpath = opath.join(problem_dpath, fn)
+            with open(ofpath, 'wb') as fp:
+                pickle.dump(problem, fp)
 
 
 def run_experiments(machine_num):
@@ -93,12 +96,12 @@ def run_experiments(machine_num):
         prefix = opath.basename(ifpath)[:-len('.pkl')]
         ###############################################################
         # GH
-        probSetting = {'problem': problem}
-        ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'GH'))
-        ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'GH'))
-        etcSetting = {'LogFile': ghLogF,
-                      'ResFile': ghResF}
-        GH_run(probSetting, etcSetting)
+        # probSetting = {'problem': problem}
+        # ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'GH'))
+        # ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'GH'))
+        # etcSetting = {'LogFile': ghLogF,
+        #               'ResFile': ghResF}
+        # GH_run(probSetting, etcSetting)
         ###############################################################
         #
         ###############################################################
@@ -118,15 +121,15 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # EX
-        probSetting = {'problem': problem}
-        exLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'EX'))
-        exResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'EX'))
-        etcSetting = {'LogFile': exLogF,
-                      'ResFile': exResF,
-                      'TimeLimit': _TimeLimit}
-        grbSetting = {'LogFile': exLogF,
-                      'Threads': _numThreads}
-        EX_run(probSetting, etcSetting, grbSetting)
+        # probSetting = {'problem': problem}
+        # exLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'EX'))
+        # exResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'EX'))
+        # etcSetting = {'LogFile': exLogF,
+        #               'ResFile': exResF,
+        #               'TimeLimit': _TimeLimit}
+        # grbSetting = {'LogFile': exLogF,
+        #               'Threads': _numThreads}
+        # EX_run(probSetting, etcSetting, grbSetting)
         ###############################################################
         # os.remove(ifpath)
 
@@ -134,4 +137,4 @@ def run_experiments(machine_num):
 if __name__ == '__main__':
     # randomProb_5by5()
     # gen_problems(opath.join(dpath['experiment'], 'tempProb'))
-    run_experiments(1)
+    run_experiments(100)

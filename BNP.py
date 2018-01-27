@@ -18,6 +18,7 @@ EPSILON = 0.000000001
 
 
 def handle_termination(bnpTree, curNode):
+    etcSetting = curNode.ni.etcSetting
     logContents = '\n\n'
     logContents += '======================================================================================\n'
     logContents += '%s\n' % str(datetime.datetime.now())
@@ -310,6 +311,7 @@ class bnpNode(object):
         # Generate initial singleton bundles
         #
         inputs = self.probSetting['inputs']
+        bB = inputs['bB']
         T, r_i = list(map(inputs.get, ['T', 'r_i']))
         K, w_k = list(map(inputs.get, ['K', 'w_k']))
         t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
@@ -353,15 +355,24 @@ class bnpNode(object):
             LRMP = RMP.relax()
             set_grbSettings(LRMP, self.grbSetting)
             LRMP.optimize()
+
+
+            if LRMP.status == GRB.Status.INFEASIBLE:
+
+                pass
+
+
+
             if LRMP.status == GRB.Status.INFEASIBLE:
                 logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
                 logContents += 'Relaxed model is infeasible!!\n'
                 logContents += 'No solution!\n'
                 logContents += '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-                log2file(etcSetting['LogFile'], logContents)
+                log2file(self.etcSetting['LogFile'], logContents)
                 LRMP.computeIIS()
-                LRMP.write('temp.ilp')
-                LRMP.write('temp.lp')
+                import os.path as opath
+                LRMP.write('%s.ilp' % opath.basename(self.etcSetting['LogFile']).split('.')[0])
+                LRMP.write('%s.lp' % opath.basename(self.etcSetting['LogFile']).split('.')[0])
                 assert False
             #
             counter += 1
@@ -378,6 +389,7 @@ class bnpNode(object):
             logContents += '\t Columns\n'
             logContents += '\t\t # of columns %d\n' % len(self.probSetting['C'])
             logContents += '\t\t %s\n' % str(self.probSetting['C'])
+            logContents += '\t\t %s\n' % str(self.probSetting['p_c'])
             logContents += '\t Relaxed objVal\n'
             logContents += '\t\t z: %.3f\n' % LRMP.objVal
             logContents += '\t Dual V\n'
@@ -438,7 +450,6 @@ class bnpNode(object):
                 for i in bc:
                     vec[i] = 1
                 p = objV + (np.array(vec) * np.array(pi_i)).sum() + mu
-                #
                 C, p_c, e_ci = list(map(self.probSetting.get, ['C', 'p_c', 'e_ci']))
                 e_ci.append(vec)
                 p_c.append(p)
