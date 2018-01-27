@@ -8,6 +8,7 @@ from problems import point, input_validity
 from GH import run as GH_run
 from EX import run as EX_run
 from BNP import run as BNP_run
+from CWL import run as CWL_run
 
 
 def randomProb_5by5(numTasks=10, numBundles=3, thVolume=4, numPaths=5, minTravlTime4OD=5, maxFlow=3, thDetour=3):
@@ -65,8 +66,17 @@ def gen_problems(problem_dpath):
     numTasks, numBundles = 6, 3
 
 
-    for numPaths in [10, 20]:
-        for numTasks, numBundles in [(10, 4), (20, 8), (30, 12)]:
+    for numPaths in [
+                     5,
+                     # 10, 20,
+                     # 30
+    ]:
+        for numTasks, numBundles in [
+                                     (10, 4), (20, 8), (30, 12),
+                                     (40, 16), (50, 20), (60, 24),
+                                     (70, 28),
+
+                                     ]:
             problem = randomProb_5by5(numTasks, numBundles, thVolume, numPaths, minTravlTime4OD, maxFlow, thDetour)
 
             fn = 'nt%02d-np%d-nb%d-tv%d-td%d-%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour, int(time.time()))
@@ -76,7 +86,7 @@ def gen_problems(problem_dpath):
 
 
 def run_experiments(machine_num):
-    _numThreads, _TimeLimit = 8, 4 * 60 * 60
+    _numThreads, _TimeLimit = 8, 10 * 60 * 60
     machine_dpath = opath.join(dpath['experiment'], 'm%d' % machine_num)
     problem_dpath = opath.join(machine_dpath, '__problems')
     for path in [machine_dpath, problem_dpath]:
@@ -84,8 +94,8 @@ def run_experiments(machine_num):
     log_dpath = opath.join(machine_dpath, 'log')
     res_dpath = opath.join(machine_dpath, 'res')
     bbt_dpath = opath.join(machine_dpath, 'bpt')
-    err_dpath = opath.join(machine_dpath, 'err')
-    for path in [log_dpath, res_dpath, err_dpath, bbt_dpath]:
+    itr_dpath = opath.join(machine_dpath, 'itr')
+    for path in [log_dpath, res_dpath, itr_dpath, bbt_dpath]:
         os.makedirs(path)
     problems_ifpathes = [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
                          if fn.endswith('.pkl')]
@@ -105,21 +115,6 @@ def run_experiments(machine_num):
         ###############################################################
         #
         ###############################################################
-        # BNP
-        probSetting = {'problem': problem}
-        bnpLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'BNP'))
-        bnpResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'BNP'))
-        bptFile = opath.join(bbt_dpath, '%s-%s.csv' % (prefix, 'bnpTree'))
-        etcSetting = {'LogFile': bnpLogF,
-                      'ResFile': bnpResF,
-                      'bptFile': bptFile,
-                      'TimeLimit': _TimeLimit}
-        grbSetting = {'LogFile': bnpLogF,
-                      'Threads': _numThreads}
-        BNP_run(probSetting, etcSetting, grbSetting)
-        ###############################################################
-        #
-        ###############################################################
         # EX
         # probSetting = {'problem': problem}
         # exLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'EX'))
@@ -130,6 +125,36 @@ def run_experiments(machine_num):
         # grbSetting = {'LogFile': exLogF,
         #               'Threads': _numThreads}
         # EX_run(probSetting, etcSetting, grbSetting)
+        ###############################################################
+        #
+        ###############################################################
+        # BNP
+        # probSetting = {'problem': problem}
+        # bnpLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'BNP'))
+        # bnpResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'BNP'))
+        # bptFile = opath.join(bbt_dpath, '%s-%s.csv' % (prefix, 'bnpTree'))
+        # etcSetting = {'LogFile': bnpLogF,
+        #               'ResFile': bnpResF,
+        #               'bptFile': bptFile,
+        #               'TimeLimit': _TimeLimit}
+        # grbSetting = {'LogFile': bnpLogF,
+        #               'Threads': _numThreads}
+        # BNP_run(probSetting, etcSetting, grbSetting)
+        ###############################################################
+        #
+        ###############################################################
+        # CWL
+        probSetting = {'problem': problem}
+        cwlLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'CWL'))
+        cwlResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'CWL'))
+        itrFile = opath.join(itr_dpath, 'paperExample_itrCWL.csv')
+        etcSetting = {'LogFile': cwlLogF,
+                      'ResFile': cwlResF,
+                      'itrFile': itrFile,
+                      'TimeLimit': _TimeLimit}
+        grbSetting = {'LogFile': cwlLogF,
+                      'Threads': _numThreads}
+        CWL_run(probSetting, etcSetting, grbSetting)
         ###############################################################
         # os.remove(ifpath)
 

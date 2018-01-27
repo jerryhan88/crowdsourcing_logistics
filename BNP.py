@@ -17,27 +17,6 @@ from problems import *
 EPSILON = 0.000000001
 
 
-def handle_termination(bnpTree, curNode):
-    etcSetting = curNode.ni.etcSetting
-    logContents = '\n\n'
-    logContents += '======================================================================================\n'
-    logContents += '%s\n' % str(datetime.datetime.now())
-    logContents += 'BNP model reach to the time limit, while solving node %s\n' % curNode.identifier
-    logContents += '======================================================================================\n'
-    log2file(etcSetting['LogFile'], logContents)
-    endCpuTimeBnP, endWallTimeBnP = time.clock(), time.time()
-    eliCpuTimeBnP = endCpuTimeBnP - etcSetting['startCpuTimeBnP']
-    eliWallTimeBnP = endWallTimeBnP - etcSetting['startWallTimeBnP']
-    if bnpTree.bestBound and bnpTree.incument:
-        incumRes = bnpTree.incumbent.ni.res
-        bbRes = bnpTree.bestBound.data.res
-        BnPgap = abs(incumRes['objVal'] - bbRes['objVal']) / incumRes['objVal']
-        res2file(etcSetting['ResFile'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
-    else:
-        res2file(etcSetting['ResFile'], -1, None, eliCpuTimeBnP, eliWallTimeBnP)
-    #
-    exit()
-
 def run(probSetting, etcSetting, grbSetting):
     startCpuTimeBnP, startWallTimeBnP = time.clock(), time.time()
     if 'TimeLimit' not in etcSetting:
@@ -45,6 +24,7 @@ def run(probSetting, etcSetting, grbSetting):
     etcSetting['startTS'] = startCpuTimeBnP
     etcSetting['startCpuTimeBnP'] = startCpuTimeBnP
     etcSetting['startWallTimeBnP'] = startWallTimeBnP
+    bpt2file(etcSetting['bptFile'])
     assert 'problem' in probSetting
     probSetting['inputs'] = convert_p2i(*probSetting['problem'])
     for cond in ['inclusiveC', 'exclusiveC']:
@@ -71,6 +51,7 @@ def run(probSetting, etcSetting, grbSetting):
     #
     if is_terminated:
         handle_termination(bnpTree, rootNode)
+        return None
     #
     branching(bnpTree, rootNode)
     #
@@ -241,6 +222,7 @@ def branching(bnpTree, curNode):
         is_terminated = lcNode.ni.startCG()
         if is_terminated:
             handle_termination(bnpTree, lcNode)
+            return None
         heappush(bnpTree.leafNodes, (-(bnpTree.depth(lcNode) + 0.1), lcNode))
         #
         # Right child
@@ -254,6 +236,7 @@ def branching(bnpTree, curNode):
         is_terminated = rcNode.ni.startCG()
         if is_terminated:
             handle_termination(bnpTree, rcNode)
+            return None
         heappush(bnpTree.leafNodes, (-bnpTree.depth(rcNode), rcNode))
         #
         if bnpTree.bestBound == curNode:
@@ -287,6 +270,26 @@ def duplicate_probSetting(pProbSetting):
     return cProbSetting
 
 
+def handle_termination(bnpTree, curNode):
+    etcSetting = curNode.ni.etcSetting
+    logContents = '\n\n'
+    logContents += '======================================================================================\n'
+    logContents += '%s\n' % str(datetime.datetime.now())
+    logContents += 'BNP model reach to the time limit, while solving node %s\n' % curNode.identifier
+    logContents += '======================================================================================\n'
+    log2file(etcSetting['LogFile'], logContents)
+    endCpuTimeBnP, endWallTimeBnP = time.clock(), time.time()
+    eliCpuTimeBnP = endCpuTimeBnP - etcSetting['startCpuTimeBnP']
+    eliWallTimeBnP = endWallTimeBnP - etcSetting['startWallTimeBnP']
+    if bnpTree.bestBound and bnpTree.incument:
+        incumRes = bnpTree.incumbent.ni.res
+        bbRes = bnpTree.bestBound.data.res
+        BnPgap = abs(incumRes['objVal'] - bbRes['objVal']) / incumRes['objVal']
+        res2file(etcSetting['ResFile'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
+    else:
+        res2file(etcSetting['ResFile'], -1, None, eliCpuTimeBnP, eliWallTimeBnP)
+
+
 class bnpNode(object):
     def __init__(self, nid, probSetting, etcSetting, grbSetting):
         self.nid = nid
@@ -300,7 +303,6 @@ class bnpNode(object):
             self.probSetting['C'] = C
             self.probSetting['p_c'] = p_c
             self.probSetting['e_ci'] = e_ci
-            bpt2file(self.etcSetting['bptFile'])
         self.res = {}
 
     def __repr__(self):
@@ -311,7 +313,6 @@ class bnpNode(object):
         # Generate initial singleton bundles
         #
         inputs = self.probSetting['inputs']
-        bB = inputs['bB']
         T, r_i = list(map(inputs.get, ['T', 'r_i']))
         K, w_k = list(map(inputs.get, ['K', 'w_k']))
         t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
@@ -355,14 +356,6 @@ class bnpNode(object):
             LRMP = RMP.relax()
             set_grbSettings(LRMP, self.grbSetting)
             LRMP.optimize()
-
-
-            if LRMP.status == GRB.Status.INFEASIBLE:
-
-                pass
-
-
-
             if LRMP.status == GRB.Status.INFEASIBLE:
                 logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
                 logContents += 'Relaxed model is infeasible!!\n'
@@ -433,7 +426,7 @@ class bnpNode(object):
             logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
             #
             objV, bc = objV_bc
-            if objV < EPSILON:
+            if objV < 0:
                 logContents += '\n'
                 logContents += 'The reduced cost of the generated column is a negative number\n'
                 logContents += '======================================================================================\n'

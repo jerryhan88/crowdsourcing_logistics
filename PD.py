@@ -95,11 +95,16 @@ def run(probSetting, grbSetting):
     #
     PD._kN = kN
     PD._x_ij = x_ij
-    PD.params.LazyConstraints = 1
     #
     # Run Gurobi (Optimization)
     #
-    set_grbSettings(PD, grbSetting)
+    PD.setParam('LogToConsole', False)
+    PD.setParam('OutputFlag', False)
+    PD.params.LazyConstraints = 1
+    for k, v in grbSetting.items():
+        if k.startswith('Log'):
+            continue
+        PD.setParam(k, v)
     PD.optimize(callbackF)
     #
     _route = {}

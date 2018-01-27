@@ -159,8 +159,6 @@ def run(probSetting, etcSetting, grbSetting):
     #
     endCpuTime, endWallTime = time.clock(), time.time()
     eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-    chosenB = [[i for i in T if z_bi[b, i].x > 0.5] for b in B]
-    #
     logContents = '\n\n'
     logContents += '======================================================================================\n'
     logContents += 'Summary\n'
@@ -174,41 +172,41 @@ def run(probSetting, etcSetting, grbSetting):
     logContents += '\t\t Eli.Time: %f\n' % eliWallTime
     logContents += '\t ObjV: %.3f\n' % EX.objVal
     logContents += '\t Gap: %.3f\n' % EX.MIPGap
-    logContents += '\t chosen B.: %s\n' % str(chosenB)
-    #
-    logContents += '\n'
-    for b in B:
-        bundle = [i for i in T if z_bi[b, i].x > 0.5]
-        br = sum([r_i[i] for i in bundle])
-        logContents += '%s (%d) \n' % (str(bundle), br)
-        p = 0
-        for k in K:
-            kP, kM = 'ori%d' % k, 'dest%d' % k
-            kN = N.union({kP, kM})
-            _route = {}
-            detourTime = 0
-            for j in kN:
-                for i in kN:
-                    if x_bkij[b, k, i, j].x > 0.5:
-                        detourTime += t_ij[i, j]
-                        _route[i] = j
-            detourTime -= t_ij[kM, kP]
-            detourTime -= t_ij[kP, kM]
-            i = kP
-            route = []
-            while i != kM:
-                route.append(i)
-                i = _route[i]
-            route.append(i)
-            if y_bk[b, k].x > 0.5:
-                p += w_k[k] * br
-                logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 1, str(route))
-            else:
-                logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 0, str(route))
-        logContents += '\t\t\t\t\t\t %.3f\n' % p
-    logContents += '======================================================================================\n'
-    log2file(etcSetting['LogFile'], logContents)
     try:
+        chosenB = [[i for i in T if z_bi[b, i].x > 0.5] for b in B]
+        logContents += '\t chosen B.: %s\n' % str(chosenB)
+        logContents += '\n'
+        for b in B:
+            bundle = [i for i in T if z_bi[b, i].x > 0.5]
+            br = sum([r_i[i] for i in bundle])
+            logContents += '%s (%d) \n' % (str(bundle), br)
+            p = 0
+            for k in K:
+                kP, kM = 'ori%d' % k, 'dest%d' % k
+                kN = N.union({kP, kM})
+                _route = {}
+                detourTime = 0
+                for j in kN:
+                    for i in kN:
+                        if x_bkij[b, k, i, j].x > 0.5:
+                            detourTime += t_ij[i, j]
+                            _route[i] = j
+                detourTime -= t_ij[kM, kP]
+                detourTime -= t_ij[kP, kM]
+                i = kP
+                route = []
+                while i != kM:
+                    route.append(i)
+                    i = _route[i]
+                route.append(i)
+                if y_bk[b, k].x > 0.5:
+                    p += w_k[k] * br
+                    logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 1, str(route))
+                else:
+                    logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 0, str(route))
+            logContents += '\t\t\t\t\t\t %.3f\n' % p
+        logContents += '======================================================================================\n'
+        log2file(etcSetting['LogFile'], logContents)
         res2file(etcSetting['ResFile'], EX.objVal, EX.MIPGap, eliCpuTime, eliWallTime)
     except:
         res2file(etcSetting['ResFile'], -1, -1, eliCpuTime, eliWallTime)
