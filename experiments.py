@@ -307,6 +307,6 @@ def gen_mrtProblems(problem_dpath):
 if __name__ == '__main__':
     # randomProb_5by5()
     # gen_problems(opath.join(dpath['experiment'], 'tempProb'))
-    run_experiments(100)
+    run_experiments(0)
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()
