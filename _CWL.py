@@ -1,12 +1,10 @@
 import datetime, time
 import numpy as np
-import multiprocessing
 from gurobipy import *
 #
 from _util import log2file, itr2file, res2file
 from _util import set_grbSettings
 from RMP import generate_RMP
-from GH import run as GH_run
 from LS import run as LS_run
 from PD import run as PD_run
 from problems import *
@@ -32,15 +30,8 @@ def run(probSetting, etcSetting, grbSetting):
     K, w_k = list(map(inputs.get, ['K', 'w_k']))
     t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
     C, sC, p_c, e_ci, TB = [], set(), [], [], set()
-    #
-    br = []
-    C.append(br)
-    sC.add(frozenset(tuple(br)))
-    p_c.append(0)
-    e_ci.append([0 for _ in range(len(T))])
-    #
-    _, bundles = GH_run(probSetting, etcSetting, returnSol=True)
-    for bc in bundles:
+    for i in T:
+        bc = [i]
         C.append(bc)
         sC.add(frozenset(tuple(bc)))
         #
@@ -53,8 +44,7 @@ def run(probSetting, etcSetting, grbSetting):
         p_c.append(p)
         #
         vec = [0 for _ in range(len(T))]
-        for i in bc:
-            vec[i] = 1
+        vec[i] = 1
         e_ci.append(vec)
     probSetting['C'] = C
     probSetting['sC'] = sC
@@ -66,7 +56,7 @@ def run(probSetting, etcSetting, grbSetting):
     #
     logContents = '\n\n'
     logContents += '======================================================================================\n'
-    logContents += '%s (%.2f)\n' % (str(datetime.datetime.now()), time.clock() - etcSetting['startTS'])
+    logContents += '%s\n' % str(datetime.datetime.now())
     logContents += 'Start column generation of CWL\n'
     logContents += '======================================================================================\n'
     log2file(etcSetting['LogFile'], logContents)
@@ -96,7 +86,7 @@ def run(probSetting, etcSetting, grbSetting):
             bc = C[c]
             if c in TB:
                 continue
-            if sum(v_i[i] for i in bc) == _lambda:
+            if sum(v_i[i]for i in bc) == _lambda:
                 continue
             c0 = c
             break
@@ -110,7 +100,7 @@ def run(probSetting, etcSetting, grbSetting):
         startCpuTimeP, startWallTimeP = time.clock(), time.time()
         logContents = '\n\n'
         logContents += '======================================================================================\n'
-        logContents += '%s (%.2f)\n' % (str(datetime.datetime.now()), time.clock() - etcSetting['startTS'])
+        logContents += '%s\n' % str(datetime.datetime.now())
         logContents += 'Start %dth iteration\n' % (counter)
         logContents += '\t Columns\n'
         logContents += '\t\t # of columns %d\n' % len(probSetting['C'])
@@ -144,7 +134,7 @@ def run(probSetting, etcSetting, grbSetting):
         logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
         #
         objV, bc = objV_bc
-        itr2file(etcSetting['itrFile'], [counter, c0, str(bc), objV, eliCpuTimeP, eliWallTimeP])
+        itr2file(etcSetting['itrFile'], [counter, objV, str(bc), eliCpuTimeP])
         if objV < 0:
             logContents += '\n'
             logContents += 'The reduced cost of the generated column is a negative number\n'
@@ -190,6 +180,8 @@ def run(probSetting, etcSetting, grbSetting):
 
 
 def handle_termination(RMP, probSetting, etcSetting, grbSetting):
+
+
     set_grbSettings(RMP, grbSetting)
     RMP.optimize()
     C, p_c, e_ci = list(map(probSetting.get, ['C', 'p_c', 'e_ci']))
@@ -235,7 +227,6 @@ if __name__ == '__main__':
     etcSetting = {'LogFile': cwlLogF,
                   'ResFile': cwlResF,
                   'itrFile': itrFile,
-                  'numPros': multiprocessing.cpu_count()
                   }
     grbSetting = {'LogFile': cwlLogF}
     #

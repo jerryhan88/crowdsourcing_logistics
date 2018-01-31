@@ -1,4 +1,10 @@
+from init_project import *
+import os.path as opath
+import os
+from random import randrange
+from dataProcessing import *
 
+import csv
 
 class point(object):
     def __init__(self, pid, i, j):
@@ -243,7 +249,198 @@ def paperExample():
     return inputs
 
 
+def mrtNetExample1():
+    numTasks = 10
+    thVolume, thDetour = 3, 20
+    prob_dpath = opath.join(dpath['experiment'], 'mrtNet-T%d-k%d-vt%d-dt%d' %
+                            (numTasks, len(repStations) * (len(repStations) - 1), thVolume, thDetour))
+    #
+    _flows, \
+    _tasks, rewards, volumes, \
+    _points, _travel_time, \
+    numBundles, thVolume, thDetour = get_mrtNetExample(prob_dpath, numTasks, thVolume, thDetour)
+
+    #
+    flows, tasks, points, travel_time = convert_mrtNet2ID(_flows, _tasks, _points, _travel_time)
+    #
+    paths = list(flows.keys())
+    #
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
+    #
+    inputs = [travel_time,
+              flows, paths,
+              tasks, rewards, volumes,
+              numBundles, thVolume, thDetour]
+    #
+    return inputs
+
+
+
+def convert_mrtNet2ID(_flows, _tasks, _points, _travel_time):
+    STN2ID = {}
+    points, travel_time = {}, {}
+    for i, stn in enumerate(_points):
+        STN2ID[stn] = i
+        points[i] = None
+    for (stn0, stn1), t in _travel_time.items():
+        travel_time[STN2ID[stn0], STN2ID[stn1]] = t
+    #
+    flows = {}
+    for (stn0, stn1), count in _flows.items():
+        flows[STN2ID[stn0], STN2ID[stn1]] = count
+    #
+    tasks = []
+    for stn0, stn1 in _tasks:
+        tasks.append((STN2ID[stn0], STN2ID[stn1]))
+    #
+    return [flows, tasks, points, travel_time]
+
+
+def get_mrtNetExample(prob_dpath, numTasks=10, thVolume=3, thDetour=20):
+    pPath_fpath = opath.join(prob_dpath, 'mrtNet-path.csv')
+    pTask_fpath = opath.join(prob_dpath, 'mrtNet-task.csv')
+    pTravlTime_fpath = opath.join(prob_dpath, 'mrtNet-travelTime.csv')
+    pEtc_fpath = opath.join(prob_dpath, 'mrtNet-etc.csv')
+    if not opath.exists(prob_dpath):
+        os.mkdir(prob_dpath)
+        #
+        with open(pPath_fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            new_header = ['origin', 'destination', 'count', 'weight', 'pathSeq']
+            writer.writerow(new_header)
+        #
+        with open(pTask_fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            new_header = ['pickup', 'delivery', 'reward', 'volume']
+            writer.writerow(new_header)
+        #
+        with open(pTravlTime_fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            new_header = ['fSTN', 'tSTN', 'duration', 'pathSeq']
+            writer.writerow(new_header)
+        #
+        with open(pEtc_fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            new_header = ['attribute', 'value']
+            writer.writerow(new_header)
+        #
+        _points, _travel_time = set(), {}
+        with open(opath.join(dpath['flow'], 'flow-M%d%02d.csv' % (year, month))) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                fSTN, tSTN, _medianD = [row[cn] for cn in ['fSTN', 'tSTN', 'medianD']]
+                if fSTN in xStations or tSTN in xStations:
+                    continue
+                _travel_time[fSTN, tSTN] = eval(_medianD)
+        G = get_mrtNetwork()
+        for stn0 in G.nodes:
+            for stn1 in G.nodes:
+                if stn0 == stn1:
+                    duration = 0
+                    _travel_time[stn0, stn1] = duration
+                    with open(pTravlTime_fpath, 'a') as w_csvfile:
+                        writer = csv.writer(w_csvfile, lineterminator='\n')
+                        writer.writerow([stn0, stn1, duration, str([])])
+                    continue
+                _points.add(stn0)
+                _points.add(stn1)
+                pathSeq = nx.shortest_path(G, stn0, stn1)
+                if (stn0, stn1) in _travel_time:
+                    duration = _travel_time[stn0, stn1]
+                else:
+                    duration = sum([G.edges[pathSeq[i], pathSeq[i + 1]]['weight'] for i in range(len(pathSeq) - 1)])
+
+                    _travel_time[stn0, stn1] = duration
+                with open(pTravlTime_fpath, 'a') as w_csvfile:
+                    writer = csv.writer(w_csvfile, lineterminator='\n')
+                    writer.writerow([stn0, stn1, duration, str(pathSeq)])
+        #
+        candi_PD = set()
+        csv_fpath = opath.join(dpath['flow'], 'rsFlow-%d%02d-rsN%d.csv' %
+                               (year, month, len(repStations) * (len(repStations) - 1)))
+        _flows, path_seq, total_count = {}, {}, 0
+        with open(csv_fpath) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                fSTN, tSTN, _count, _path = [row[cn] for cn in ['fSTN', 'tSTN', 'count', 'path']]
+                count = int(_count)
+                pathSeq = []
+                for STN in eval(_path):
+                    pathSeq.append(STN)
+                    candi_PD.add(STN)
+                _flows[fSTN, tSTN] = count
+                path_seq[fSTN, tSTN] = pathSeq
+                total_count += count
+        for (fSTN, tSTN), count in _flows.items():
+            weight = count / float(total_count)
+            with open(pPath_fpath, 'a') as w_csvfile:
+                writer = csv.writer(w_csvfile, lineterminator='\n')
+                new_row = [fSTN, tSTN, count, weight, str(path_seq[fSTN, tSTN])]
+                writer.writerow(new_row)
+        #
+        candi_PD = list(candi_PD)
+        _tasks, rewards, volumes = [], [], []
+        for _ in range(numTasks):
+            r, v = 1, 1
+            i, j = randrange(len(candi_PD)), randrange(len(candi_PD))
+            while i == j:
+                j = randrange(len(candi_PD))
+            _tasks.append((candi_PD[i], candi_PD[j]))
+            rewards.append(r)
+            volumes.append(v)
+            with open(pTask_fpath, 'a') as w_csvfile:
+                writer = csv.writer(w_csvfile, lineterminator='\n')
+                new_row = [candi_PD[i], candi_PD[j], r, v]
+                writer.writerow(new_row)
+        #
+        numBundles = int((numTasks / thVolume) * 1.5)
+        for att, val in [('numBundles', numBundles),
+                         ('thVolume', thVolume),
+                         ('thDetour', thDetour)]:
+            with open(pEtc_fpath, 'a') as w_csvfile:
+                writer = csv.writer(w_csvfile, lineterminator='\n')
+                writer.writerow([att, val])
+    else:
+        _flows = {}
+        with open(pPath_fpath) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                origin, destination = [row[cn] for cn in ['origin', 'destination']]
+                count = int(row['count'])
+                _flows[origin, destination] = count
+        #
+        _tasks, rewards, volumes = [], [], []
+        with open(pTask_fpath) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                pickup, delivery = [row[cn] for cn in ['pickup', 'delivery']]
+                r, v = [int(row[cn]) for cn in ['reward', 'volume']]
+                _tasks.append((pickup, delivery))
+                rewards.append(r)
+                volumes.append(v)
+        #
+        _points, _travel_time = {}, {}
+        with open(pTravlTime_fpath) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                p0, p1 = [row[cn] for cn in ['fSTN', 'tSTN']]
+                _points[p0] = None
+                _points[p1] = None
+                _travel_time[p0, p1] = float(row['duration'])
+        #
+        att_val = {}
+        with open(pEtc_fpath) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                att_val[row['attribute']] = eval(row['value'])
+        numBundles, thVolume, thDetour = [att_val[att] for att in ['numBundles', 'thVolume', 'thDetour']]
+    #
+    return [_flows,
+            _tasks, rewards, volumes,
+            _points, _travel_time,
+            numBundles, thVolume, thDetour]
 
 
 if __name__ == '__main__':
-    print(convert_p2i(*paperExample()))
+    # print(convert_p2i(*paperExample()))
+    mrtNetExample1()

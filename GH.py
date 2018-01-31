@@ -92,13 +92,14 @@ def run(probSetting, etcSetting, returnSol=False):
             logContents += '\t\t\t\t\t\t %.3f\n' % p
     logContents += '======================================================================================\n'
     log2file(etcSetting['LogFile'], logContents)
-    try:
-        res2file(etcSetting['ResFile'], sum(a_b), None, eliCpuTime, eliWallTime)
-    except:
-        res2file(etcSetting['ResFile'], -1, -1, eliCpuTime, eliWallTime)
     #
     if returnSol:
         return sum(a_b), bundles
+    else:
+        try:
+            res2file(etcSetting['ResFile'], sum(a_b), None, eliCpuTime, eliWallTime)
+        except:
+            res2file(etcSetting['ResFile'], -1, -1, eliCpuTime, eliWallTime)
 
 
 def estimateBundleAtt(K, w_k, r_i, t_ij, _delta, b, bSeq, est_i):

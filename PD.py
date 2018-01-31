@@ -3,7 +3,7 @@ from gurobipy import *
 from _util import set_grbSettings, get_routeFromOri
 
 
-def run(probSetting, grbSetting):
+def run(probSetting, grbSetting, dict_pid=None):
     def callbackF(m, where):
         if where == GRB.callback.MIPSOL:
             curRoute = []
@@ -118,4 +118,7 @@ def run(probSetting, grbSetting):
         route.append(i)
         i = _route[i]
     route.append(i)
-    return PD.objVal, route
+    if dict_pid is not None:
+        dict_pid[0][dict_pid[1]] = PD.objVal
+    else:
+        return PD.objVal, route
