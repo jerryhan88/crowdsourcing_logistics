@@ -108,12 +108,12 @@ def run_experiments(machine_num):
         prefix = opath.basename(ifpath)[:-len('.pkl')]
         ###############################################################
         # GH
-        # probSetting = {'problem': problem}
-        # ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'GH'))
-        # ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'GH'))
-        # etcSetting = {'LogFile': ghLogF,
-        #               'ResFile': ghResF}
-        # GH_run(probSetting, etcSetting)
+        probSetting = {'problem': problem}
+        ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'GH'))
+        ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'GH'))
+        etcSetting = {'LogFile': ghLogF,
+                      'ResFile': ghResF}
+        GH_run(probSetting, etcSetting)
         ###############################################################
         #
         ###############################################################

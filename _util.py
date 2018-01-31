@@ -41,7 +41,7 @@ def itr2file(fpath, contents=[]):
             os.remove(fpath)
         with open(fpath, 'wt') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
-            header = ['itrNum', 'c0', 'bc', 'rc', 'eliCpuTime', 'eliWallTime']
+            header = ['itrNum', 'relObjV', 'selBC', 'newBC', 'rc', 'eliCpuTime', 'eliWallTime']
             writer.writerow(header)
     else:
         with open(fpath, 'a') as w_csvfile:

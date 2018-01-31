@@ -144,7 +144,7 @@ def run(probSetting, etcSetting, grbSetting):
         logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
         #
         objV, bc = objV_bc
-        itr2file(etcSetting['itrFile'], [counter, c0, str(bc), objV, eliCpuTimeP, eliWallTimeP])
+        itr2file(etcSetting['itrFile'], [counter, LRMP.objVal, C[c0], str(bc), objV, eliCpuTimeP, eliWallTimeP])
         if objV < 0:
             logContents += '\n'
             logContents += 'The reduced cost of the generated column is a negative number\n'
