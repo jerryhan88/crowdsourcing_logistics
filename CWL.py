@@ -1,14 +1,12 @@
 import datetime, time
 import numpy as np
-import multiprocessing
 from gurobipy import *
 #
-from _util import log2file, itr2file, res2file
+from _util import log2file, write_log, itr2file, res2file
 from _util import set_grbSettings
 from RMP import generate_RMP
-from GH import run as GH_run
 from LS import run as LS_run
-from PD import run as PD_run
+from PD import calc_expectedProfit
 from problems import *
 
 EPSILON = 0.000000001
@@ -32,29 +30,16 @@ def run(probSetting, etcSetting, grbSetting):
     K, w_k = list(map(inputs.get, ['K', 'w_k']))
     t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
     C, sC, p_c, e_ci, TB = [], set(), [], [], set()
-    #
-    br = []
-    C.append(br)
-    sC.add(frozenset(tuple(br)))
-    p_c.append(0)
-    e_ci.append([0 for _ in range(len(T))])
-    #
-    _, bundles = GH_run(probSetting, etcSetting, returnSol=True)
-    for bc in bundles:
+    for i in T:
+        bc = [i]
         C.append(bc)
         sC.add(frozenset(tuple(bc)))
         #
-        br = sum([r_i[i] for i in bc])
-        p = 0
-        for k in K:
-            detourTime, route = PD_run({'bc': bc, 'k': k, 't_ij': t_ij}, grbSetting)
-            if detourTime <= _delta:
-                p += w_k[k] * br
-        p_c.append(p)
+        ep = calc_expectedProfit(probSetting, grbSetting, bc)
+        p_c.append(ep)
         #
         vec = [0 for _ in range(len(T))]
-        for i in bc:
-            vec[i] = 1
+        vec[i] = 1
         e_ci.append(vec)
     probSetting['C'] = C
     probSetting['sC'] = sC
@@ -64,18 +49,16 @@ def run(probSetting, etcSetting, grbSetting):
     #
     RMP, q_c, taskAC, numBC = generate_RMP(probSetting)
     #
-    logContents = '\n\n'
-    logContents += '======================================================================================\n'
-    logContents += '%s (%.2f)\n' % (str(datetime.datetime.now()), time.clock() - etcSetting['startTS'])
-    logContents += 'Start column generation of CWL\n'
-    logContents += '======================================================================================\n'
-    log2file(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['LogFile'], 'Start column generation of CWL')
+    #
     counter, is_terminated = 0, False
     while True:
         if len(C) == len(T) ** 2 - 1:
             break
         LRMP = RMP.relax()
         set_grbSettings(LRMP, grbSetting)
+        LRMP.setParam('LogToConsole', False)
+        LRMP.setParam('OutputFlag', False)
         LRMP.optimize()
         if LRMP.status == GRB.Status.INFEASIBLE:
             logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
@@ -89,18 +72,35 @@ def run(probSetting, etcSetting, grbSetting):
             LRMP.write('%s.lp' % opath.basename(etcSetting['LogFile']).split('.')[0])
             assert False
         #
-        counter += 1
         pi_i = [LRMP.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = LRMP.getConstrByName("numBC").Pi
-        for rc, c in sorted([(LRMP.getVarByName("q[%d]" % c).RC, c) for c in range(len(C))]):
+        #
+        write_log(etcSetting['LogFile'], 'Start column generation of CWL')
+        logContents = 'Start %dth iteration\n' % counter
+        logContents += '\t Columns\n'
+        logContents += '\t\t # of columns %d\n' % len(probSetting['C'])
+        logContents += '\t\t %s\n' % str(probSetting['C'])
+        logContents += '\t\t %s\n' % str(['%.2f' % v for v in probSetting['p_c']])
+        logContents += '\t Relaxed objVal\n'
+        logContents += '\t\t z: %.2f\n' % LRMP.objVal
+        logContents += '\t\t RC: %s\n' % str(['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
+        logContents += '\t Dual V\n'
+        logContents += '\t\t Pi: %s\n' % str(['%.2f' % v for v in pi_i])
+        logContents += '\t\t mu: %.2f\n' % mu
+        write_log(etcSetting['LogFile'], logContents)
+        #
+        c0, minRC = -1, 1e400
+        for rc, c in [(LRMP.getVarByName("q[%d]" % c).RC, c) for c in range(len(C))]:
+        # for rc, c in sorted([(LRMP.getVarByName("q[%d]" % c).RC, c) for c in range(len(C))]):
             bc = C[c]
             if c in TB:
                 continue
-            if sum(v_i[i] for i in bc) == _lambda:
+            if sum(v_i[i]for i in bc) == _lambda:
                 continue
-            c0 = c
-            break
-        else:
+            if rc < minRC:
+                minRC = rc
+                c0 = c
+        if c0 == -1:
             break
         #
         probSetting['pi_i'] = pi_i
@@ -108,21 +108,6 @@ def run(probSetting, etcSetting, grbSetting):
         probSetting['c0'] = c0
         #
         startCpuTimeP, startWallTimeP = time.clock(), time.time()
-        logContents = '\n\n'
-        logContents += '======================================================================================\n'
-        logContents += '%s (%.2f)\n' % (str(datetime.datetime.now()), time.clock() - etcSetting['startTS'])
-        logContents += 'Start %dth iteration\n' % (counter)
-        logContents += '\t Columns\n'
-        logContents += '\t\t # of columns %d\n' % len(probSetting['C'])
-        logContents += '\t\t %s\n' % str(probSetting['C'])
-        logContents += '\t\t %s\n' % str(probSetting['p_c'])
-        logContents += '\t Relaxed objVal\n'
-        logContents += '\t\t z: %.3f\n' % LRMP.objVal
-        logContents += '\t Dual V\n'
-        logContents += '\t\t Pi: %s\n' % str([round(v, 3) for v in pi_i])
-        logContents += '\t\t mu: %.3f\n' % mu
-        logContents += '======================================================================================\n'
-        log2file(etcSetting['LogFile'], logContents)
         objV_bc = LS_run(probSetting, etcSetting, grbSetting)
         #
         if time.clock() - etcSetting['startTS'] > etcSetting['TimeLimit']:
@@ -131,9 +116,7 @@ def run(probSetting, etcSetting, grbSetting):
         endCpuTimeP, endWallTimeP = time.clock(), time.time()
         eliCpuTimeP, eliWallTimeP = endCpuTimeP - startCpuTimeP, endWallTimeP - startWallTimeP
         #
-        logContents = '\n\n'
-        logContents += '======================================================================================\n'
-        logContents += '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
+        logContents = '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
         logContents += '\t Cpu Time\n'
         logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeP)
         logContents += '\t\t End.Time: %s\n' % str(endCpuTimeP)
@@ -142,22 +125,16 @@ def run(probSetting, etcSetting, grbSetting):
         logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeP)
         logContents += '\t\t End.Time: %s\n' % str(endWallTimeP)
         logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
+        write_log(etcSetting['LogFile'], logContents)
         #
         objV, bc = objV_bc
-        itr2file(etcSetting['itrFile'], [counter, LRMP.objVal, C[c0], str(bc), objV, eliCpuTimeP, eliWallTimeP])
+        itr2file(etcSetting['itrFile'], [counter, '%.2f' % LRMP.objVal,
+                                         C[c0], '%.2f' % minRC,
+                                         str(bc), '%.2f' % objV,
+                                         '%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP])
         if objV < 0:
-            logContents += '\n'
-            logContents += 'The reduced cost of the generated column is a negative number\n'
-            logContents += '======================================================================================\n'
-            log2file(etcSetting['LogFile'], logContents)
             TB.add(c0)
         else:
-            logContents += '\n'
-            logContents += '\t New column\n'
-            logContents += '\t\t Tasks %s\n' % str(bc)
-            logContents += '\t\t red. C. %.3f\n' % objV
-            logContents += '======================================================================================\n'
-            log2file(etcSetting['LogFile'], logContents)
             vec = [0 for _ in range(len(T))]
             for i in bc:
                 vec[i] = 1
@@ -183,6 +160,8 @@ def run(probSetting, etcSetting, grbSetting):
             probSetting['e_ci'] = e_ci
         if len(C) == len(TB):
             break
+
+        counter += 1
     #
     handle_termination(RMP, probSetting, etcSetting, grbSetting)
 
@@ -199,11 +178,9 @@ def handle_termination(RMP, probSetting, etcSetting, grbSetting):
     endCpuTime, endWallTime = time.clock(), time.time()
     eliCpuTime = endCpuTime - etcSetting['startCpuTime']
     eliWallTime = endWallTime - etcSetting['startWallTime']
-    logContents = '\n\n'
-    logContents += '======================================================================================\n'
-    logContents += '%s\n' % str(datetime.datetime.now())
-    logContents += 'CWL model reach to the time limit or the end\n'
-    logContents = '\n'
+
+    logContents = 'CWL model reach to the time limit or the end\n'
+    logContents += '\n'
     logContents += 'Column generation summary\n'
     logContents += '\t Cpu Time\n'
     logContents += '\t\t Sta.Time: %s\n' % str(etcSetting['startCpuTime'])
@@ -215,28 +192,33 @@ def handle_termination(RMP, probSetting, etcSetting, grbSetting):
     logContents += '\t\t Eli.Time: %f\n' % eliWallTime
     logContents += '\t ObjV: %.3f\n' % RMP.objVal
     logContents += '\t chosen B.: %s\n' % str(chosenC)
-    logContents += '======================================================================================\n'
-    log2file(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['LogFile'], logContents)
     #
     res2file(etcSetting['ResFile'], RMP.objVal, -1, eliCpuTime, eliWallTime)
 
 
-
 if __name__ == '__main__':
     import os.path as opath
-    from problems import paperExample, ex2
+    from problems import paperExample, ex2, ex1
     #
-    problem = paperExample()
+    # problem = paperExample()
+    # cwlLogF = opath.join('_temp', 'paperExample_CWL.log')
+    # cwlResF = opath.join('_temp', 'paperExample_CWL.csv')
+    # itrFile = opath.join('_temp', 'paperExample_itrCWL.csv')
+    #
+    problem = ex1()
+    cwlLogF = opath.join('_temp', 'ex1_CWL.log')
+    cwlResF = opath.join('_temp', 'ex1_CWL.csv')
+    itrFile = opath.join('_temp', 'ex1_itrCWL.csv')
     probSetting = {'problem': problem}
-    cwlLogF = opath.join('_temp', 'paperExample_CWL.log')
-    cwlResF = opath.join('_temp', 'paperExample_CWL.csv')
-    itrFile = opath.join('_temp', 'paperExample_itrCWL.csv')
     #
     etcSetting = {'LogFile': cwlLogF,
                   'ResFile': cwlResF,
                   'itrFile': itrFile,
-                  'numPros': multiprocessing.cpu_count()
+                  'numPros': 8,
                   }
-    grbSetting = {'LogFile': cwlLogF}
+    grbSetting = {
+        'LogFile': cwlLogF
+                  }
     #
     run(probSetting, etcSetting, grbSetting)

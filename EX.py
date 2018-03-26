@@ -216,15 +216,15 @@ if __name__ == '__main__':
     import os.path as opath
     from problems import paperExample, ex1
     #
-    problem = paperExample()
-    probSetting = {'problem': problem}
-    exLogF = opath.join('_temp', 'paperExample_EX.log')
-    exResF = opath.join('_temp', 'paperExample_EX.csv')
-
-    # problem = ex1()
+    # problem = paperExample()
     # probSetting = {'problem': problem}
-    # exLogF = opath.join('_temp', 'ex1_EX.log')
-    # exResF = opath.join('_temp', 'ex1_EX.csv')
+    # exLogF = opath.join('_temp', 'paperExample_EX.log')
+    # exResF = opath.join('_temp', 'paperExample_EX.csv')
+
+    problem = ex1()
+    probSetting = {'problem': problem}
+    exLogF = opath.join('_temp', 'ex1_EX.log')
+    exResF = opath.join('_temp', 'ex1_EX.csv')
 
 
     etcSetting = {'LogFile': exLogF,

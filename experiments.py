@@ -69,12 +69,15 @@ def gen_problems(problem_dpath):
 
 
     for numPaths in [
-                     5,
-                     10, 20,
-                     30
+                     # 5,
+                     # 10,
+                    20,
+                    #  30
     ]:
         for numTasks, numBundles in [
-                                     (10, 4), (20, 8), (30, 12),
+                                     # (10, 4),
+                                     (20, 8),
+                        # (30, 12),
                                      # (40, 16), (50, 20), (60, 24),
                                      # (70, 28),
 
@@ -146,18 +149,18 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # CWL
-        probSetting = {'problem': problem}
-        cwlLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'CWL'))
-        cwlResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'CWL'))
-        itrFile = opath.join(itr_dpath, '%s-%s.csv' % (prefix, 'itrCWL'))
-        etcSetting = {'LogFile': cwlLogF,
-                      'ResFile': cwlResF,
-                      'itrFile': itrFile,
-                      'numPros': _numThreads,
-                      'TimeLimit': _TimeLimit}
-        grbSetting = {'LogFile': cwlLogF,
-                      'Threads': _numThreads}
-        CWL_run(probSetting, etcSetting, grbSetting)
+        # probSetting = {'problem': problem}
+        # cwlLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'CWL'))
+        # cwlResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'CWL'))
+        # itrFile = opath.join(itr_dpath, '%s-%s.csv' % (prefix, 'itrCWL'))
+        # etcSetting = {'LogFile': cwlLogF,
+        #               'ResFile': cwlResF,
+        #               'itrFile': itrFile,
+        #               # 'numPros': _numThreads,
+        #               'TimeLimit': _TimeLimit}
+        # grbSetting = {'LogFile': cwlLogF,
+        #               'Threads': _numThreads}
+        # CWL_run(probSetting, etcSetting, grbSetting)
         ###############################################################
         # os.remove(ifpath)
 
@@ -307,6 +310,6 @@ def gen_mrtProblems(problem_dpath):
 if __name__ == '__main__':
     # randomProb_5by5()
     # gen_problems(opath.join(dpath['experiment'], 'tempProb'))
-    run_experiments(0)
+    run_experiments(10000)
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()

@@ -1,11 +1,22 @@
 import os.path as opath
 import os
+import datetime
 import pickle
 import csv
 
 
 def log2file(fpath, contents):
     with open(fpath, 'a') as f:
+        f.write(contents)
+
+
+def write_log(fpath, contents):
+    with open(fpath, 'a') as f:
+        logContents = '\n\n'
+        logContents += '======================================================================================\n'
+        logContents += '%s\n' % str(datetime.datetime.now())
+        logContents += '%s\n' % contents
+        logContents += '======================================================================================\n'
         f.write(contents)
 
 
@@ -41,7 +52,7 @@ def itr2file(fpath, contents=[]):
             os.remove(fpath)
         with open(fpath, 'wt') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
-            header = ['itrNum', 'relObjV', 'selBC', 'newBC', 'rc', 'eliCpuTime', 'eliWallTime']
+            header = ['itrNum', 'relObjV', 'selBC', 'selBC_RC', 'newBC', 'newBC_RC', 'eliCpuTime', 'eliWallTime']
             writer.writerow(header)
     else:
         with open(fpath, 'a') as w_csvfile:

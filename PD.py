@@ -122,3 +122,43 @@ def run(probSetting, grbSetting, dict_pid=None):
         dict_pid[0][dict_pid[1]] = PD.objVal
     else:
         return PD.objVal, route
+
+
+def calc_expectedProfit(probSetting, grbSetting, bc):
+    inputs = probSetting['inputs']
+    K, r_i, w_k, t_ij, _delta = [inputs.get(k) for k in ['K', 'r_i,' 'w_k', 't_ij', '_delta']]
+    br = sum([r_i[i] for i in bc])
+    ep = 0
+    for k in K:
+        probSetting = {'bc': bc, 'k': k, 't_ij': t_ij}
+        detourTime, route = run(probSetting, grbSetting)
+        if detourTime <= _delta:
+            ep += w_k[k] * br
+    return ep
+
+
+if __name__ == '__main__':
+    import os.path as opath
+    from problems import *
+    #
+    problem = paperExample()
+    probSetting = {'problem': problem}
+    cwlLogF = opath.join('_temp', 'paperExample_CWL.log')
+    cwlResF = opath.join('_temp', 'paperExample_CWL.csv')
+    itrFile = opath.join('_temp', 'paperExample_itrCWL.csv')
+    #
+    etcSetting = {'LogFile': cwlLogF,
+                  'ResFile': cwlResF,
+                  'itrFile': itrFile,
+                  }
+    grbSetting = {'LogFile': cwlLogF}
+    #
+    probSetting['inputs'] = convert_p2i(*probSetting['problem'])
+    inputs = probSetting['inputs']
+    t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
+    bc = [1, 4, 0, 3, 2]
+    k = 2
+    detourTime, route = run({'bc': bc, 'k': k, 't_ij': t_ij}, grbSetting)
+
+    print(detourTime)
+    print(route)

@@ -219,17 +219,19 @@ def paperExample():
              (ij_pid[0, 3], ij_pid[4, 1]): 2,
              }
     paths = list(flows.keys())
+    print(paths)
     #
     # Inputs about tasks
     #
     tasks = [
              # (pickup point, delivery point)
-             (ij_pid[2, 2], ij_pid[2, 2]),  # (1^+, 1^-)
+             (ij_pid[2, 2], ij_pid[3, 2]),  # (1^+, 1^-)
              (ij_pid[1, 4], ij_pid[2, 2]),  # (2^+, 2^-)
              (ij_pid[2, 0], ij_pid[3, 4]),  # (3^+, 3^-)
              (ij_pid[0, 1], ij_pid[4, 1]),  # (4^+, 4^-)
              (ij_pid[2, 3], ij_pid[3, 1]),  # (5^+, 5^-)
              ]
+
     rewards = [1, 1, 1, 1, 1]
     volumes = [1, 1, 1, 1, 1]
     #
@@ -442,5 +444,5 @@ def get_mrtNetExample(prob_dpath, numTasks=10, thVolume=3, thDetour=20):
 
 
 if __name__ == '__main__':
-    # print(convert_p2i(*paperExample()))
-    mrtNetExample1()
+    print(convert_p2i(*paperExample()))
+    # mrtNetExample1()

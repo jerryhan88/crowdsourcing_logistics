@@ -245,8 +245,8 @@ def branching(bnpTree, curNode):
             #
             bestBoundVal, bestBoundNode = -1e400, None
             for nid, candiNode in bnpTree.nodes.items():
-                if candiNode.is_leaf() and candiNode.data.res and bestBoundVal < candiNode.data.res['objVal']:
-                    bestBoundVal, bestBoundNode = candiNode.data.res['objVal'], candiNode
+                if candiNode.is_leaf() and candiNode.ni.res and bestBoundVal < candiNode.ni.res['objVal']:
+                    bestBoundVal, bestBoundNode = candiNode.ni.res['objVal'], candiNode
             bnpTree.bestBound = bestBoundNode
         #
         branching_dfs_lcp(bnpTree)
@@ -256,7 +256,7 @@ def branching_dfs_lcp(bnpTree):
     # Depth First Search and left child priority
     if bnpTree.leafNodes:
         _, nextNode = heappop(bnpTree.leafNodes)
-        bnpTree.branching(nextNode)
+        branching(bnpTree, nextNode)
     else:
         bnpTree.bestBound = bnpTree.incumbent
 
@@ -283,7 +283,7 @@ def handle_termination(bnpTree, curNode):
     eliWallTimeBnP = endWallTimeBnP - etcSetting['startWallTimeBnP']
     if bnpTree.bestBound and bnpTree.incument:
         incumRes = bnpTree.incumbent.ni.res
-        bbRes = bnpTree.bestBound.data.res
+        bbRes = bnpTree.bestBound.ni.res
         BnPgap = abs(incumRes['objVal'] - bbRes['objVal']) / incumRes['objVal']
         res2file(etcSetting['ResFile'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
     else:
