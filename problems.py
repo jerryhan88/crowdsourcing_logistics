@@ -3,32 +3,41 @@ import os.path as opath
 import os
 from random import randrange
 from dataProcessing import *
-
+import pickle
 import csv
 
-class point(object):
-    def __init__(self, pid, i, j):
-        self.pid, self.i, self.j = pid, i, j
 
-    def __repr__(self):
-        return 'pid%d(%d,%d)' % (self.pid, self.i, self.j)
+# class point(object):
+#     def __init__(self, pid, i, j):
+#         self.pid, self.i, self.j = pid, i, j
+#
+#     def __repr__(self):
+#         return 'pid%d(%d,%d)' % (self.pid, self.i, self.j)
 
 
-def convert_p2i(travel_time, \
-                flows, paths, \
-                tasks, rewards, volumes, \
-                num_bundles, volume_th, detour_th):
+# class task(object):
+#     def __init__(self, tid, pp, dp, reward, volume):
+#         self.tid, self.pp, self.dp, self.reward, self.volume = tid, pp, dp, reward, volume
+#
+#     def __repr__(self):
+#         return 'tid%d' % self.tid
+
+
+def convert_p2i(_,
+                numLocations, travel_time, flows,
+                numTasks, tasks,
+                numBundles, thVolume, thDetour):
     #
     # Bundle
     #
-    bB = num_bundles
-    _lambda = volume_th
+    bB = numBundles
+    _lambda = thVolume
     #
     # Task
     #
-    T = list(range(len(tasks)))
-    iPs, iMs = list(zip(*[tasks[i] for i in T]))
-    r_i, v_i = rewards, volumes
+    T = list(range(numTasks))
+    iPs, iMs = list(zip(*[(tasks[i][1], tasks[i][2]) for i in T]))
+    r_i, v_i = [tasks[i][3] for i in T], [tasks[i][4] for i in T]
     P, D = set(), set()
     _N = {}
     for i in T:
@@ -40,32 +49,43 @@ def convert_p2i(travel_time, \
     #
     # Path
     #
-    K = list(range(len(paths)))
-    _kP, _kM = list(zip(*[paths[k] for k in K]))
+    c_k, temp_OD = [], []
     if type(flows) == list:
-        sum_f_k = sum(flows[i][j] for i in range(len(flows)) for j in range(len(flows)))
-        w_k = [flows[i][j] / float(sum_f_k) for i, j in paths]
+        for i in range(numLocations):
+            for j in range(numLocations):
+                if flows[i][j] == 0:
+                    continue
+                c = flows[i][j]
+                temp_OD.append((i, j))
+                c_k.append(c)
     else:
         assert type(flows) == dict
-        sum_f_k = sum(flows.values())
-        w_k = [flows[i, j] / float(sum_f_k) for i, j in paths]
-    _delta = detour_th
+        for (i, j), c in flows.items():
+            if c == 0:
+                continue
+            temp_OD.append((i, j))
+            c_k.append(c)
+    sumC = sum(c_k)
+    K = list(range(len(c_k)))
+    w_k = [c_k[k] / float(sumC) for k in K]
+    _kP, _kM = list(zip(*[temp_OD[k] for k in K]))
+    _delta = thDetour
     t_ij = {}
     for k in K:
         kP, kM = 'ori%d' % k, 'dest%d' % k
-        t_ij[kP, kP] = travel_time[_kP[k], _kP[k]]
-        t_ij[kM, kM] = travel_time[_kM[k], _kM[k]]
-        t_ij[kP, kM] = travel_time[_kP[k], _kM[k]]
-        t_ij[kM, kP] = travel_time[_kM[k], _kP[k]]
+        t_ij[kP, kP] = travel_time[_kP[k]][_kP[k]]
+        t_ij[kM, kM] = travel_time[_kM[k]][_kM[k]]
+        t_ij[kP, kM] = travel_time[_kP[k]][_kM[k]]
+        t_ij[kM, kP] = travel_time[_kM[k]][_kP[k]]
         for i in _N:
-            t_ij[kP, i] = travel_time[_kP[k], _N[i]]
-            t_ij[i, kP] = travel_time[_N[i], _kP[k]]
+            t_ij[kP, i] = travel_time[_kP[k]][_N[i]]
+            t_ij[i, kP] = travel_time[_N[i]][_kP[k]]
             #
-            t_ij[kM, i] = travel_time[_kM[k], _N[i]]
-            t_ij[i, kM] = travel_time[_N[i], _kM[k]]
+            t_ij[kM, i] = travel_time[_kM[k]][_N[i]]
+            t_ij[i, kM] = travel_time[_N[i]][_kM[k]]
     for i in _N:
         for j in _N:
-            t_ij[i, j] = travel_time[_N[i], _N[j]]
+            t_ij[i, j] = travel_time[_N[i]][_N[j]]
     N = set(_N.keys())
     #
     return {'bB': bB,
@@ -77,34 +97,34 @@ def convert_p2i(travel_time, \
 
 
 def input_validity(points, flows, paths, tasks, numBundles, thVolume):
-    # assert len(flows) == len(points)
-    #
     if type(flows) == list:
         for i, f in enumerate(flows):
             assert f[i] == 0
         #
         assert len(paths) == len(flows) * (len(flows) - 1)
     #
-    for pp, dp in tasks:
-        assert pp in points
-        assert dp in points
+    for t in tasks:
+        assert t[1] in points
+        assert t[2] in points
     #
     assert len(tasks) <= numBundles * thVolume
 
 
-def ex1():
+def ex1(pkl_dir=''):
+    problemName = 'ex1'
     #
     # Define a network
     #
-    points, travel_time = {}, {}
-    pid = 0
+    points = {}
+    numLocations = 0
     for i in range(3):
         for j in range(3):
-            points[pid] = point(pid, i, j)
-            pid += 1
+            points[numLocations] = (numLocations, i, j)
+            numLocations += 1
+    travel_time = [[0 for _ in range(numLocations)] for _ in range(numLocations)]
     for p0 in points.values():
         for p1 in points.values():
-            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+            travel_time[p0[0]][p1[0]] = abs(p0[1] - p1[1]) + abs(p0[2] - p1[2])
     #
     # Define flows and paths
     #
@@ -123,94 +143,46 @@ def ex1():
     #
     # Inputs about tasks
     #
-    tasks = [(0, 2), (2, 1), (3, 5), (2, 7), (5, 1),
-             (6, 8)]
-    rewards = [1, 2, 3, 2, 1,
-                3]
-    volumes = [1, 1, 1, 1, 1,
-                1]
+    tasks = [(0, 0, 2, 1, 1),
+             (1, 2, 1, 2, 1),
+             (2, 3, 5, 3, 1),
+             (3, 2, 7, 2, 1),
+             (4, 5, 1, 1, 1),
+             (5, 6, 8, 3, 1)]
     #
     # Inputs about bundles
     #
-    numBundles = 4
-    thVolume = 4
-    thDetour = 6
+    numBundles, thVolume, thDetour = 4, 4, 6
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #
-    inputs = [travel_time,
-              flows, paths,
-              tasks, rewards, volumes,
-              numBundles, thVolume, thDetour]
-    #
-    return inputs
+    problem = [problemName,
+               numLocations, travel_time, flows,
+               len(tasks), tasks,
+               numBundles, thVolume, thDetour]
+    if pkl_dir:
+        with open(opath.join(pkl_dir, '%s.pkl' % problemName), 'wb') as fp:
+            pickle.dump(problem, fp)
+    return problem
 
 
-def ex2():
+def paperExample(pkl_dir=''):
+    problemName = 'paperExample'
     #
     # Define a network
     #
     points, travel_time = {}, {}
-    pid = 0
-    for i in range(2):
-        for j in range(2):
-            points[pid] = point(pid, i, j)
-            pid += 1
-    for p0 in points.values():
-        for p1 in points.values():
-            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
-    #
-    # Define flows and paths
-    #
-
-    flows = [
-        [0, 1, 2, 1],
-        [0, 0, 2, 1],
-        [2, 1, 0, 2],
-        [1, 0, 3, 0],
-    ]
-    paths = [(i, j) for i in range(len(flows)) for j in range(len(flows)) if i != j]
-    #
-    # Inputs about tasks
-    #
-    tasks = [(0, 2), (2, 3), (1, 2)]
-    rewards = [1, 1, 1]
-    volumes = [1, 1, 1]
-    #
-    # Inputs about bundles
-    #
-    numBundles = 2
-    # thVolume = 2
-    thVolume = 3
-    thDetour = 3
-    #
-    input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    #
-    inputs = [travel_time,
-              flows, paths,
-              tasks, rewards, volumes,
-              numBundles, thVolume, thDetour]
-    #
-    return inputs
-
-
-def paperExample():
-    #
-    # Define a network
-    #
-    points, travel_time = {}, {}
-    pid = 0
+    numLocations = 0
     ij_pid = {}
-
-
     for i in range(5):
         for j in range(5):
-            points[pid] = point(pid, i, j)
-            ij_pid[i, j] = pid
-            pid += 1
+            points[numLocations] = (numLocations, i, j)
+            ij_pid[i, j] = numLocations
+            numLocations += 1
+    travel_time = [[0 for _ in range(numLocations)] for _ in range(numLocations)]
     for p0 in points.values():
         for p1 in points.values():
-            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
+            travel_time[p0[0]][p1[0]] = abs(p0[1] - p1[1]) + abs(p0[2] - p1[2])
     #
     # Define flows and paths
     #
@@ -219,37 +191,30 @@ def paperExample():
              (ij_pid[0, 3], ij_pid[4, 1]): 2,
              }
     paths = list(flows.keys())
-    print(paths)
     #
     # Inputs about tasks
     #
-    tasks = [
-             # (pickup point, delivery point)
-             (ij_pid[2, 2], ij_pid[3, 2]),  # (1^+, 1^-)
-             (ij_pid[1, 4], ij_pid[2, 2]),  # (2^+, 2^-)
-             (ij_pid[2, 0], ij_pid[3, 4]),  # (3^+, 3^-)
-             (ij_pid[0, 1], ij_pid[4, 1]),  # (4^+, 4^-)
-             (ij_pid[2, 3], ij_pid[3, 1]),  # (5^+, 5^-)
+    tasks = [(0, ij_pid[2, 2], ij_pid[3, 2], 1, 1),  # (1^+, 1^-)
+             (1, ij_pid[1, 4], ij_pid[2, 2], 1, 1),  # (2^+, 2^-)
+             (2, ij_pid[2, 0], ij_pid[3, 4], 1, 1),  # (3^+, 3^-)
+             (3, ij_pid[0, 1], ij_pid[4, 1], 1, 1),  # (4^+, 4^-)
+             (4, ij_pid[2, 3], ij_pid[3, 1], 1, 1)  # (5^+, 5^-)
              ]
-
-    rewards = [1, 1, 1, 1, 1]
-    volumes = [1, 1, 1, 1, 1]
     #
     # Inputs about bundles
     #
-    numBundles = 2
-    thVolume = 3
-    thDetour = 2
+    numBundles, thVolume, thDetour = 2, 3, 2
     #
     input_validity(points, flows, paths, tasks, numBundles, thVolume)
     #
-    inputs = [travel_time,
-              flows, paths,
-              tasks, rewards, volumes,
-              numBundles, thVolume, thDetour]
-    #
-    return inputs
-
+    problem = [problemName,
+               numLocations, travel_time, flows,
+               len(tasks), tasks,
+               numBundles, thVolume, thDetour]
+    if pkl_dir:
+        with open(opath.join(pkl_dir, '%s.pkl' % problemName), 'wb') as fp:
+            pickle.dump(problem, fp)
+    return problem
 
 def mrtNetExample1():
     numTasks = 10
@@ -444,5 +409,6 @@ def get_mrtNetExample(prob_dpath, numTasks=10, thVolume=3, thDetour=20):
 
 
 if __name__ == '__main__':
-    print(convert_p2i(*paperExample()))
+    print(convert_p2i(*ex1('_temp')))
+    # print(convert_p2i(*paperExample('_temp')))
     # mrtNetExample1()

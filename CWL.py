@@ -199,7 +199,7 @@ def handle_termination(RMP, probSetting, etcSetting, grbSetting):
 
 if __name__ == '__main__':
     import os.path as opath
-    from problems import paperExample, ex2, ex1
+    from problems import paperExample, ex1
     #
     # problem = paperExample()
     # cwlLogF = opath.join('_temp', 'paperExample_CWL.log')

@@ -126,7 +126,11 @@ def run(probSetting, grbSetting, dict_pid=None):
 
 def calc_expectedProfit(probSetting, grbSetting, bc):
     inputs = probSetting['inputs']
-    K, r_i, w_k, t_ij, _delta = [inputs.get(k) for k in ['K', 'r_i,' 'w_k', 't_ij', '_delta']]
+    K = inputs['K']
+    r_i = inputs['r_i']
+    w_k = inputs['w_k']
+    t_ij = inputs['t_ij']
+    _delta = inputs['_delta']
     br = sum([r_i[i] for i in bc])
     ep = 0
     for k in K:
