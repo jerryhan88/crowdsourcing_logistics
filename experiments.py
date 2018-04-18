@@ -1,55 +1,18 @@
-from init_project import *
-#
+import os.path as opath
+import os
+import shutil
 import pickle
 import csv
 from random import choice, randrange
 import multiprocessing
 import time
 #
-from problems import *
-from GH import run as GH_run
+from init_project import dpath
+from problems import input_validity
+# from GH import run as GH_run
 from EX import run as EX_run
-from BNP import run as BNP_run
-from CWL import run as CWL_run
-
-
-def randomProb_5by5(numTasks=10, numBundles=3, thVolume=4, numPaths=5, minTravlTime4OD=5, maxFlow=3, thDetour=3):
-    points, travel_time = {}, {}
-    pid = 0
-    for i in range(5):
-        for j in range(5):
-            points[pid] = point(pid, i, j)
-            pid += 1
-    for p0 in points.values():
-        for p1 in points.values():
-            travel_time[p0.pid, p1.pid] = abs(p0.i - p1.i) + abs(p0.j - p1.j)
-
-    flows = {}
-    od_paris = [(p0, p1) for p0, p1 in travel_time.keys() if travel_time[p0, p1] > minTravlTime4OD]
-    assert numPaths <= len(od_paris)
-    while len(flows) != numPaths:
-        ori, dest = choice(od_paris)
-        while (ori, dest) in flows:
-            ori, dest = choice(od_paris)
-        flows[ori, dest] = randrange(maxFlow)
-    paths = list(flows.keys())
-    #
-    tasks, rewards, volumes = [], [], []
-    pd_paris = [(p0, p1) for p0, p1 in travel_time.keys() if travel_time[p0, p1] != 0]
-    for _ in range(numTasks):
-        tasks.append(choice(pd_paris))
-        rewards.append(1)
-        volumes.append(1)
-    #
-    input_validity(points, flows, paths, tasks, numBundles, thVolume)
-    #
-    problem = [travel_time,
-               flows, paths,
-               tasks, rewards, volumes,
-               numBundles, thVolume, thDetour]
-    #
-    return problem
-
+# from BNP import run as BNP_run
+# from CWL import run as CWL_run
 
 
 def gen_problems(problem_dpath):
@@ -69,25 +32,74 @@ def gen_problems(problem_dpath):
 
 
     for numPaths in [
-                     # 5,
-                     # 10,
-                    20,
-                    #  30
+                     5,
+                     10,
+                     20,
+                     30
     ]:
         for numTasks, numBundles in [
-                                     # (10, 4),
+                                     (10, 4),
                                      (20, 8),
-                        # (30, 12),
-                                     # (40, 16), (50, 20), (60, 24),
-                                     # (70, 28),
-
+                                     (30, 12),
+                                     (40, 16), (50, 20), (60, 24),
+                                     (70, 28),
                                      ]:
-            problem = randomProb_5by5(numTasks, numBundles, thVolume, numPaths, minTravlTime4OD, maxFlow, thDetour)
+            problem = randomProb_5by5(problem_dpath, numTasks, numBundles, thVolume, numPaths, minTravlTime4OD, maxFlow, thDetour)
 
-            fn = 'nt%02d-np%d-nb%d-tv%d-td%d-%d.pkl' % (numTasks, numPaths, numBundles, thVolume, thDetour, int(time.time()))
-            ofpath = opath.join(problem_dpath, fn)
-            with open(ofpath, 'wb') as fp:
-                pickle.dump(problem, fp)
+
+def randomProb_5by5(pkl_dir, numTasks=10, numBundles=3, thVolume=4, numPaths=5, minTravlTime4OD=5, maxFlow=3, thDetour=3):
+    problemName = 'nt%04d-nb%04d-np%03d-tv%02d-td%02d-%d' % (numTasks, numBundles, numPaths,
+                                                             thVolume, thVolume, int(time.time()))
+    points, travel_time = {}, {}
+    numLocations = 0
+    ij_pid = {}
+    for i in range(5):
+        for j in range(5):
+            points[numLocations] = (numLocations, i, j)
+            ij_pid[i, j] = numLocations
+            numLocations += 1
+    travel_time = [[0 for _ in range(numLocations)] for _ in range(numLocations)]
+    for p0 in points.values():
+        for p1 in points.values():
+            travel_time[p0[0]][p1[0]] = abs(p0[1] - p1[1]) + abs(p0[2] - p1[2])
+    flows = {}
+    od_paris = []
+    for p0 in points.values():
+        for p1 in points.values():
+            if travel_time[p0[0]][p1[0]] > minTravlTime4OD:
+                od_paris.append((p0[0], p1[0]))
+    assert numPaths <= len(od_paris)
+    while len(flows) != numPaths:
+        ori, dest = choice(od_paris)
+        while (ori, dest) in flows:
+            ori, dest = choice(od_paris)
+        flows[ori, dest] = randrange(maxFlow)
+    paths = list(flows.keys())
+    #
+    tasks = []
+    pd_paris = []
+    for p0 in points.values():
+        for p1 in points.values():
+            if travel_time[p0[0]][p1[0]] != 0:
+                pd_paris.append((p0[0], p1[0]))
+    for tid in range(numTasks):
+        pp, dp = choice(pd_paris)
+        tasks.append((tid, pp, dp, 1, 1))
+    #
+    input_validity(points, flows, paths, tasks, numBundles, thVolume)
+    #
+    problem = [problemName,
+               numLocations, travel_time, flows,
+               len(tasks), tasks,
+               numBundles, thVolume, thDetour]
+    #
+    with open(opath.join(pkl_dir, '%s.pkl' % problemName), 'wb') as fp:
+        pickle.dump(problem, fp)
+    #
+    return problem
+
+
+
 
 
 def run_experiments(machine_num):
@@ -101,7 +113,9 @@ def run_experiments(machine_num):
     bbt_dpath = opath.join(machine_dpath, 'bpt')
     itr_dpath = opath.join(machine_dpath, 'itr')
     for path in [log_dpath, res_dpath, itr_dpath, bbt_dpath]:
-        os.makedirs(path)
+        if opath.exists(path):
+            shutil.rmtree(path)
+        os.mkdir(path)
     problems_ifpathes = [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
                          if fn.endswith('.pkl')]
     problems_ifpathes.sort()
@@ -111,25 +125,25 @@ def run_experiments(machine_num):
         prefix = opath.basename(ifpath)[:-len('.pkl')]
         ###############################################################
         # GH
-        probSetting = {'problem': problem}
-        ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'GH'))
-        ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'GH'))
-        etcSetting = {'LogFile': ghLogF,
-                      'ResFile': ghResF}
-        GH_run(probSetting, etcSetting)
+        # probSetting = {'problem': problem}
+        # ghLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'GH'))
+        # ghResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'GH'))
+        # etcSetting = {'LogFile': ghLogF,
+        #               'ResFile': ghResF}
+        # GH_run(probSetting, etcSetting)
         ###############################################################
         #
         ###############################################################
         # EX
-        # probSetting = {'problem': problem}
-        # exLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'EX'))
-        # exResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'EX'))
-        # etcSetting = {'LogFile': exLogF,
-        #               'ResFile': exResF,
-        #               'TimeLimit': _TimeLimit}
-        # grbSetting = {'LogFile': exLogF,
-        #               'Threads': _numThreads}
-        # EX_run(probSetting, etcSetting, grbSetting)
+        problemName = problem[0]
+        exLogF = opath.join(log_dpath, '%s-EX.log' % problemName)
+        exResF = opath.join(res_dpath, '%s-EX.csv' % problemName)
+        etcSetting = {'LogFile': exLogF,
+                      'ResFile': exResF,
+                      'TimeLimit': _TimeLimit}
+        grbSetting = {'LogFile': exLogF,
+                      'Threads': _numThreads}
+        EX_run(problem, etcSetting, grbSetting)
         ###############################################################
         #
         ###############################################################
@@ -163,7 +177,6 @@ def run_experiments(machine_num):
         # CWL_run(probSetting, etcSetting, grbSetting)
         ###############################################################
         # os.remove(ifpath)
-
 
 
 def summary():
@@ -310,6 +323,6 @@ def gen_mrtProblems(problem_dpath):
 if __name__ == '__main__':
     # randomProb_5by5()
     # gen_problems(opath.join(dpath['experiment'], 'tempProb'))
-    run_experiments(10000)
+    run_experiments(1)
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()

@@ -3,28 +3,17 @@ from gurobipy import *
 from _util import set_grbSettings, get_routeFromOri
 
 
-def run(probSetting, grbSetting, dict_pid=None):
-    def callbackF(m, where):
-        if where == GRB.callback.MIPSOL:
-            curRoute = []
-            for i in m._kN:
-                for j in m._kN:
-                    if i == j:
-                        continue
-                    if m.cbGetSolution(m._x_ij[i, j]) > 0.5:
-                        curRoute.append((i, j))
-            route = get_routeFromOri(curRoute, m._kN)
-            if len(route) != len(m._kN) - 1:
-                m.cbLazy(quicksum(m._x_ij[i, j] for i, j in route) <= len(route) - 1)  # eq:subTourElim
-    #
-    bc, k, t_ij = [probSetting.get(k) for k in ['bc', 'k', 't_ij']]
+def run(ori_inputs, pd_inputs, grbSetting):
+    k, Ts = [pd_inputs.get(k) for k in ['k', 'Ts']]
     _kP, _kM = 'ori%d' % k, 'dest%d' % k
-    kN = {_kP, _kM}
     P, D = set(), set()
-    for i in bc:
-        P.add('p%d' % i); D.add('d%d' % i)
-    kN = kN.union(P)
-    kN = kN.union(D)
+    for i in Ts:
+        P.add('p%d' % i)
+        D.add('d%d' % i)
+    N = P.union(D)
+    kN = N.union({_kP, _kM})
+    t_ij = ori_inputs['t_ij']
+    bigM = len(N) + 2
     #
     # Define decision variables
     #
@@ -42,70 +31,50 @@ def run(probSetting, grbSetting, dict_pid=None):
     for i in kN:
         for j in kN:
             obj += t_ij[i, j] * x_ij[i, j]
-    obj -= t_ij[_kM, _kP]
     obj -= t_ij[_kP, _kM]
     PD.setObjective(obj, GRB.MINIMIZE)
     #
     # Define constrains
+    #  Routing_Flow
     #
-    # Flow based routing
-    #  eq:pathPD
-    PD.addConstr(x_ij[_kM, _kP] == 1,
-                name='cf')
-    PD.addConstr(quicksum(x_ij[_kP, j] for j in P) == 1,
-                name='pPDo')
-    PD.addConstr(quicksum(x_ij[i, _kM] for i in D) == 1,
-                name='pPDi')
-    #  # eq:XpathPD
-    PD.addConstr(quicksum(x_ij[_kP, j] for j in D) == 0,
-                name='XpPDo')
-    PD.addConstr(quicksum(x_ij[i, _kM] for i in P) == 0,
-                name='XpPDi')
+    #  # eq:initFlow
+    PD.addConstr(quicksum(x_ij['ori%d' % k, j] for j in kN) == 1, name='pPDo')
+    PD.addConstr(quicksum(x_ij[j, 'dest%d' % k] for j in kN) == 1, name='pPDi')
+    #  # eq:noInFlowOutFlow
+    PD.addConstr(quicksum(x_ij[j, 'ori%d' % k] for j in kN) == 0, name='XpPDo')
+    PD.addConstr(quicksum(x_ij['dest%d' % k, j] for j in kN) == 0, name='XpPDi')
+    for i in Ts:
+        #  # eq:taskOutFlow
+        PD.addConstr(quicksum(x_ij['p%d' % i, j] for j in kN) == 1, name='tOF[%d]' % i)
+        #  # eq:taskInFlow
+        PD.addConstr(quicksum(x_ij[j, 'd%d' % i] for j in kN) == 1, name='tIF[%d]' % i)
+    for i in N:  # eq:flowCon
+        PD.addConstr(quicksum(x_ij[i, j] for j in kN) == quicksum(x_ij[j, i] for j in kN),
+                     name='fc[%s]' % i)
     #
-    for i in kN:  # eq:outFlow
-        if i == _kM: continue
-        PD.addConstr(quicksum(x_ij[i, j] for j in kN if j != _kP) == 1,
-                    name='tOF[%s]' % i)
-    for j in kN:  # eq:inFlow
-        if j == _kP: continue
-        PD.addConstr(quicksum(x_ij[i, j] for i in kN if i != _kM) == 1,
-                    name='tIF[%s]' % j)
-    for i in kN:  # eq:XselfFlow
-        PD.addConstr(x_ij[i, i] == 0,
-                    name='XsF[%s]' % i)
-    for i in kN:
-        for j in kN:  # eq:direction
-            PD.addConstr(x_ij[i, j] + x_ij[j, i] <= 1,
-                        name='dir[%s,%s]' % (i, j))
-    #  # eq:initOrder
-    PD.addConstr(o_i[_kP] == 1,
-                name='ordOri')
-    PD.addConstr(o_i[_kM] == len(kN),
-                name='ordDest')
-    for i in bc:  # eq:pdSequnce
-        PD.addConstr(o_i['p%d' % i] <= o_i['d%d' % i], name='ord[%s]' % i)
-    for i in kN:
-        for j in kN:  # eq:ordering
-            if i == _kM or j == _kP:
-                continue
-            PD.addConstr(o_i[i] + 1 <= o_i[j] + len(kN) * (1 - x_ij[i, j]),
-                        name='ord[%s,%s]' % (i, j))
+    #  Routing_Ordering
     #
-    # For callback function
-    #
-    PD._kN = kN
-    PD._x_ij = x_ij
+    N_kM = N.union({_kM})
+    for i in N_kM:
+        #  # eq:initOrder
+        PD.addConstr(2 <= o_i[i], name='initO1[%s]' % i)
+        PD.addConstr(o_i[i] <= bigM, name='initO2[%s]' % i)
+        for j in N_kM:
+                #  # eq:subEli
+                PD.addConstr(o_i[i] + 1 <= o_i[j] + bigM * (1 - x_ij[i, j]),
+                     name='subEli[%s,%s]' % (i, j))
+    for i in Ts:
+        #  # eq:pdSequence
+        PD.addConstr(o_i['p%d' % i] <= o_i['d%d' % i], name='pdS[%d]' % i)
     #
     # Run Gurobi (Optimization)
     #
-    PD.setParam('LogToConsole', False)
     PD.setParam('OutputFlag', False)
-    PD.params.LazyConstraints = 1
     for k, v in grbSetting.items():
         if k.startswith('Log'):
             continue
         PD.setParam(k, v)
-    PD.optimize(callbackF)
+    PD.optimize()
     #
     _route = {}
     for j in kN:
@@ -118,10 +87,8 @@ def run(probSetting, grbSetting, dict_pid=None):
         route.append(i)
         i = _route[i]
     route.append(i)
-    if dict_pid is not None:
-        dict_pid[0][dict_pid[1]] = PD.objVal
-    else:
-        return PD.objVal, route
+    #
+    return PD.objVal, route
 
 
 def calc_expectedProfit(probSetting, grbSetting, bc):
@@ -143,26 +110,22 @@ def calc_expectedProfit(probSetting, grbSetting, bc):
 
 if __name__ == '__main__':
     import os.path as opath
-    from problems import *
+    from problems import paperExample, ex1
+    from problems import convert_p2i
     #
     problem = paperExample()
-    probSetting = {'problem': problem}
-    cwlLogF = opath.join('_temp', 'paperExample_CWL.log')
-    cwlResF = opath.join('_temp', 'paperExample_CWL.csv')
-    itrFile = opath.join('_temp', 'paperExample_itrCWL.csv')
     #
-    etcSetting = {'LogFile': cwlLogF,
-                  'ResFile': cwlResF,
-                  'itrFile': itrFile,
-                  }
-    grbSetting = {'LogFile': cwlLogF}
+    problemName = problem[0]
+    log_fpath = opath.join('_temp', '%s_PD.log')
     #
-    probSetting['inputs'] = convert_p2i(*probSetting['problem'])
-    inputs = probSetting['inputs']
-    t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
-    bc = [1, 4, 0, 3, 2]
-    k = 2
-    detourTime, route = run({'bc': bc, 'k': k, 't_ij': t_ij}, grbSetting)
+    etcSetting = {'LogFile': log_fpath}
+    grbSetting = {'LogFile': log_fpath}
+    #
+    ori_inputs = convert_p2i(*problem)
+    Ts = [0, 2]
+    k = 0
+    pd_inputs = {'k': k, 'Ts': Ts}
+    detourTime, route = run(ori_inputs, pd_inputs, grbSetting)
 
     print(detourTime)
     print(route)

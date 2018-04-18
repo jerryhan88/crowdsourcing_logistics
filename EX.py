@@ -3,7 +3,7 @@ from gurobipy import *
 #
 from _util import log2file, res2file
 from _util import set_grbSettings
-from problems import *
+from problems import convert_p2i
 
 
 def run(problem, etcSetting, grbSetting):
@@ -15,10 +15,8 @@ def run(problem, etcSetting, grbSetting):
     def callbackF(m, where):
         if where == GRB.Callback.MIP:
             if time.clock() - etcSetting['startTS'] > etcSetting['TimeLimit']:
-                logContents = '\n\n'
-                logContents += '======================================================================================\n'
+                logContents = '\n'
                 logContents += 'Interrupted by time limit\n'
-                logContents += '======================================================================================\n'
                 log2file(etcSetting['LogFile'], logContents)
                 m.terminate()
     #
@@ -64,7 +62,7 @@ def run(problem, etcSetting, grbSetting):
     EX.setObjective(obj, GRB.MAXIMIZE)
     #
     # Define constrains
-    # Linearization
+    #  Linearization
     #
     for b in B:
         for k in K:  # eq:linAlpha
@@ -73,7 +71,7 @@ def run(problem, etcSetting, grbSetting):
             EX.addConstr(a_bk[b, k] <= R_b[b],
                         name='la2[%d,%d]' % (b, k))
     #
-    # Bundle
+    #  Bundle
     #
     for i in T:  # eq:taskA
         EX.addConstr(quicksum(z_bi[b, i] for b in B) <= 1,
@@ -86,7 +84,7 @@ def run(problem, etcSetting, grbSetting):
         EX.addConstr(quicksum(v_i[i] * z_bi[b, i] for i in T) <= _lambda,
                     name='vt[%d]' % b)
     #
-    # Routing_Flow
+    #  Routing_Flow
     #
     for b in B:
         for k in K:
@@ -101,18 +99,18 @@ def run(problem, etcSetting, grbSetting):
                          name='XpPDo[%d,%d]' % (b, k))
             EX.addConstr(quicksum(x_bkij[b, k, 'dest%d' % k, j] for j in kN) == 0,
                          name='XpPDi[%d,%d]' % (b, k))
-            for i in T:  # eq:taskOutFlow
+            for i in T:
+                #  # eq:taskOutFlow
                 EX.addConstr(quicksum(x_bkij[b, k, 'p%d' % i, j] for j in kN) == z_bi[b, i],
                             name='tOF[%d,%d,%d]' % (b, k, i))
-            for i in T:  # eq:taskInFlow
+                #  # eq:taskInFlow
                 EX.addConstr(quicksum(x_bkij[b, k, j, 'd%d' % i] for j in kN) == z_bi[b, i],
                             name='tIF[%d,%d,%d]' % (b, k, i))
-            #
             for i in N:  # eq:flowCon
                 EX.addConstr(quicksum(x_bkij[b, k, i, j] for j in kN) == quicksum(x_bkij[b, k, j, i] for j in kN),
                             name='fc[%d,%d,%s]' % (b, k, i))
     #
-    # Routing_Ordering
+    #  Routing_Ordering
     #
     for k in K:
         N_kM = N.union({'dest%d' % k})
@@ -211,12 +209,11 @@ if __name__ == '__main__':
     problem = paperExample()
     # problem = ex1()
     problemName = problem[0]
-    exLogF = opath.join('_temp', '%s_EX.log' % problemName)
-    exResF = opath.join('_temp', '%s_EX.csv' % problemName)
-
-
-    etcSetting = {'LogFile': exLogF,
-                  'ResFile': exResF}
-    grbSetting = {'LogFile': exLogF}
+    log_fpath = opath.join('_temp', '%s_EX.log' % problemName)
+    res_fpath = opath.join('_temp', '%s_EX.csv' % problemName)
+    #
+    etcSetting = {'LogFile': log_fpath,
+                  'ResFile': res_fpath}
+    grbSetting = {'LogFile': log_fpath}
     #
     run(problem, etcSetting, grbSetting)

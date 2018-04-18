@@ -2,25 +2,9 @@ from init_project import *
 import os.path as opath
 import os
 from random import randrange
-from dataProcessing import *
+# from dataProcessing import *
 import pickle
 import csv
-
-
-# class point(object):
-#     def __init__(self, pid, i, j):
-#         self.pid, self.i, self.j = pid, i, j
-#
-#     def __repr__(self):
-#         return 'pid%d(%d,%d)' % (self.pid, self.i, self.j)
-
-
-# class task(object):
-#     def __init__(self, tid, pp, dp, reward, volume):
-#         self.tid, self.pp, self.dp, self.reward, self.volume = tid, pp, dp, reward, volume
-#
-#     def __repr__(self):
-#         return 'tid%d' % self.tid
 
 
 def convert_p2i(_,

@@ -1,12 +1,11 @@
 from gurobipy import *
 
 
-def generate_RMP(probSetting):
-    inputs = probSetting['inputs']
-    C, p_c, e_ci = list(map(probSetting.get, ['C', 'p_c', 'e_ci']))
-    includeBNB = True if 'inclusiveC' in probSetting else False
+def generate_RMP(ori_inputs, bnp_inputs):
+    C, p_c, e_ci = list(map(bnp_inputs.get, ['C', 'p_c', 'e_ci']))
+    includeBNB = True if 'inclusiveC' in bnp_inputs else False
     #
-    bB, T = list(map(inputs.get, ['bB', 'T']))
+    bB, T = list(map(ori_inputs.get, ['bB', 'T']))
     #
     # Define decision variables
     #
@@ -32,7 +31,7 @@ def generate_RMP(probSetting):
     numBC = RMP.addConstr(quicksum(q_c[c] for c in range(len(C))) == bB,
                               name="numBC")
     if includeBNB:
-        inclusiveC, exclusiveC = list(map(probSetting.get, ['inclusiveC', 'exclusiveC']))
+        inclusiveC, exclusiveC = list(map(bnp_inputs.get, ['inclusiveC', 'exclusiveC']))
         C_i0i1 = {}
         for i0, i1 in set(inclusiveC).union(set(exclusiveC)):
             for c in range(len(C)):
