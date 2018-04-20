@@ -6,12 +6,12 @@ from itertools import combinations
 from heapq import heappush, heappop
 from gurobipy import *
 #
-from _util import log2file, bpt2file, res2file
+from _util import write_log, bpt2file, res2file
 from _util import set_grbSettings
 from RMP import generate_RMP
 from SP import run as SP_run
-from PD import run as PD_run
-from problems import *
+from PD import calc_expectedProfit
+from problems import convert_p2i
 
 
 EPSILON = 0.000000001
@@ -43,7 +43,7 @@ def run(problem, etcSetting, grbSetting):
     rootNode.ni = bnpNode(indentifier, ori_inputs, bnp_inputs, etcSetting, grbSetting)  # ni: node instance
     #
     logContents = 'Start Branch and Pricing from the root\n'
-    log2file(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['LogFile'], logContents)
     is_terminated = rootNode.ni.startCG()
     #
     if is_terminated:
@@ -80,7 +80,7 @@ def run(problem, etcSetting, grbSetting):
         assert BnPgap is None
         logContents += '\t Gap: NA\n'
     logContents += '\t chosen B.: %s\n' % str(chosenB)
-    log2file(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['LogFile'], logContents)
     res2file(etcSetting['ResFile'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
 
 
@@ -89,7 +89,7 @@ def branching(bnpTree, curNode):
     bestBound, incumbent = bnpTree.bestBound, bnpTree.incumbent
     #
     logContents = 'Try Branching; bnbNode(%s)\n' % curNode.identifier
-    log2file(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['LogFile'], logContents)
     bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
                                      None, None, 'TB', None])
     #
@@ -102,7 +102,7 @@ def branching(bnpTree, curNode):
         incumRes = incumbent.ni.res
         if curRes['objVal'] < incumRes['objVal']:
             logContents = 'bnbNode(%s) was pruned\n' % curNode.identifier
-            log2file(etcSetting['LogFile'], logContents)
+            write_log(etcSetting['LogFile'], logContents)
             bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
                                              None, None, 'PR', None])
             branching_dfs_lcp(bnpTree)
@@ -121,12 +121,12 @@ def branching(bnpTree, curNode):
         # Integral solution
         #
         logContents = 'Found a integral solution\n'
-        log2file(etcSetting['LogFile'], logContents)
+        write_log(etcSetting['LogFile'], logContents)
         bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
                                          None, None, 'INT', None])
         if incumbent is None:
             logContents = 'The first incumbent, bnbNode(%s)\n' % curNode.identifier
-            log2file(etcSetting['LogFile'], logContents)
+            write_log(etcSetting['LogFile'], logContents)
             bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
                                              None, None, 'IC', 'First'])
             bnpTree.incumbent = curNode
@@ -135,7 +135,7 @@ def branching(bnpTree, curNode):
             if incumRes['objVal'] < curRes['objVal']:
                 logContents = 'The incumbent was changed\n'
                 logContents += 'bnbNode(%s) -> bnbNode(%s)\n' % (incumbent.identifier, curNode.identifier)
-                log2file(etcSetting['LogFile'], logContents)
+                write_log(etcSetting['LogFile'], logContents)
                 bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
                                                         None, None,
                                                         'IC',
@@ -143,7 +143,7 @@ def branching(bnpTree, curNode):
                 bnpTree.incumbent = curNode
             else:
                 logContents = 'No change about the incumbent\n'
-                log2file(etcSetting['LogFile'], logContents)
+                write_log(etcSetting['LogFile'], logContents)
                 bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
                                                         None, None,
                                                         'NI',
@@ -166,13 +166,13 @@ def branching(bnpTree, curNode):
                 break
         else:
             logContents = 'No suitable pairs\n'
-            log2file(etcSetting['LogFile'], logContents)
+            write_log(etcSetting['LogFile'], logContents)
             assert False
         logContents = 'Start Branching; bnbNode(%s)\n' % curNode.identifier
         logContents += '\t All bundles %s\n' % str(curProb['C'])
         logContents += '\t Chosen bundle %s\n' % str(candiBundle)
         logContents += '\t Chosen tasks %s\n' % str((i0, i1))
-        log2file(etcSetting['LogFile'], logContents)
+        write_log(etcSetting['LogFile'], logContents)
         #
         # Left child
         #
@@ -236,7 +236,7 @@ def duplicate_BNP_inputs(pBNP_inputs):
 def handle_termination(bnpTree, curNode):
     etcSetting = curNode.ni.etcSetting
     logContents = 'BNP model reach to the time limit, while solving node %s\n' % curNode.identifier
-    log2file(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['LogFile'], logContents)
     endCpuTimeBnP, endWallTimeBnP = time.clock(), time.time()
     eliCpuTimeBnP = endCpuTimeBnP - etcSetting['startCpuTimeBnP']
     eliWallTimeBnP = endWallTimeBnP - etcSetting['startWallTimeBnP']
@@ -272,21 +272,14 @@ class bnpNode(object):
         #
         # Generate initial singleton bundles
         #
-        T, r_i = list(map(self.ori_inputs.get, ['T', 'r_i']))
-        K, w_k = list(map(self.ori_inputs.get, ['K', 'w_k']))
-        t_ij, _delta = list(map(self.ori_inputs.get, ['t_ij', '_delta']))
+        T = self.ori_inputs['T']
         C, p_c, e_ci = [], [], []
         for i in T:
             Ts = [i]
             C.append(Ts)
             #
-            br = sum([r_i[i] for i in Ts])
-            p = 0
-            for k in K:
-                detourTime, route = PD_run(self.ori_inputs, {'k': k, 'Ts': Ts}, self.grbSetting)
-                if detourTime <= _delta:
-                    p += w_k[k] * br
-            p_c.append(p)
+            ep = calc_expectedProfit(self.ori_inputs, grbSetting, Ts)
+            p_c.append(ep)
             #
             vec = [0 for _ in range(len(T))]
             vec[i] = 1
@@ -297,7 +290,7 @@ class bnpNode(object):
     def startCG(self):
         startCpuTimeCG, startWallTimeCG = time.clock(), time.time()
         logContents = 'Start column generation of bnbNode(%s)\n' % self.nid
-        log2file(self.etcSetting['LogFile'], logContents)
+        write_log(self.etcSetting['LogFile'], logContents)
         #
         T = self.ori_inputs['T']
         C = self.bnp_inputs['C']
@@ -313,7 +306,7 @@ class bnpNode(object):
             if LRMP.status == GRB.Status.INFEASIBLE:
                 logContents = 'Relaxed model is infeasible!!\n'
                 logContents += 'No solution!\n'
-                log2file(self.etcSetting['LogFile'], logContents)
+                write_log(self.etcSetting['LogFile'], logContents)
                 LRMP.computeIIS()
                 import os.path as opath
                 LRMP.write('%s.ilp' % opath.basename(self.etcSetting['LogFile']).split('.')[0])
@@ -333,48 +326,44 @@ class bnpNode(object):
             logContents += '\t\t %s\n' % str(self.bnp_inputs['C'])
             logContents += '\t\t %s\n' % str(self.bnp_inputs['p_c'])
             logContents += '\t Relaxed objVal\n'
-            logContents += '\t\t z: %.3f\n' % LRMP.objVal
+            logContents += '\t\t z: %.2f\n' % LRMP.objVal
+            logContents += '\t\t RC: %s\n' % str(['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
             logContents += '\t Dual V\n'
-            logContents += '\t\t Pi: %s\n' % str(['%.3f' % v for v in pi_i])
-            logContents += '\t\t mu: %.3f\n' % mu
-            log2file(self.etcSetting['LogFile'], logContents)
+            logContents += '\t\t Pi: %s\n' % str(['%.2f' % v for v in pi_i])
+            logContents += '\t\t mu: %.2f\n' % mu
+            write_log(self.etcSetting['LogFile'], logContents)
+            #
             objV_newC = SP_run(self.ori_inputs, self.bnp_inputs, self.etcSetting, self.grbSetting)
             if objV_newC == 'terminated':
                 logContents = '%dth iteration of bnbNode(%s)\n' % (counter, self.nid)
                 logContents += 'Terminated because of the time limit!\n'
-                log2file(self.etcSetting['LogFile'], logContents)
+                write_log(self.etcSetting['LogFile'], logContents)
                 is_terminated = True
                 break
             elif objV_newC is None:
                 logContents = '%dth iteration of bnbNode(%s)\n' % (counter, self.nid)
                 logContents += 'No solution!\n'
-                log2file(self.etcSetting['LogFile'], logContents)
+                write_log(self.etcSetting['LogFile'], logContents)
                 break
             endCpuTimeP, endWallTimeP = time.clock(), time.time()
             eliCpuTimeP, eliWallTimeP = endCpuTimeP - startCpuTimeP, endWallTimeP - startWallTimeP
             #
             logContents = '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
-            logContents += '\t Cpu Time\n'
-            logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeP)
-            logContents += '\t\t End.Time: %s\n' % str(endCpuTimeP)
-            logContents += '\t\t Eli.Time: %f\n' % eliCpuTimeP
-            logContents += '\t Wall Time\n'
-            logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeP)
-            logContents += '\t\t End.Time: %s\n' % str(endWallTimeP)
-            logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
+            logContents += '\t Cpu Time: %f\n' % eliCpuTimeP
+            logContents += '\t Wall Time: %f\n' % eliWallTimeP
             #
             objV, newC = objV_newC
             if objV < 0:
                 logContents += '\n'
                 logContents += 'The reduced cost of the generated column is a negative number\n'
-                log2file(self.etcSetting['LogFile'], logContents)
+                write_log(self.etcSetting['LogFile'], logContents)
                 break
             else:
                 logContents += '\n'
                 logContents += '\t New column\n'
                 logContents += '\t\t Tasks %s\n' % str(newC)
                 logContents += '\t\t red. C. %.3f\n' % objV
-                log2file(self.etcSetting['LogFile'], logContents)
+                write_log(self.etcSetting['LogFile'], logContents)
                 vec = [0 for _ in range(len(T))]
                 for i in newC:
                     vec[i] = 1
@@ -409,17 +398,11 @@ class bnpNode(object):
             chosenC = [(C[c], '%.2f' % q_c[c]) for c in range(len(C)) if q_c[c] > 0]
             #
             logContents = 'Column generation summary\n'
-            logContents += '\t Cpu Time\n'
-            logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeCG)
-            logContents += '\t\t End.Time: %s\n' % str(endCpuTimeCG)
-            logContents += '\t\t Eli.Time: %f\n' % eliCpuTimeCG
-            logContents += '\t Wall Time\n'
-            logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeCG)
-            logContents += '\t\t End.Time: %s\n' % str(endWallTimeCG)
-            logContents += '\t\t Eli.Time: %f\n' % eliWallTimeCG
+            logContents += '\t Cpu Time: %f\n' % eliCpuTimeCG
+            logContents += '\t Wall Time: %f\n' % eliWallTimeCG
             logContents += '\t ObjV: %.3f\n' % LRMP.objVal
             logContents += '\t chosen B.: %s\n' % str(chosenC)
-            log2file(self.etcSetting['LogFile'], logContents)
+            write_log(self.etcSetting['LogFile'], logContents)
             #
             self.bnp_inputs['C'] = C
             self.bnp_inputs['p_c'] = p_c

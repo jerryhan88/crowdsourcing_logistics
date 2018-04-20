@@ -10,8 +10,8 @@ import time
 from init_project import dpath
 from problems import input_validity
 # from GH import run as GH_run
-from EX import run as EX_run
-# from BNP import run as BNP_run
+# from EX import run as EX_run
+from BNP import run as BNP_run
 # from CWL import run as CWL_run
 
 
@@ -135,30 +135,30 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # EX
-        problemName = problem[0]
-        exLogF = opath.join(log_dpath, '%s-EX.log' % problemName)
-        exResF = opath.join(res_dpath, '%s-EX.csv' % problemName)
-        etcSetting = {'LogFile': exLogF,
-                      'ResFile': exResF,
-                      'TimeLimit': _TimeLimit}
-        grbSetting = {'LogFile': exLogF,
-                      'Threads': _numThreads}
-        EX_run(problem, etcSetting, grbSetting)
+        # problemName = problem[0]
+        # log_fpath = opath.join(log_dpath, '%s-EX.log' % problemName)
+        # res_fpath = opath.join(res_dpath, '%s-EX.csv' % problemName)
+        # etcSetting = {'LogFile': log_fpath,
+        #               'ResFile': res_fpath,
+        #               'TimeLimit': _TimeLimit}
+        # grbSetting = {'LogFile': log_fpath,
+        #               'Threads': _numThreads}
+        # EX_run(problem, etcSetting, grbSetting)
         ###############################################################
         #
         ###############################################################
         # BNP
-        # probSetting = {'problem': problem}
-        # bnpLogF = opath.join(log_dpath, '%s-%s.log' % (prefix, 'BNP'))
-        # bnpResF = opath.join(res_dpath, '%s-%s.csv' % (prefix, 'BNP'))
-        # bptFile = opath.join(bbt_dpath, '%s-%s.csv' % (prefix, 'bnpTree'))
-        # etcSetting = {'LogFile': bnpLogF,
-        #               'ResFile': bnpResF,
-        #               'bptFile': bptFile,
-        #               'TimeLimit': _TimeLimit}
-        # grbSetting = {'LogFile': bnpLogF,
-        #               'Threads': _numThreads}
-        # BNP_run(probSetting, etcSetting, grbSetting)
+        problemName = problem[0]
+        log_fpath = opath.join(log_dpath, '%s-BNP.log' % problemName)
+        res_fpath = opath.join(res_dpath, '%s-BNP.csv' % problemName)
+        bpt_fpath = opath.join(bbt_dpath, '%s-bnpTree.csv' % problemName)
+        etcSetting = {'LogFile': log_fpath,
+                      'ResFile': res_fpath,
+                      'bptFile': bpt_fpath,
+                      'TimeLimit': _TimeLimit}
+        grbSetting = {'LogFile': log_fpath,
+                      'Threads': _numThreads}
+        BNP_run(problem, etcSetting, grbSetting)
         ###############################################################
         #
         ###############################################################

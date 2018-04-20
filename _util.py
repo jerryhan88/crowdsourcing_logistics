@@ -17,7 +17,7 @@ def write_log(fpath, contents):
         logContents += '%s\n' % str(datetime.datetime.now())
         logContents += '%s\n' % contents
         logContents += '======================================================================================\n'
-        f.write(contents)
+        f.write(logContents)
 
 
 def res2file(fpath, objV, gap, eliCpuTime, eliWallTiem):

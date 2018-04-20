@@ -1,9 +1,9 @@
 from gurobipy import *
 
 
-def generate_RMP(ori_inputs, bnp_inputs):
-    C, p_c, e_ci = list(map(bnp_inputs.get, ['C', 'p_c', 'e_ci']))
-    includeBNB = True if 'inclusiveC' in bnp_inputs else False
+def generate_RMP(ori_inputs, add_inputs):
+    C, p_c, e_ci = list(map(add_inputs.get, ['C', 'p_c', 'e_ci']))
+    includeBNB = True if 'inclusiveC' in add_inputs else False
     #
     bB, T = list(map(ori_inputs.get, ['bB', 'T']))
     #
@@ -31,7 +31,7 @@ def generate_RMP(ori_inputs, bnp_inputs):
     numBC = RMP.addConstr(quicksum(q_c[c] for c in range(len(C))) == bB,
                               name="numBC")
     if includeBNB:
-        inclusiveC, exclusiveC = list(map(bnp_inputs.get, ['inclusiveC', 'exclusiveC']))
+        inclusiveC, exclusiveC = list(map(add_inputs.get, ['inclusiveC', 'exclusiveC']))
         C_i0i1 = {}
         for i0, i1 in set(inclusiveC).union(set(exclusiveC)):
             for c in range(len(C)):

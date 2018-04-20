@@ -91,18 +91,12 @@ def run(ori_inputs, pd_inputs, grbSetting):
     return PD.objVal, route
 
 
-def calc_expectedProfit(probSetting, grbSetting, bc):
-    inputs = probSetting['inputs']
-    K = inputs['K']
-    r_i = inputs['r_i']
-    w_k = inputs['w_k']
-    t_ij = inputs['t_ij']
-    _delta = inputs['_delta']
-    br = sum([r_i[i] for i in bc])
+def calc_expectedProfit(ori_inputs, grbSetting, Ts):
+    K, r_i, w_k, _delta = list(map(ori_inputs.get, ['K', 'r_i', 'w_k', '_delta']))
+    br = sum([r_i[i] for i in Ts])
     ep = 0
     for k in K:
-        probSetting = {'bc': bc, 'k': k, 't_ij': t_ij}
-        detourTime, route = run(probSetting, grbSetting)
+        detourTime, route = run(ori_inputs, {'k': k, 'Ts': Ts}, grbSetting)
         if detourTime <= _delta:
             ep += w_k[k] * br
     return ep

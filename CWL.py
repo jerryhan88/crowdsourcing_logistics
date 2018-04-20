@@ -7,12 +7,10 @@ from _util import set_grbSettings
 from RMP import generate_RMP
 from LS import run as LS_run
 from PD import calc_expectedProfit
-from problems import *
-
-EPSILON = 0.000000001
+from problems import convert_p2i
 
 
-def run(probSetting, etcSetting, grbSetting):
+def run(problem, etcSetting, grbSetting):
     startCpuTime, startWallTime = time.clock(), time.time()
     if 'TimeLimit' not in etcSetting:
         etcSetting['TimeLimit'] = 1e400
@@ -21,50 +19,45 @@ def run(probSetting, etcSetting, grbSetting):
     etcSetting['startWallTime'] = startWallTime
     itr2file(etcSetting['itrFile'])
     #
-    probSetting['inputs'] = convert_p2i(*probSetting['problem'])
+    ori_inputs = convert_p2i(*problem)
+    cwl_inputs = {}
     #
     # Generate initial singleton bundles
     #
-    inputs = probSetting['inputs']
-    T, r_i, v_i, _lambda = [inputs.get(k) for k in ['T', 'r_i', 'v_i', '_lambda']]
-    K, w_k = list(map(inputs.get, ['K', 'w_k']))
-    t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
+    T = ori_inputs['T']
     C, sC, p_c, e_ci, TB = [], set(), [], [], set()
     for i in T:
-        bc = [i]
-        C.append(bc)
-        sC.add(frozenset(tuple(bc)))
+        Ts = [i]
+        C.append(Ts)
+        sC.add(frozenset(tuple(Ts)))
         #
-        ep = calc_expectedProfit(probSetting, grbSetting, bc)
+        ep = calc_expectedProfit(ori_inputs, grbSetting, Ts)
         p_c.append(ep)
         #
         vec = [0 for _ in range(len(T))]
         vec[i] = 1
         e_ci.append(vec)
-    probSetting['C'] = C
-    probSetting['sC'] = sC
-    probSetting['p_c'] = p_c
-    probSetting['e_ci'] = e_ci
-    probSetting['TB'] = TB
+    cwl_inputs['C'] = C
+    cwl_inputs['sC'] = sC
+    cwl_inputs['p_c'] = p_c
+    cwl_inputs['e_ci'] = e_ci
+    cwl_inputs['TB'] = TB
     #
-    RMP, q_c, taskAC, numBC = generate_RMP(probSetting)
+    write_log(etcSetting['LogFile'], 'Start column generation of CWL\n')
     #
-    write_log(etcSetting['LogFile'], 'Start column generation of CWL')
+    RMP, q_c, taskAC, numBC = generate_RMP(ori_inputs, cwl_inputs)
     #
+    _lambda, v_i = [ori_inputs.get(k) for k in ['_lambda', 'v_i']]
     counter, is_terminated = 0, False
     while True:
         if len(C) == len(T) ** 2 - 1:
             break
         LRMP = RMP.relax()
         set_grbSettings(LRMP, grbSetting)
-        LRMP.setParam('LogToConsole', False)
-        LRMP.setParam('OutputFlag', False)
         LRMP.optimize()
         if LRMP.status == GRB.Status.INFEASIBLE:
-            logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-            logContents += 'Relaxed model is infeasible!!\n'
+            logContents = 'Relaxed model is infeasible!!\n'
             logContents += 'No solution!\n'
-            logContents += '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
             log2file(etcSetting['LogFile'], logContents)
             LRMP.computeIIS()
             import os.path as opath
@@ -74,13 +67,15 @@ def run(probSetting, etcSetting, grbSetting):
         #
         pi_i = [LRMP.getConstrByName("taskAC[%d]" % i).Pi for i in T]
         mu = LRMP.getConstrByName("numBC").Pi
+        cwl_inputs['pi_i'] = pi_i
+        cwl_inputs['mu'] = mu
         #
         write_log(etcSetting['LogFile'], 'Start column generation of CWL')
         logContents = 'Start %dth iteration\n' % counter
         logContents += '\t Columns\n'
-        logContents += '\t\t # of columns %d\n' % len(probSetting['C'])
-        logContents += '\t\t %s\n' % str(probSetting['C'])
-        logContents += '\t\t %s\n' % str(['%.2f' % v for v in probSetting['p_c']])
+        logContents += '\t\t # of columns %d\n' % len(cwl_inputs['C'])
+        logContents += '\t\t %s\n' % str(cwl_inputs['C'])
+        logContents += '\t\t %s\n' % str(['%.2f' % v for v in cwl_inputs['p_c']])
         logContents += '\t Relaxed objVal\n'
         logContents += '\t\t z: %.2f\n' % LRMP.objVal
         logContents += '\t\t RC: %s\n' % str(['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
@@ -91,24 +86,20 @@ def run(probSetting, etcSetting, grbSetting):
         #
         c0, minRC = -1, 1e400
         for rc, c in [(LRMP.getVarByName("q[%d]" % c).RC, c) for c in range(len(C))]:
-        # for rc, c in sorted([(LRMP.getVarByName("q[%d]" % c).RC, c) for c in range(len(C))]):
-            bc = C[c]
+            Ts = C[c]
             if c in TB:
                 continue
-            if sum(v_i[i]for i in bc) == _lambda:
+            if sum(v_i[i]for i in Ts) == _lambda:
                 continue
             if rc < minRC:
                 minRC = rc
                 c0 = c
         if c0 == -1:
             break
-        #
-        probSetting['pi_i'] = pi_i
-        probSetting['mu'] = mu
-        probSetting['c0'] = c0
+        cwl_inputs['c0'] = c0
         #
         startCpuTimeP, startWallTimeP = time.clock(), time.time()
-        objV_bc = LS_run(probSetting, etcSetting, grbSetting)
+        objV_bc = LS_run(ori_inputs, cwl_inputs, grbSetting)
         #
         if time.clock() - etcSetting['startTS'] > etcSetting['TimeLimit']:
             break
@@ -117,14 +108,8 @@ def run(probSetting, etcSetting, grbSetting):
         eliCpuTimeP, eliWallTimeP = endCpuTimeP - startCpuTimeP, endWallTimeP - startWallTimeP
         #
         logContents = '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
-        logContents += '\t Cpu Time\n'
-        logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeP)
-        logContents += '\t\t End.Time: %s\n' % str(endCpuTimeP)
-        logContents += '\t\t Eli.Time: %f\n' % eliCpuTimeP
-        logContents += '\t Wall Time\n'
-        logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeP)
-        logContents += '\t\t End.Time: %s\n' % str(endWallTimeP)
-        logContents += '\t\t Eli.Time: %f\n' % eliWallTimeP
+        logContents += '\t Cpu Time: %f\n' % eliCpuTimeP
+        logContents += '\t Wall Time: %f\n' % eliWallTimeP
         write_log(etcSetting['LogFile'], logContents)
         #
         objV, bc = objV_bc
@@ -139,7 +124,7 @@ def run(probSetting, etcSetting, grbSetting):
             for i in bc:
                 vec[i] = 1
             p = objV + (np.array(vec) * np.array(pi_i)).sum() + mu
-            C, p_c, e_ci = list(map(probSetting.get, ['C', 'p_c', 'e_ci']))
+            C, p_c, e_ci, sC = list(map(cwl_inputs.get, ['C', 'p_c', 'e_ci', 'sC']))
             e_ci.append(vec)
             p_c.append(p)
             #
@@ -153,25 +138,16 @@ def run(probSetting, etcSetting, grbSetting):
             C.append(bc)
             sC.add(frozenset(tuple(bc)))
             RMP.update()
-            #
-            probSetting['C'] = C
-            probSetting['sC'] = sC
-            probSetting['p_c'] = p_c
-            probSetting['e_ci'] = e_ci
         if len(C) == len(TB):
             break
 
         counter += 1
     #
-    handle_termination(RMP, probSetting, etcSetting, grbSetting)
-
-
-
-
-def handle_termination(RMP, probSetting, etcSetting, grbSetting):
+    # Handle termination
+    #
     set_grbSettings(RMP, grbSetting)
     RMP.optimize()
-    C, p_c, e_ci = list(map(probSetting.get, ['C', 'p_c', 'e_ci']))
+    C, p_c, e_ci = list(map(cwl_inputs.get, ['C', 'p_c', 'e_ci']))
     q_c = [RMP.getVarByName("q[%d]" % c).x for c in range(len(C))]
     chosenC = [(C[c], '%.2f' % q_c[c]) for c in range(len(C)) if q_c[c] > 0]
     #
@@ -182,14 +158,8 @@ def handle_termination(RMP, probSetting, etcSetting, grbSetting):
     logContents = 'CWL model reach to the time limit or the end\n'
     logContents += '\n'
     logContents += 'Column generation summary\n'
-    logContents += '\t Cpu Time\n'
-    logContents += '\t\t Sta.Time: %s\n' % str(etcSetting['startCpuTime'])
-    logContents += '\t\t End.Time: %s\n' % str(endCpuTime)
-    logContents += '\t\t Eli.Time: %f\n' % eliCpuTime
-    logContents += '\t Wall Time\n'
-    logContents += '\t\t Sta.Time: %s\n' % str(etcSetting['startWallTime'])
-    logContents += '\t\t End.Time: %s\n' % str(endWallTime)
-    logContents += '\t\t Eli.Time: %f\n' % eliWallTime
+    logContents += '\t Cpu Time: %f\n' % eliCpuTime
+    logContents += '\t Wall Time: %f\n' % eliWallTime
     logContents += '\t ObjV: %.3f\n' % RMP.objVal
     logContents += '\t chosen B.: %s\n' % str(chosenC)
     write_log(etcSetting['LogFile'], logContents)
@@ -201,24 +171,16 @@ if __name__ == '__main__':
     import os.path as opath
     from problems import paperExample, ex1
     #
-    # problem = paperExample()
-    # cwlLogF = opath.join('_temp', 'paperExample_CWL.log')
-    # cwlResF = opath.join('_temp', 'paperExample_CWL.csv')
-    # itrFile = opath.join('_temp', 'paperExample_itrCWL.csv')
-    #
-    problem = ex1()
-    cwlLogF = opath.join('_temp', 'ex1_CWL.log')
-    cwlResF = opath.join('_temp', 'ex1_CWL.csv')
-    itrFile = opath.join('_temp', 'ex1_itrCWL.csv')
-    probSetting = {'problem': problem}
-    #
-    etcSetting = {'LogFile': cwlLogF,
-                  'ResFile': cwlResF,
-                  'itrFile': itrFile,
-                  'numPros': 8,
+    problem = paperExample()
+    # problem = ex1()
+    problemName = problem[0]
+    log_fpath = opath.join('_temp', '%s_CWL.log' % problemName)
+    res_fpath = opath.join('_temp', '%s_CWL.csv' % problemName)
+    itr_fpath = opath.join('_temp', '%s_itrCWL.csv' % problemName)
+    etcSetting = {'LogFile': log_fpath,
+                  'ResFile': res_fpath,
+                  'itrFile': itr_fpath,
                   }
-    grbSetting = {
-        'LogFile': cwlLogF
-                  }
+    grbSetting = {'LogFile': log_fpath}
     #
-    run(probSetting, etcSetting, grbSetting)
+    run(problem, etcSetting, grbSetting)

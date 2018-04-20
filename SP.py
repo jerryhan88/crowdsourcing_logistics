@@ -1,8 +1,7 @@
 import time
 from gurobipy import *
 #
-from _util import log2file
-from _util import set_grbSettings
+from _util import write_log
 
 
 def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
@@ -16,7 +15,7 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
         if where == GRB.Callback.MIP:
             if time.clock() - etcSetting['startTS'] > etcSetting['TimeLimit']:
                 logContents = 'Interrupted by time limit\n'
-                log2file(etcSetting['LogFile'], logContents)
+                write_log(etcSetting['LogFile'], logContents)
                 m._is_terminated = True
                 m.terminate()
     #
@@ -159,7 +158,11 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
     #
     # Run Gurobi (Optimization)
     #
-    set_grbSettings(SP, grbSetting)
+    SP.setParam('OutputFlag', False)
+    for k, v in grbSetting.items():
+        if k.startswith('Log'):
+            continue
+        SP.setParam(k, v)
     SP.optimize(callbackF)
     #
     if SP._is_terminated:
@@ -168,7 +171,7 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
         logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
         logContents += '!!!!!!!!Pricing infeasible!!!!!!!!'
         logContents += '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-        log2file(etcSetting['LogFile'], logContents)
+        write_log(etcSetting['LogFile'], logContents)
         return None
     else:
         return SP.objVal, [i for i in T if z_i[i].x > 0.5]
