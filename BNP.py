@@ -11,7 +11,7 @@ from _util import set_grbSettings
 from RMP import generate_RMP
 from SP import run as SP_run
 from PD import calc_expectedProfit
-from problems import convert_p2i
+from problems import convert_prob2prmt
 
 
 EPSILON = 0.000000001
@@ -26,7 +26,7 @@ def run(problem, etcSetting, grbSetting):
     etcSetting['startWallTimeBnP'] = startWallTimeBnP
     bpt2file(etcSetting['bptFile'])
     #
-    ori_inputs = convert_p2i(*problem)
+    ori_inputs = convert_prob2prmt(*problem)
     bnp_inputs = {}
     for cond in ['inclusiveC', 'exclusiveC']:
         bnp_inputs[cond] = []

@@ -105,7 +105,7 @@ def calc_expectedProfit(ori_inputs, grbSetting, Ts):
 if __name__ == '__main__':
     import os.path as opath
     from problems import paperExample, ex1
-    from problems import convert_p2i
+    from problems import convert_prob2prmt
     #
     problem = paperExample()
     #
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     etcSetting = {'LogFile': log_fpath}
     grbSetting = {'LogFile': log_fpath}
     #
-    ori_inputs = convert_p2i(*problem)
+    ori_inputs = convert_prob2prmt(*problem)
     Ts = [0, 2]
     k = 0
     pd_inputs = {'k': k, 'Ts': Ts}

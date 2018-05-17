@@ -7,7 +7,8 @@ from _util import set_grbSettings
 from RMP import generate_RMP
 from LS import run as LS_run
 from PD import calc_expectedProfit
-from problems import convert_p2i
+from problems import convert_prob2prmt
+from GH import run as GH_run
 
 
 def run(problem, etcSetting, grbSetting):
@@ -19,7 +20,7 @@ def run(problem, etcSetting, grbSetting):
     etcSetting['startWallTime'] = startWallTime
     itr2file(etcSetting['itrFile'])
     #
-    ori_inputs = convert_p2i(*problem)
+    ori_inputs = convert_prob2prmt(*problem)
     cwl_inputs = {}
     #
     # Generate initial singleton bundles
@@ -37,6 +38,24 @@ def run(problem, etcSetting, grbSetting):
         vec = [0 for _ in range(len(T))]
         vec[i] = 1
         e_ci.append(vec)
+    #
+    # Add greedy heuristic's solution
+    #
+    _, bundles = GH_run(problem, etcSetting=None, returnSol=True)
+    for Ts in bundles:
+        if len(Ts) == 1:
+            continue
+        C.append(Ts)
+        sC.add(frozenset(tuple(Ts)))
+        #
+        ep = calc_expectedProfit(ori_inputs, grbSetting, Ts)
+        p_c.append(ep)
+        #
+        vec = [0 for _ in range(len(T))]
+        for i in Ts:
+            vec[i] = 1
+        e_ci.append(vec)
+    #
     cwl_inputs['C'] = C
     cwl_inputs['sC'] = sC
     cwl_inputs['p_c'] = p_c

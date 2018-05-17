@@ -20,12 +20,12 @@ def write_log(fpath, contents):
         f.write(logContents)
 
 
-def res2file(fpath, objV, gap, eliCpuTime, eliWallTiem):
+def res2file(fpath, objV, gap, eliCpuTime, eliWallTime):
     with open(fpath, 'wt') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
         header = ['objV', 'Gap', 'eliCpuTime', 'eliWallTime']
         writer.writerow(header)
-        writer.writerow([objV, gap, eliCpuTime, eliWallTiem])
+        writer.writerow([objV, gap, eliCpuTime, eliWallTime])
 
 
 def prb2file(fpath, _object):

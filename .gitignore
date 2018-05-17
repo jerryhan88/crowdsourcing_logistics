@@ -16,3 +16,5 @@
 z_html
 __pycache__/
 build/
+geckodriver
+_temp/
