@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 
 from PyQt5.QtWidgets import QWidget, QApplication
-from PyQt5.QtGui import (QPainter, QPen, QColor, QFont, QTextDocument)
+from PyQt5.QtGui import (QPen, QColor, QFont, QTextDocument, QPainter, QImage, QPainterPath)
 from PyQt5.QtCore import Qt, QSize, QRectF
 
 D360 = 360.0
@@ -163,8 +163,9 @@ class Bundle(object):
 
 
 class Viz(QWidget):
-    def __init__(self, viz_input):
+    def __init__(self, viz_input, img_fpath='temp.png'):
         super().__init__()
+        self.img_fpath = img_fpath
         path_oridest, task_ppdp = viz_input['dplym']
         B, T = [viz_input['prmts'].get(k) for k in ['B', 'T']]
         z_bi = viz_input['sol']['z_bi']
@@ -198,6 +199,13 @@ class Viz(QWidget):
                     points.append([dpX, dpY])
                 points = sort_clockwise(points)
                 self.bundles.append(Bundle(b, assTaskIDs, points))
+        #
+        w, h = frameSize
+        self.image = QImage(w, h, QImage.Format_RGB32)
+        self.path = QPainterPath()
+        self.image.fill(Qt.white)  ## switch it to else
+        self.update()
+        #
         self.initUI()
 
     def initUI(self):
@@ -207,11 +215,19 @@ class Viz(QWidget):
         self.setFixedSize(QSize(w, h))
         self.show()
 
+    def save_img(self):
+        self.image.save(self.img_fpath, 'png')
+
     def paintEvent(self, e):
-        qp = QPainter()
-        qp.begin(self)
-        self.drawCanvas(qp)
-        qp.end()
+        for dev in [self, self.image]:
+            qp = QPainter()
+            qp.begin(dev)
+            self.drawCanvas(qp)
+            qp.end()
+        # qp = QPainter()
+        # qp.begin(self)
+        # self.drawCanvas(qp)
+        # qp.end()
 
     def drawCanvas(self, qp):
         for o in self.paths + self.tasks + self.bundles:
@@ -226,14 +242,16 @@ if __name__ == '__main__':
     dplym_fpath = opath.join('_temp', 'dplym_euclideanDistEx0.pkl')
     prmts_fpath = opath.join('_temp', 'prmts_euclideanDistEx0.pkl')
     sol_fpath = opath.join('_temp', 'sol_euclideanDistEx0_EX0.pkl')
+    #
+    img_fpath = opath.join('_temp', 'euclideanDistEx0_EX0.png')
 
     # dplym_fpath = opath.join(exp_dpath, 'tempProb/dplym_nt0006-nb0002-np005-dt0.80-vt3.pkl')
     # prmts_fpath = opath.join('_temp', 'prmts_nt0006-nb0002-np005.pkl')
     # sol_fpath = opath.join('_temp', 'sol_nt0006-nb0002-np005.pkl')
 
-
     viz_input = load_pklFiles(dplym_fpath, prmts_fpath, sol_fpath)
 
     app = QApplication(sys.argv)
-    ex = Viz(viz_input)
+    viz = Viz(viz_input, img_fpath)
+    viz.save_img()
     sys.exit(app.exec_())

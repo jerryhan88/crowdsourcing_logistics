@@ -130,7 +130,7 @@ def get_mrtNetwork():
                 reader = csv.DictReader(r_csvfile)
                 prev_STN = None
                 for row in reader:
-                    id0, STN, SpecialLink, _lat, _lon = [row.get(cn) for cn in ['ID', 'STN', 'SpecialLink', 'lat', 'lon']]
+                    id0, STN, SpecialLink, _lat, _lon = [row.get(cn) for cn in ['ID', 'STN', 'SpecialLink', 'lat', 'lng']]
                     lat0, lon0 = map(float, [_lat, _lon])
                     if not G.has_node(STN):
                         G.add_node(STN, id=id0, lat=lat0, lon=lon0)
@@ -160,7 +160,7 @@ def gen_flowWrs(openBrowser=True):
     min_lon, min_lat = 1e400, 1e400
     for STN in G.node:
         n = G.node[STN]
-        lon, lat = n['lon'], n['lat']
+        lon, lat = n['lng'], n['lat']
         if max_lon < lon:
             max_lon = lon
         if lon < min_lon:
@@ -174,7 +174,7 @@ def gen_flowWrs(openBrowser=True):
     #
     for STN in G.node:
         radius = 8 if STN in repStations else 3
-        id, lon, lat = [G.node[STN].get(coords) for coords in ['id', 'lon', 'lat']]
+        id, lon, lat = [G.node[STN].get(coords) for coords in ['id', 'lng', 'lat']]
         if id.startswith('EW') or id.startswith('CG'):
             col, nos = 'green', 3
         elif id.startswith('NS'):
@@ -209,7 +209,7 @@ def gen_flowWrs(openBrowser=True):
         for STN in nx.shortest_path(G, fSTN, tSTN):
             path.append(STN)
             n = G.node[STN]
-            lon, lat = n['lon'], n['lat']
+            lon, lat = n['lng'], n['lat']
             coords.append((lat, lon))
         with open(csv_fpath, 'a') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
@@ -232,7 +232,7 @@ def gen_topK_flow(openBrowser=True):
     min_lon, min_lat = 1e400, 1e400
     for STN in G.node:
         n = G.node[STN]
-        lon, lat = n['lon'], n['lat']
+        lon, lat = n['lng'], n['lat']
         if max_lon < lon:
             max_lon = lon
         if lon < min_lon:
@@ -245,7 +245,7 @@ def gen_topK_flow(openBrowser=True):
     map_osm = folium.Map(location=[latC, lonC], zoom_start=11)
     #
     for STN in G.node:
-        id, lon, lat = [G.node[STN].get(coords) for coords in ['id', 'lon', 'lat']]
+        id, lon, lat = [G.node[STN].get(coords) for coords in ['id', 'lng', 'lat']]
         if id.startswith('EW') or id.startswith('CG'):
             col, nos = 'green', 3
         elif id.startswith('NS'):
@@ -278,7 +278,7 @@ def gen_topK_flow(openBrowser=True):
         for STN in nx.shortest_path(G, fSTN, tSTN):
             path.append(STN)
             n = G.node[STN]
-            lon, lat = n['lon'], n['lat']
+            lon, lat = n['lng'], n['lat']
             coords.append((lat, lon))
         with open(csv_fpath, 'a') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')

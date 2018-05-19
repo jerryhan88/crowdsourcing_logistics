@@ -1,11 +1,12 @@
 import os.path as opath
 import os
 import pickle, csv
-import folium, json, webbrowser
+import folium, webbrowser
 import pandas as pd
 from pykml import parser
 from shapely.geometry import Polygon, Point
 import googlemaps
+from itertools import chain
 #
 from __path_organizer import ef_dpath, pf_dpath, ez_dpath, mrtNet_dpath, viz_dpath
 from sgDistrict import get_distPoly, get_distCBD
@@ -18,15 +19,40 @@ aDayNight_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801-H18H23.csv')
 SEC60 = 60
 
 
+def get_mrtLines():
+    mrtLines = {}
+    for fn in os.listdir(mrtNet_dpath):
+        if not fn.endswith('.csv'):
+            continue
+        lineName = fn[len('Line'):-len('.csv')]
+        MRTs = []
+        with open(opath.join(mrtNet_dpath, fn)) as r_csvfile:
+            reader = csv.DictReader(r_csvfile)
+            for row in reader:
+                MRTs.append(row['STN'])
+        mrtLines[lineName] = MRTs
+    #
+    return mrtLines
+
+
 def get_coordMRT():
     csv_fpath = opath.join(pf_dpath, 'MRT_coords.csv')
     pkl_fpath = opath.join(pf_dpath, 'MRT_coords.pkl')
     if not opath.exists(csv_fpath):
+        alt_name = {
+            'Harbourfront': 'HarbourFront',
+            'Marymount ': 'Marymount',
+            'Jelepang': 'Jelapang',
+            'Macpherson': 'MacPherson',
+            'One North': 'one-north'
+        }
         with open(csv_fpath, 'w') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
-            new_headers = ['Name', 'Lat', 'Lon']
+            new_headers = ['Name', 'Lat', 'Lng']
             writer.writerow(new_headers)
         #
+        mrtLines = get_mrtLines()
+        mrtName2013 = set(chain(*[mrts for _, mrts in mrtLines.items()]))
         kml_fpath = opath.join(ef_dpath, 'G_MP14_RAIL_STN_PL.kml')
         with open(kml_fpath) as f:
             kml_doc = parser.parse(f).getroot().Document
@@ -45,7 +71,7 @@ def get_coordMRT():
                     max_lat = lat
                 if max_lon < lon:
                     max_lon = lon
-            cLat, cLon = (min_lat + max_lat) / 2, (min_lon + max_lon) / 2
+            cLat, cLng = (min_lat + max_lat) / 2, (min_lon + max_lon) / 2
             mrt_name = str(pm.name).title()
             if mrt_name == 'Null':
                 continue
@@ -57,17 +83,17 @@ def get_coordMRT():
                             'Bedok Town Park', 'River Valley', 'Sengkang Central',
                             'Thomson Line', 'Springleaf']:
                 continue
-            if mrt_name == 'Kallang Bahru':
-                mrt_name = 'Geylang Bahru'
-            if mrt_name == 'Marymount ':
-                mrt_name = 'Marymount'
             #
             if mrt_name in mrt_coords:
                 continue
+            if mrt_name in alt_name:
+                mrt_name = alt_name[mrt_name]
+            if mrt_name not in mrtName2013:
+                continue
             with open(csv_fpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
-                writer.writerow([mrt_name, cLat, cLon])
-            mrt_coords[mrt_name] = [cLat, cLon]
+                writer.writerow([mrt_name, cLat, cLng])
+            mrt_coords[mrt_name] = [cLat, cLng]
         #
         with open(pkl_fpath, 'wb') as fp:
             pickle.dump(mrt_coords, fp)
@@ -111,22 +137,6 @@ def get_districtMRTs():
             distMRTs = pickle.load(fp)
     #
     return distMRTs
-
-
-def get_mrtLines():
-    mrtLines = {}
-    for fn in os.listdir(mrtNet_dpath):
-        if not fn.endswith('.csv'):
-            continue
-        lineName = fn[len('Line'):-len('.csv')]
-        MRTs = []
-        with open(opath.join(mrtNet_dpath, fn)) as r_csvfile:
-            reader = csv.DictReader(r_csvfile)
-            for row in reader:
-                MRTs.append(row['STN'])
-        mrtLines[lineName] = MRTs
-    #
-    return mrtLines
 
 
 def get_inflowCBD():
@@ -223,19 +233,6 @@ def add_MRTs_onMap(map_osm):
         else:
             col, nos = 'gray', 7
         for mrt_name in MRTs:
-            if mrt_name == 'Harbour Front':
-                mrt_name = 'Harbourfront'
-            if mrt_name == 'MacPherson':
-                mrt_name = 'Macpherson'
-            if mrt_name == 'Jelapang':
-                mrt_name = 'Jelepang'
-            if mrt_name == 'South VIEW':
-                mrt_name = 'South View'
-            if mrt_name == 'one-north':
-                mrt_name = 'One North'
-            if mrt_name == 'Ten Mile Junction':
-                continue
-
             folium.RegularPolygonMarker(
                 tuple(coordMRT[mrt_name]),
                 popup='%s' % mrt_name,
@@ -322,23 +319,21 @@ def viz_outflowCBD():
     webbrowser.get('safari').open_new(html_url)
 
 
-
-def get_MRTpairs():
-    lineMRTs = get_mrtLines()
-    wholeMRTs = []
-    for MRTs in lineMRTs.values():
-        wholeMRTs += MRTs
-    wholeMRTs = list(set(wholeMRTs))
-    MRTparis = set()
-    for i, MRT0 in enumerate(wholeMRTs):
-        for MRT1 in wholeMRTs[i:]:
-            if MRT0 == MRT1:
-                continue
-            MRTparis.add((MRT0, MRT1))
-    return MRTparis
-
-
 def get_travelTimeMRT_googlemap():
+    def get_MRTpairs():
+        lineMRTs = get_mrtLines()
+        wholeMRTs = []
+        for MRTs in lineMRTs.values():
+            wholeMRTs += MRTs
+        wholeMRTs = list(set(wholeMRTs))
+        MRTparis = set()
+        for i, MRT0 in enumerate(wholeMRTs):
+            for MRT1 in wholeMRTs[i:]:
+                if MRT0 == MRT1:
+                    continue
+                MRTparis.add((MRT0, MRT1) if MRT0 < MRT1 else (MRT1, MRT0))
+        return MRTparis
+    #
     googleKey1 = 'AIzaSyAQYLeLHyJvNVC7uIbHmnvf7x9XC6murmk'
     googleKey2 = 'AIzaSyDCiqj9QQ-lXWGmzxXM0j-Gbeo_BRlsd0g'
     googleKey3 = 'AIzaSyCsrxK4ZuxQAsGYt3RNHLeGfEFHwq-GIEU'
@@ -351,19 +346,18 @@ def get_travelTimeMRT_googlemap():
             writer = csv.writer(w_csvfile, lineterminator='\n')
             new_headers = ['fSTN', 'tSTN', 'travelTime']
             writer.writerow(new_headers)
-        target_MRTpairs = get_MRTpairs()
-
+        wholeMRTparis = get_MRTpairs()
+        target_MRTpairs = wholeMRTparis
     else:
         handled_MRTpairs = set()
         with open(csv_fpath) as r_csvfile:
             reader = csv.DictReader(r_csvfile)
             for row in reader:
-                handled_MRTpairs.add((row['fSTN'], row['tSTN']))
+                MRT0, MRT1 = row['fSTN'], row['tSTN']
+                assert MRT0 < MRT1
+                handled_MRTpairs.add((MRT0, MRT1))
         wholeMRTparis = get_MRTpairs()
         target_MRTpairs = wholeMRTparis.difference(handled_MRTpairs)
-        re_handled_MRTpairs = set([(MRT1, MRT0) for MRT0, MRT1 in handled_MRTpairs])
-        target_MRTpairs = target_MRTpairs.difference(re_handled_MRTpairs)
-
         #
     print(len(wholeMRTparis), len(target_MRTpairs))
     LRT_stations = ['Senja', 'Jelapang', 'Segar', 'Samudera', 'Pending', 'Fajar', 'Damai', 'Sumang', 'Riviera']
@@ -375,30 +369,8 @@ def get_travelTimeMRT_googlemap():
         res = gmaps.distance_matrix(loc0, loc1,
                                     mode="transit", transit_mode='train')
         elements = res['rows'][0]['elements']
-        if elements[0]['status'] == 'NOT_FOUND':
-            if MRT0 in LRT_stations:
-                if MRT0 == 'Jelapang':
-                    loc0 = tuple(mrt_coords['Jelepang'])
-                else:
-                    loc0 = tuple(mrt_coords[MRT0])
-            if MRT1 in LRT_stations:
-                if MRT1 == 'Jelapang':
-                    loc1 = tuple(mrt_coords['Jelepang'])
-                else:
-                    loc1 = tuple(mrt_coords[MRT1])
-            # if MRT0 == 'Harbour Front': MRT0 = 'Harbourfront'
-            # if MRT1 == 'Harbour Front': MRT1 = 'Harbourfront'
-            # #
-            # if MRT0 == 'MacPherson': MRT0 = 'Macpherson'
-            # if MRT1 == 'MacPherson': MRT1 = 'Macpherson'
-            # #
-            # if MRT0 == 'Jelapang': MRT0 = 'Jelepang'
-            # if MRT1 == 'Jelapang': MRT1 = 'Jelepang'
-            # #
-            # if MRT0 == 'South VIEW': MRT0 = 'South View'
-            # if MRT1 == 'South VIEW': MRT1 = 'South View'
-            #
-            #
+        if elements[0]['status'] == 'NOT_FOUND' or elements[0]['status'] == 'ZERO_RESULTS':
+            loc0, loc1 = tuple(mrt_coords[MRT0]), tuple(mrt_coords[MRT1])
             res = gmaps.distance_matrix(loc0, loc1,
                                         mode="transit", transit_mode='train')
             elements = res['rows'][0]['elements']
@@ -412,11 +384,12 @@ def get_travelTimeMRT_googlemap():
 
 
 if __name__ == '__main__':
-    # get_MRTs()
-    # get_districtPopPoly()
+    # get_mrtLines()
+    # get_coordMRT()
     # get_districtMRTs()
     # get_inflowCBD()
-    # get_travelTimeMRT_googlemap()
-    #
+    # get_outflowCBD()
     # viz_inflowCBD()
-    viz_outflowCBD()
+    # viz_outflowCBD()
+    get_travelTimeMRT_googlemap()
+

@@ -8,9 +8,11 @@ from random import seed, random, randrange, uniform
 def convert_prob2prmt(problemName,
                       flows, tasks,
                       numBundles, minTB, maxTB,
-                      numLocs, travel_time, thDetour):
+                      numLocs, travel_time, thDetour,
+                      minWS):
     B = list(range(numBundles))
     cB_M, cB_P = minTB, maxTB
+    cW = minWS
     T = list(range(len(tasks)))
     iPs, iMs = list(zip(*[(tasks[i][1], tasks[i][2]) for i in T]))
     P, D = set(), set()
@@ -67,7 +69,8 @@ def convert_prob2prmt(problemName,
             'B': B, 'cB_M': cB_M, 'cB_P': cB_P,
             'K': K, 'w_k': w_k,
             'T': T, 'P': P, 'D': D, 'N': N,
-            't_ij': t_ij, '_delta': _delta}
+            't_ij': t_ij, '_delta': _delta,
+            'cW': cW}
 
 
 def get_dist_twoPoints(p0, p1):
@@ -166,6 +169,7 @@ def euclideanDistEx0(pkl_dir='_temp'):
     numPaths, numTasks = 5, 5
     thDetour = 0.85
     numBundles, minTB, maxTB = 2, 2, 3
+    minWS = 0.25
     #
     flow_oridest, task_ppdp = gen_pt_locs(clusters, min_dist_path, max_dist_path, min_dist_task, numPaths, numTasks)
     (numLocs, lid_coord, coord_lid), travel_time = handle_locationNtt(flow_oridest, task_ppdp)
@@ -180,7 +184,8 @@ def euclideanDistEx0(pkl_dir='_temp'):
     problem = [problemName,
                flows, tasks,
                numBundles, minTB, maxTB,
-               numLocs, travel_time, thDetour]
+               numLocs, travel_time, thDetour,
+               minWS]
     with open(opath.join(pkl_dir, 'problem_%s.pkl' % problemName), 'wb') as fp:
         pickle.dump(problem, fp)
     prmt = convert_prob2prmt(*problem)

@@ -2,8 +2,11 @@ import os.path as opath
 from xlrd import open_workbook
 from pykml import parser
 import pickle, csv
-import folium, json, webbrowser
 import pandas as pd
+import numpy as np
+from shapely.ops import cascaded_union
+from shapely.geometry import Polygon
+import folium, json, webbrowser
 #
 from __path_organizer import ef_dpath, pf_dpath, viz_dpath
 
@@ -61,6 +64,21 @@ def get_districtPopPoly():
             distPoly = pickle.load(fp)
     #
     return distPop, distPoly
+
+
+def get_sgBorder():
+    sgBorder_fpath = opath.join(pf_dpath, 'sgBorderPolygon.pkl')
+    if not opath.exists(sgBorder_fpath):
+        _, distPoly = get_districtPopPoly()
+        sgBorderPolys = cascaded_union([Polygon(poly) for _, poly in distPoly.items()])
+        sgBorder = [np.array(poly.coords).tolist() for poly in sgBorderPolys.boundary]
+        with open(sgBorder_fpath, 'wb') as fp:
+            pickle.dump(sgBorder, fp)
+    else:
+        with open(sgBorder_fpath, 'rb') as fp:
+            sgBorder = pickle.load(fp)
+    #
+    return sgBorder
 
 
 def get_distCBD():
@@ -176,20 +194,20 @@ def viz_population():
         gen_distWholeJSON()
     #
     distPoly = get_distPoly()
-    max_lon, max_lat = -1e400, -1e400
-    min_lon, min_lat = 1e400, 1e400
+    max_lng, max_lat = -1e400, -1e400
+    min_lng, min_lat = 1e400, 1e400
     for distName, poly_latlon in distPoly.items():
-        for lat, lon in poly_latlon:
+        for lat, lng in poly_latlon:
             if lat < min_lat:
                 min_lat = lat
-            if lon < min_lon:
-                min_lon = lon
+            if lng < min_lng:
+                min_lng = lng
             if max_lat < lat:
                 max_lat = lat
-            if max_lon < lon:
-                max_lon = lon
+            if max_lng < lng:
+                max_lng = lng
     #
-    lonC, latC = (max_lon + min_lon) / 2.0, (max_lat + min_lat) / 2.0
+    lonC, latC = (max_lng + min_lng) / 2.0, (max_lat + min_lat) / 2.0
     map_osm = folium.Map(location=[latC, lonC], zoom_start=11)
     map_osm.choropleth(geo_data=gjson_fpath, data=df,
                      columns=('Name', 'Population'),
@@ -202,5 +220,33 @@ def viz_population():
     webbrowser.get('safari').open_new(html_url)
 
 
+def viz_sgBorder():
+    html_fpath = opath.join(viz_dpath, 'sgBorder.html')
+    sgBorder = get_sgBorder()
+    max_lng, max_lat = -1e400, -1e400
+    min_lng, min_lat = 1e400, 1e400
+    for poly in sgBorder:
+        for lat, lng in poly:
+            if lat < min_lat:
+                min_lat = lat
+            if lng < min_lng:
+                min_lng = lng
+            if max_lat < lat:
+                max_lat = lat
+            if max_lng < lng:
+                max_lng = lng
+    lonC, latC = (max_lng + min_lng) / 2.0, (max_lat + min_lat) / 2.0
+    map_osm = folium.Map(location=[latC, lonC], zoom_start=11)
+
+    for poly in sgBorder:
+        map_osm.add_child(folium.PolyLine(locations=poly, weight=1.0))
+    map_osm.save(html_fpath)
+    #
+    html_url = 'file://%s' % (opath.abspath(html_fpath))
+    webbrowser.get('safari').open_new(html_url)
+
+
 if __name__ == '__main__':
-    viz_population()
+    # viz_population()
+    # get_sgBorder()
+    viz_sgBorder()

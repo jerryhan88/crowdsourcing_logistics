@@ -9,7 +9,7 @@ from problems import convert_prob2prmt
 NUM_CORES = multiprocessing.cpu_count()
 
 
-def run(problem, etc=None):
+def run(prmt, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     if 'TimeLimit' not in etc:
         etc['TimeLimit'] = 1e400
@@ -23,21 +23,14 @@ def run(problem, etc=None):
                 log2file(etc['LogFile'], logContents)
                 m.terminate()
     #
-    inputs = convert_prob2prmt(*problem)
-    bB = inputs['bB']
-    T, _lambda = list(map(inputs.get, ['T', '_lambda']))
-    P, D, N = list(map(inputs.get, ['P', 'D', 'N']))
-    K, w_k = list(map(inputs.get, ['K', 'w_k']))
-    t_ij, _delta = list(map(inputs.get, ['t_ij', '_delta']))
+    B, cB_M, cB_P = list(map(prmt.get, ['B', 'cB_M', 'cB_P']))
+    T, P, D, N = list(map(prmt.get, ['T', 'P', 'D', 'N']))
+    K, w_k = list(map(prmt.get, ['K', 'w_k']))
+    t_ij, _delta = list(map(prmt.get, ['t_ij', '_delta']))
+    cW = prmt['cW']
     #
-    B = list(range(bB))
     bigM2 = len(N) + 2
     bigM3 = len(N) * max(t_ij.values())
-
-    cB_M = 2
-    cB_P = 4
-    cW = sum(w_k) / len(w_k) * 2
-    print(cW)
     #
     # Define decision variables
     #
@@ -232,8 +225,8 @@ if __name__ == '__main__':
     import os.path as opath
     from problems import euclideanDistEx0
     #
-    problem = euclideanDistEx0()
-    problemName = problem[0]
+    prmt = euclideanDistEx0()
+    problemName = prmt['problemName']
     #
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX1.pkl' % problemName),
            'solFileCSV': opath.join('_temp', 'sol_%s_EX1.csv' % problemName),
@@ -241,4 +234,4 @@ if __name__ == '__main__':
            'logFile': opath.join('_temp', '%s_EX1.log' % problemName)
            }
     #
-    run(problem, etc)
+    run(prmt, etc)
