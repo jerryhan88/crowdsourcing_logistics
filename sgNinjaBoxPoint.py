@@ -23,7 +23,7 @@ def crawl_NinjaBoxPoint():
     csv_fpath = opath.join(ef_dpath, 'NinjaBoxPoint.csv')
     with open(csv_fpath, 'w') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
-        new_headers = ['Location', 'Postcode', 'Lat', 'Lon']
+        new_headers = ['Location', 'Postcode', 'Lat', 'Lng']
         writer.writerow(new_headers)
     gmaps = googlemaps.Client(key=googleKey)
     #
@@ -80,7 +80,7 @@ def viz_NinjaBoxPoint():
         reader = csv.DictReader(r_csvfile)
         for row in reader:
             loc = row['Location']
-            lat, lon = [eval(row[cn]) for cn in ['Lat', 'Lon']]
+            lat, lon = [eval(row[cn]) for cn in ['Lat', 'Lng']]
             if 'Ninja Box' in loc:
                 folium.Marker([lat, lon],
                               popup='%s' % loc,
@@ -109,7 +109,7 @@ def travelTime_MRT_NinjaLocation():
         reader = csv.DictReader(r_csvfile)
         for row in reader:
             Location = row['Location']
-            locLat, locLng = [eval(row[cn]) for cn in ['Lat', 'Lon']]
+            locLat, locLng = [eval(row[cn]) for cn in ['Lat', 'Lng']]
             min_dist2, nearestMRT = 1e400, None
             for mrtName, (mrtLat, mrtLng) in mrt_coords.items():
                 dist2 = (mrtLat - locLat) ** 2 + (mrtLng - locLng) ** 2

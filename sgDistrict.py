@@ -40,8 +40,8 @@ def get_districtPopPoly():
             str_coords = str(pm.MultiGeometry.Polygon.outerBoundaryIs.LinearRing.coordinates)
             poly_coords = []
             for l in ''.join(str_coords.split()).split(',0')[:-1]:
-                lon, lat = map(eval, l.split(','))
-                poly_coords.append([lat, lon])
+                lng, lat = map(eval, l.split(','))
+                poly_coords.append([lat, lng])
             district_name = str(pm.name).title()
             if "'S" in district_name:
                 district_name = district_name.replace("'S", "'s")
@@ -66,10 +66,28 @@ def get_districtPopPoly():
     return distPop, distPoly
 
 
+def get_distPop():
+    pop_fpath = opath.join(pf_dpath, 'DistrictsPopulation.pkl')
+    if not opath.exists(pop_fpath):
+        get_districtPopPoly()
+    with open(pop_fpath, 'rb') as fp:
+        distPop = pickle.load(fp)
+    return distPop
+
+
+def get_distPoly():
+    poly_fpath = opath.join(pf_dpath, 'DistrictsPolygon.pkl')
+    if not opath.exists(poly_fpath):
+        get_districtPopPoly()
+    with open(poly_fpath, 'rb') as fp:
+        distPoly = pickle.load(fp)
+    return distPoly
+
+
 def get_sgBorder():
     sgBorder_fpath = opath.join(pf_dpath, 'sgBorderPolygon.pkl')
     if not opath.exists(sgBorder_fpath):
-        _, distPoly = get_districtPopPoly()
+        distPoly = get_distPoly()
         sgBorderPolys = cascaded_union([Polygon(poly) for _, poly in distPoly.items()])
         sgBorder = [np.array(poly.coords).tolist() for poly in sgBorderPolys.boundary]
         with open(sgBorder_fpath, 'wb') as fp:
@@ -105,24 +123,6 @@ def get_distCBD():
             distCBD = pickle.load(fp)
     #
     return distCBD
-
-
-def get_distPop():
-    pop_fpath = opath.join(pf_dpath, 'DistrictsPopulation.pkl')
-    if not opath.exists(pop_fpath):
-        get_districtPopPoly()
-    with open(pop_fpath, 'rb') as fp:
-        distPop = pickle.load(fp)
-    return distPop
-
-
-def get_distPoly():
-    poly_fpath = opath.join(pf_dpath, 'DistrictsPolygon.pkl')
-    if not opath.exists(poly_fpath):
-        get_districtPopPoly()
-    with open(poly_fpath, 'rb') as fp:
-        distPoly = pickle.load(fp)
-    return distPoly
 
 
 def gen_distWholeJSON():
@@ -247,6 +247,6 @@ def viz_sgBorder():
 
 
 if __name__ == '__main__':
-    # viz_population()
+    viz_population()
     # get_sgBorder()
-    viz_sgBorder()
+    # viz_sgBorder()

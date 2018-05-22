@@ -123,8 +123,8 @@ class Task(object):
 
         qp.setPen(Task.pen)
         qp.setBrush(Qt.NoBrush)
-        for f, (p0, p1) in [(qp.drawRect, (self.ppX, self.ppY)),
-                            (qp.drawEllipse, (self.dpX, self.dpY))]:
+        for f, (p0, p1) in [(qp.drawEllipse, (self.ppX, self.ppY)),
+                            (qp.drawRect, (self.dpX, self.dpY))]:
             f(p0 - Task.dotSize / 2, p1 - Task.dotSize / 2,
                 Task.dotSize, Task.dotSize)
 

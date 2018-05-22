@@ -3,6 +3,7 @@ import os
 import pickle, csv
 import folium, webbrowser
 import pandas as pd
+import networkx as nx
 from pykml import parser
 from shapely.geometry import Polygon, Point
 import googlemaps
@@ -33,6 +34,59 @@ def get_mrtLines():
         mrtLines[lineName] = MRTs
     #
     return mrtLines
+
+
+def get_mrtNet():
+    pkl_fpath = opath.join(pf_dpath, 'mrtNetwork.pkl')
+    if not opath.exists(pkl_fpath):
+        mrtNet = {}
+        for fn in os.listdir(mrtNet_dpath):
+            if not fn.endswith('.csv'):
+                continue
+            lineName = fn[len('Line'):-len('.csv')]
+            connections = []
+            with open(opath.join(mrtNet_dpath, fn)) as r_csvfile:
+                reader = csv.DictReader(r_csvfile)
+                prev_STN = None
+                for row in reader:
+                    STN, SpecialLink = [row.get(cn) for cn in ['STN', 'SpecialLink']]
+                    if SpecialLink == '' or SpecialLink == 'E':
+                        connections.append([STN, prev_STN])
+                    elif SpecialLink == 'B':
+                        pass
+                    elif SpecialLink.startswith('CL'):
+                        _, nextSTN = SpecialLink.split(';')
+                        connections.append([STN, nextSTN])
+                        connections.append([STN, prev_STN])
+                    else:
+                        connections.append([STN, SpecialLink])
+                    prev_STN = STN
+            mrtNet[lineName] = connections
+        with open(pkl_fpath, 'wb') as fp:
+            pickle.dump(mrtNet, fp)
+    else:
+        with open(pkl_fpath, 'rb') as fp:
+            mrtNet = pickle.load(fp)
+    #
+    return mrtNet
+
+
+def get_mrtNetNX():
+    pkl_fpath = opath.join(pf_dpath, 'mrtNetworkNX.pkl')
+    if not opath.exists(pkl_fpath):
+        mrtNet = get_mrtNet()
+        mrtNetNX = nx.Graph()
+        for connections in mrtNet.values():
+            for mrt0, mrt1 in connections:
+                mrtNetNX.add_edge(mrt0, mrt1)
+        nx.write_gpickle(mrtNetNX, pkl_fpath)
+    else:
+        mrtNetNX = nx.read_gpickle(pkl_fpath)
+    return mrtNetNX
+
+
+def get_route(mrtNetNX, mrt0, mrt1):
+    return nx.shortest_path(mrtNetNX, mrt0, mrt1)
 
 
 def get_coordMRT():
@@ -102,6 +156,7 @@ def get_coordMRT():
             mrt_coords = pickle.load(fp)
     #
     return mrt_coords
+
 
 
 def get_districtMRTs():
@@ -383,6 +438,10 @@ def get_travelTimeMRT_googlemap():
             print(MRT0, MRT1)
 
 
+
+
+
+
 if __name__ == '__main__':
     # get_mrtLines()
     # get_coordMRT()
@@ -391,5 +450,10 @@ if __name__ == '__main__':
     # get_outflowCBD()
     # viz_inflowCBD()
     # viz_outflowCBD()
-    get_travelTimeMRT_googlemap()
+    # get_travelTimeMRT_googlemap()
+    mrtNetNX = get_mrtNetNX()
+
+    print(get_route(mrtNetNX, 'one-north', 'Dhoby Ghaut'))
+
+
 
