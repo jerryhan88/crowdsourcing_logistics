@@ -35,17 +35,27 @@ HEIGHT = lat_gap * (WIDTH / lng_gap)
 mainFrameOrigin = (60, 100)
 
 SHOW_ALL_PD = True
-SHOW_MRT_LINE = True
-SHOW_FLOW = False
+SHOW_MRT_LINE = False
+SHOW_FLOW = True
 SHOW_DISTRICT = True
 
 
 CADI_FLOW = [
-    ('Tampines', 'Raffles Place', 2899),
-    ('Choa Chu Kang', 'Jurong East', 2351),
-    ('Ang Mo Kio', 'Orchard', 2351),
-    ('Boon Lay', 'Jurong East', 2205),
-    ('Ang Mo Kio', 'Raffles Place', 2202),
+    ('Tampines', 'Raffles Place', 1),
+    ('Bedok', 'Raffles Place', 1),
+    ('Tampines', 'Tanjong Pagar', 1),
+
+    ('Bishan', 'Raffles Place', 1),
+    ('Yishun', 'Orchard', 1),
+    ('Ang Mo Kio', 'Raffles Place', 1),
+
+    ('Choa Chu Kang', 'Jurong East', 1),
+    ('Boon Lay', 'Jurong East', 1),
+    ('Yew Tee', 'Jurong East', 1),
+
+    ('Lakeside', 'Tanjong Pagar', 1),
+    ('Lakeside', 'Raffles Place', 1),
+    ('Boon Lay', 'Tanjong Pagar', 1),
 ]
 
 
