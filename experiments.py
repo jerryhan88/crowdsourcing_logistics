@@ -9,7 +9,8 @@ import multiprocessing
 #
 from __path_organizer import exp_dpath
 from problems import randomProb_EuclDist
-from EX0 import run as EX0_run
+from EX1 import run as EX1_run
+from EX2 import run as EX2_run
 # from BNP import run as BNP_run
 # from CWL import run as CWL_run
 # from GH import run as GH_run
@@ -33,7 +34,7 @@ def gen_problems(problem_dpath):
 
 
 def run_experiments(machine_num):
-    _numThreads, _TimeLimit = multiprocessing.cpu_count(), 10 * 60 * 60
+    _TimeLimit = 10 * 60 * 60
     machine_dpath = opath.join(exp_dpath, 'm%d' % machine_num)
     problem_dpath = opath.join(machine_dpath, '__problems')
     for path in [machine_dpath, problem_dpath]:
@@ -51,16 +52,22 @@ def run_experiments(machine_num):
     problems_ifpathes.sort()
     for i, ifpath in enumerate(problems_ifpathes):
         with open(ifpath, 'rb') as fp:
-            problem = pickle.load(fp)
+            prmt = pickle.load(fp)
+        problemName = prmt['problemName']
         ###############################################################
-        # EX
-        problemName = problem[0]
-        etc = {'solFilePKL': opath.join(res_dpath, 'sol_%s_EX0.pkl' % problemName),
-               'solFileCSV': opath.join(res_dpath, 'sol_%s_EX0.csv' % problemName),
-               'solFileTXT': opath.join(res_dpath, 'sol_%s_EX0.txt' % problemName),
-               'logFile': opath.join(log_dpath, '%s_EX0.log' % problemName)
-               }
-        EX0_run(problem, etc)
+        # EX1
+        etc = {'solFilePKL': opath.join(res_dpath, 'sol_%s_EX1.pkl' % problemName),
+               'solFileCSV': opath.join(res_dpath, 'sol_%s_EX1.csv' % problemName),
+               'solFileTXT': opath.join(res_dpath, 'sol_%s_EX1.txt' % problemName),
+               'logFile': opath.join(log_dpath, '%s_EX1.log' % problemName)}
+        EX1_run(prmt, etc)
+        ###############################################################
+        # EX2
+        # etc = {'solFilePKL': opath.join(res_dpath, 'sol_%s_EX2.pkl' % problemName),
+        #        'solFileCSV': opath.join(res_dpath, 'sol_%s_EX2.csv' % problemName),
+        #        'solFileTXT': opath.join(res_dpath, 'sol_%s_EX2.txt' % problemName),
+        #        'logFile': opath.join(log_dpath, '%s_EX2.log' % problemName)}
+        # EX2_run(prmt, etc)
         ###############################################################
         #
         ###############################################################
@@ -215,6 +222,6 @@ def read_result(resF,logF):
 
 if __name__ == '__main__':
     gen_problems(opath.join(exp_dpath, 'tempProb'))
-    run_experiments(0)
+    run_experiments(101)
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()

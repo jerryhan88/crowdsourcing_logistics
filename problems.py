@@ -66,6 +66,7 @@ def convert_prob2prmt(problemName,
     N = set(_N.keys())
     #
     return {'problemName': problemName,
+            'bB': numBundles,
             'B': B, 'cB_M': cB_M, 'cB_P': cB_P,
             'K': K, 'w_k': w_k,
             'T': T, 'P': P, 'D': D, 'N': N,

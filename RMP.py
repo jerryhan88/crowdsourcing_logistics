@@ -1,11 +1,11 @@
 from gurobipy import *
 
 
-def generate_RMP(ori_inputs, add_inputs):
+def generate_RMP(prmt, add_inputs):
     C, p_c, e_ci = list(map(add_inputs.get, ['C', 'p_c', 'e_ci']))
     includeBNB = True if 'inclusiveC' in add_inputs else False
     #
-    bB, T = list(map(ori_inputs.get, ['bB', 'T']))
+    bB, T = list(map(prmt.get, ['bB', 'T']))
     #
     # Define decision variables
     #
@@ -28,8 +28,11 @@ def generate_RMP(ori_inputs, add_inputs):
     for i in T:  # eq:taskA
         taskAC[i] = RMP.addConstr(quicksum(e_ci[c][i] * q_c[c] for c in range(len(C))) <= 1,
                                   name="taskAC[%d]" % i)
-    numBC = RMP.addConstr(quicksum(q_c[c] for c in range(len(C))) == bB,
+    numBC = RMP.addConstr(quicksum(q_c[c] for c in range(len(C))) <= bB,
                               name="numBC")
+
+
+    # TODO
     if includeBNB:
         inclusiveC, exclusiveC = list(map(add_inputs.get, ['inclusiveC', 'exclusiveC']))
         C_i0i1 = {}

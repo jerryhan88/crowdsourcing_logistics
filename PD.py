@@ -1,9 +1,10 @@
+import multiprocessing
 from gurobipy import *
 #
-from _util import set_grbSettings, get_routeFromOri
+NUM_CORES = multiprocessing.cpu_count()
 
 
-def run(ori_inputs, pd_inputs, grbSetting):
+def run(prmt, pd_inputs):
     k, Ts = [pd_inputs.get(k) for k in ['k', 'Ts']]
     _kP, _kM = 'ori%d' % k, 'dest%d' % k
     P, D = set(), set()
@@ -12,7 +13,7 @@ def run(ori_inputs, pd_inputs, grbSetting):
         D.add('d%d' % i)
     N = P.union(D)
     kN = N.union({_kP, _kM})
-    t_ij = ori_inputs['t_ij']
+    t_ij = prmt['t_ij']
     bigM = len(N) + 2
     #
     # Define decision variables
@@ -70,10 +71,7 @@ def run(ori_inputs, pd_inputs, grbSetting):
     # Run Gurobi (Optimization)
     #
     PD.setParam('OutputFlag', False)
-    for k, v in grbSetting.items():
-        if k.startswith('Log'):
-            continue
-        PD.setParam(k, v)
+    PD.setParam('Threads', NUM_CORES)
     PD.optimize()
     #
     _route = {}
@@ -91,15 +89,17 @@ def run(ori_inputs, pd_inputs, grbSetting):
     return PD.objVal, route
 
 
-def calc_expectedProfit(ori_inputs, grbSetting, Ts):
-    K, r_i, w_k, _delta = list(map(ori_inputs.get, ['K', 'r_i', 'w_k', '_delta']))
-    br = sum([r_i[i] for i in Ts])
-    ep = 0
+def get_wsFeasiblity(prmt, Ts):
+    K, w_k, _delta, cW = list(map(prmt.get, ['K', 'w_k', '_delta', 'cW']))
+    ws, feasiblity = 0, False
     for k in K:
-        detourTime, route = run(ori_inputs, {'k': k, 'Ts': Ts}, grbSetting)
+        detourTime, route = run(prmt, {'k': k, 'Ts': Ts})
         if detourTime <= _delta:
-            ep += w_k[k] * br
-    return ep
+            ws += w_k[k]
+        if ws > cW:
+            feasiblity = True
+            break
+    return feasiblity
 
 
 if __name__ == '__main__':

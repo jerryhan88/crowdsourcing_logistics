@@ -52,7 +52,7 @@ def itr2file(fpath, contents=[]):
             os.remove(fpath)
         with open(fpath, 'wt') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
-            header = ['itrNum', 'relObjV', 'selBC', 'selBC_RC', 'newBC', 'newBC_RC', 'eliCpuTime', 'eliWallTime']
+            header = ['itrNum', 'eliCpuTime', 'eliWallTime', 'relObjV', 'selBC', 'selBC_RC', 'new_RC_BC', ]
             writer.writerow(header)
     else:
         with open(fpath, 'a') as w_csvfile:

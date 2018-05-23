@@ -4,7 +4,6 @@ import pickle
 from gurobipy import *
 #
 from _util import log2file, res2file
-from problems import convert_prob2prmt
 
 NUM_CORES = multiprocessing.cpu_count()
 
@@ -14,6 +13,7 @@ def run(prmt, etc=None):
     if 'TimeLimit' not in etc:
         etc['TimeLimit'] = 1e400
     etc['startTS'] = startCpuTime
+    problemName = prmt['problemName']
     #
     def callbackF(m, where):
         if where == GRB.Callback.MIP:
@@ -27,19 +27,17 @@ def run(prmt, etc=None):
     T, P, D, N = list(map(prmt.get, ['T', 'P', 'D', 'N']))
     K, w_k = list(map(prmt.get, ['K', 'w_k']))
     t_ij, _delta = list(map(prmt.get, ['t_ij', '_delta']))
+    cW = prmt['cW']
     #
-    bigM1 = len(T)
-    bigM2 = len(N) + 2
-    bigM3 = len(N) * max(t_ij.values())
+    bigM1 = len(N) + 2
+    bigM2 = len(N) * max(t_ij.values())
     #
     # Define decision variables
     #
-    EX = Model('EX')
+    EX = Model('EX1')
     z_bi = {(b, i): EX.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (b, i))
             for b in B for i in T}
     y_bk = {(b, k): EX.addVar(vtype=GRB.BINARY, name='y[%d,%d]' % (b, k))
-            for b in B for k in K}
-    a_bk = {(b, k): EX.addVar(vtype=GRB.CONTINUOUS, name='a[%d,%d]' % (b, k))
             for b in B for k in K}
     g_b = {b: EX.addVar(vtype=GRB.BINARY, name='g[%d]' % b)
            for b in B}
@@ -58,8 +56,8 @@ def run(prmt, etc=None):
     #
     obj = LinExpr()
     for b in B:
-        for k in K:  # eq:linear_proObj
-            obj += w_k[k] * a_bk[b, k]
+        for i in T:  # eq:ObjF
+            obj += z_bi[b, i]
     EX.setObjective(obj, GRB.MAXIMIZE)
 
     for b in B:
@@ -69,14 +67,6 @@ def run(prmt, etc=None):
                      name='minTB2[%d]' % b)
     #
     # Define constrains
-    #  Linearization
-    #
-    for b in B:
-        for k in K:  # eq:linAlpha
-            EX.addConstr(a_bk[b, k] <= bigM1 * y_bk[b, k],
-                        name='la1[%d,%d]' % (b, k))
-            EX.addConstr(a_bk[b, k] <= quicksum(z_bi[b, i] for i in T),
-                        name='la2[%d,%d]' % (b, k))
     #
     #  Bundle
     #
@@ -118,17 +108,17 @@ def run(prmt, etc=None):
             #  # eq:initOrder
             EX.addConstr(2 <= o_ki[k, i],
                          name='initO1[%d,%s]' % (k, i))
-            EX.addConstr(o_ki[k, i] <= bigM2,
+            EX.addConstr(o_ki[k, i] <= bigM1,
                          name='initO2[%d,%s]' % (k, i))
             for j in N_kM:
                 for b in B:
                     #  # eq:subEli
-                    EX.addConstr(o_ki[k, i] + 1 <= o_ki[k, j] + bigM2 * (1 - x_bkij[b, k, i, j]),
+                    EX.addConstr(o_ki[k, i] + 1 <= o_ki[k, j] + bigM1 * (1 - x_bkij[b, k, i, j]),
                          name='subEli[%d,%d,%s,%s]' % (b, k, i, j))
         for i in T:
             for b in B:
                 #  # eq:pdSequence
-                EX.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_bi[b, i]),
+                EX.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM1 * (1 - z_bi[b, i]),
                              name='pdS[%d,%d,%d]' % (b, k, i))
     #
     # Detour feasibility
@@ -142,8 +132,10 @@ def run(prmt, etc=None):
                 for j in kN:
                     LRS += t_ij[i, j] * x_bkij[b, k, i, j]
             LRS -= t_ij['ori%d' % k, 'dest%d' % k]
-            EX.addConstr(LRS <= _delta + bigM3 * (1 - y_bk[b, k]),
+            EX.addConstr(LRS <= _delta + bigM2 * (1 - y_bk[b, k]),
                         name='df[%d,%d]' % (b, k))
+        EX.addConstr(quicksum(w_k[k] * y_bk[b, k] for k in K) >= cW * g_b[b],
+                     name='bg[%d]' % b)
     #
     # Run Gurobi (Optimization)
     #
@@ -154,9 +146,9 @@ def run(prmt, etc=None):
     EX.optimize(callbackF)
     #
     if EX.status == GRB.Status.INFEASIBLE:
-        EX.write('%s.lp' % prmt['problemName'])
+        EX.write('%s.lp' % problemName)
         EX.computeIIS()
-        EX.write('%s.ilp' % prmt['problemName'])
+        EX.write('%s.ilp' % problemName)
     #
     if etc and EX.status != GRB.Status.INFEASIBLE:
         assert 'solFilePKL' in etc
@@ -167,14 +159,8 @@ def run(prmt, etc=None):
             endCpuTime, endWallTime = time.clock(), time.time()
             eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
             logContents = 'Summary\n'
-            logContents += '\t Cpu Time\n'
-            logContents += '\t\t Sta.Time: %s\n' % str(startCpuTime)
-            logContents += '\t\t End.Time: %s\n' % str(endCpuTime)
-            logContents += '\t\t Eli.Time: %f\n' % eliCpuTime
-            logContents += '\t Wall Time\n'
-            logContents += '\t\t Sta.Time: %s\n' % str(startWallTime)
-            logContents += '\t\t End.Time: %s\n' % str(endWallTime)
-            logContents += '\t\t Eli.Time: %f\n' % eliWallTime
+            logContents += '\t Cpu Time: %f\n' % eliCpuTime
+            logContents += '\t Wall Time: %f\n' % eliWallTime
             logContents += '\t ObjV: %.3f\n' % EX.objVal
             logContents += '\t Gap: %.3f\n' % EX.MIPGap
             f.write(logContents)
@@ -184,9 +170,7 @@ def run(prmt, etc=None):
             logContents += '\n'
             for b in B:
                 bundle = [i for i in T if z_bi[b, i].x > 0.5]
-                br = len(bundle)
-                logContents += '%s (%d) \n' % (str(bundle), br)
-                p = 0
+                logContents += '%s (%d) \n' % (str(bundle), len(bundle))
                 for k in K:
                     kP, kM = 'ori%d' % k, 'dest%d' % k
                     kN = N.union({kP, kM})
@@ -205,18 +189,15 @@ def run(prmt, etc=None):
                         i = _route[i]
                     route.append(i)
                     if y_bk[b, k].x > 0.5:
-                        p += w_k[k] * br
                         logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 1, str(route))
                     else:
                         logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 0, str(route))
-                logContents += '\t\t\t\t\t\t %.3f\n' % p
             f.write(logContents)
         #
         res2file(etc['solFileCSV'], EX.objVal, EX.MIPGap, eliCpuTime, eliWallTime)
         #
         _z_bi = {(b, i): z_bi[b, i].x for b in B for i in T}
         _y_bk = {(b, k): y_bk[b, k].x for b in B for k in K}
-        _a_bk = {(b, k): a_bk[b, k].x for b in B for k in K}
         _g_b = {b: g_b[b].x for b in B}
         #
         _o_ki, _x_bkij = {}, {}
@@ -227,8 +208,11 @@ def run(prmt, etc=None):
                 for j in kN:
                     for b in B:
                         _x_bkij[b, k, i, j] = x_bkij[b, k, i, j].x
-        sol = {'z_bi': _z_bi, 'y_bk': _y_bk, 'a_bk': _a_bk, 'g_b': _g_b,
-                'o_ki': _o_ki, 'x_bkij': _x_bkij}
+        sol = {
+               'B': B, 'T': T, 'K': K, 'N': N,
+               #
+               'z_bi': _z_bi, 'y_bk': _y_bk, 'g_b': _g_b,
+               'o_ki': _o_ki, 'x_bkij': _x_bkij}
         with open(etc['solFilePKL'], 'wb') as fp:
             pickle.dump(sol, fp)
 
@@ -236,14 +220,16 @@ def run(prmt, etc=None):
 if __name__ == '__main__':
     import os.path as opath
     from problems import euclideanDistEx0
+    from mrtScenario import mrtS1
     #
-    prmt = euclideanDistEx0()
+    # prmt = euclideanDistEx0()
+    prmt = mrtS1()
     problemName = prmt['problemName']
     #
-    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX0.pkl' % problemName),
-           'solFileCSV': opath.join('_temp', 'sol_%s_EX0.csv' % problemName),
-           'solFileTXT': opath.join('_temp', 'sol_%s_EX0.txt' % problemName),
-           'logFile': opath.join('_temp', '%s_EX0.log' % problemName)
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX2.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_EX2.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_EX2.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_EX2.log' % problemName)
            }
     #
     run(prmt, etc)
