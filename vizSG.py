@@ -35,11 +35,13 @@ lat_gap = max_lat - min_lat
 WIDTH = 1800.0
 HEIGHT = lat_gap * (WIDTH / lng_gap)
 
-mainFrameOrigin = (60, 100)
+FRAME_ORIGIN = (60, 100)
 
 SHOW_ALL_PD = False
-SHOW_MRT_LINE = True
+SHOW_MRT_LINE = False
 SHOW_DISTRICT = True
+
+SAVE_IMAGE = True
 
 pallet = [
     Color('blue').get_hex_l(),
@@ -314,9 +316,14 @@ class Viz(QWidget):
         self.shortcut.activated.connect(self.close)
 
     def initUI(self):
-        self.setGeometry(mainFrameOrigin[0], mainFrameOrigin[1], WIDTH, HEIGHT)
+        self.setGeometry(FRAME_ORIGIN[0], FRAME_ORIGIN[1], WIDTH, HEIGHT)
         self.setWindowTitle('Viz')
         self.setFixedSize(QSize(WIDTH, HEIGHT))
+        #
+        if SAVE_IMAGE:
+            self.image = QImage(WIDTH, HEIGHT, QImage.Format_RGB32)
+            self.path = QPainterPath()
+            self.image.fill(Qt.white)  ## switch it to else
         self.show()
 
     def mousePressEvent(self, QMouseEvent):
@@ -348,6 +355,14 @@ class Viz(QWidget):
         qp.begin(self)
         self.drawCanvas(qp)
         qp.end()
+        if SAVE_IMAGE:
+            qp = QPainter()
+            qp.begin(self.image)
+            self.drawCanvas(qp)
+            qp.end()
+
+    def save_img(self, img_fpath):
+        self.image.save(img_fpath, 'png')
 
     def drawCanvas(self, qp):
         for o in self.objForDrawing:
@@ -364,11 +379,13 @@ if __name__ == '__main__':
 
 
     pkl_files = {
-        'dplym': opath.join('_temp', 'dplym_mrtS1_dt80.pkl'),
-        'prmts': opath.join('_temp', 'prmts_mrtS1_dt80.pkl'),
-        'sol': opath.join('_temp', 'sol_mrtS1_dt80_CWL.pkl')
+        'dplym': opath.join('_temp', 'dplym_mrtS2_dt60.pkl'),
+        'prmts': opath.join('_temp', 'prmts_mrtS2_dt60.pkl'),
+        'sol': opath.join('_temp', 'sol_mrtS2_dt60_CWL.pkl')
     }
 
     app = QApplication(sys.argv)
     viz = Viz(pkl_files)
+    if SAVE_IMAGE:
+        viz.save_img('temp.png')
     sys.exit(app.exec_())

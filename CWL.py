@@ -217,10 +217,11 @@ def run(prmt, etc=None):
 if __name__ == '__main__':
     import os.path as opath
     from problems import euclideanDistEx0
-    from mrtScenario import mrtS1
+    from mrtScenario import mrtS1, mrtS2
     #
     # prmt = euclideanDistEx0()
-    prmt = mrtS1()
+    # prmt = mrtS1()
+    prmt = mrtS2()
     problemName = prmt['problemName']
     #
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL.pkl' % problemName),

@@ -189,6 +189,88 @@ def mrtS1(pkl_dir='_temp'):
     #
     return prmt
     
+# MIN_HOP = 8
+# def random_generation():
+
+
+def mrtS2(pkl_dir='_temp'):
+    from random import seed, randrange
+    seed(0)
+    #
+    thDetour = 80
+    problemName = 'mrtS2_dt%d' % thDetour
+    numBundles, minTB, maxTB = 4, 2, 3
+    minWS = 0.2
+
+
+    stations = ['Raffles Place', 'Tampines', 'Yishun', 'Jurong East', 'Choa Chu Kang', 'Bishan']
+    numTasks = 20
+
+    flow_oridest = [(stations[i], stations[j])
+                    for i in range(len(stations)) for j in range(len(stations)) if i != j]
+
+    tempList = []
+
+    with open(opath.join(pf_dpath, 'tt-MRT-LocationPD.csv')) as r_csvfile:
+        reader = csv.DictReader(r_csvfile)
+        for row in reader:
+            nearestMRT, Location = [row[cn] for cn in ['nearestMRT', 'Location']]
+            Duration = eval(row['Duration'])
+            if nearestMRT in stations:
+                tempList.append(Location)
+            # locPD_MRT_tt[Location] = [Duration, nearestMRT]
+
+    print(len(flow_oridest))
+    print(len(tempList), tempList)
+    task_ppdp = []
+    while len(task_ppdp) < numTasks:
+        i = randrange(len(tempList))
+        j = randrange(len(tempList))
+        if i != j:
+            task_ppdp.append((tempList[i], tempList[j]))
+
+        #
+    (numLocs, lid_loc, loc_lid), travel_time = handle_locNtt_MRT(flow_oridest, task_ppdp)
+    #
+    flows = {}
+    with open(aDayNight_EZ_fpath) as r_csvfile:
+        reader = csv.DictReader(r_csvfile)
+        for row in reader:
+            fSTN, tSTN = [row[cn] for cn in ['fSTN', 'tSTN']]
+            count = eval(row['count'])
+            if (fSTN, tSTN) in flow_oridest:
+                flows[loc_lid[fSTN], loc_lid[tSTN]] = count
+    assert len(flows) == len(flow_oridest)
+    tasks = []
+    for i, (loc0, loc1) in enumerate(task_ppdp):
+        tasks.append((i, loc_lid[loc0], loc_lid[loc1]))
+    #
+    problem = [problemName,
+               flows, tasks,
+               numBundles, minTB, maxTB,
+               numLocs, travel_time, thDetour,
+               minWS]
+    with open(opath.join(pkl_dir, 'problem_%s.pkl' % problemName), 'wb') as fp:
+        pickle.dump(problem, fp)
+    prmt = convert_prob2prmt(*problem)
+    with open(opath.join(pkl_dir, 'prmts_%s.pkl' % problemName), 'wb') as fp:
+        pickle.dump(prmt, fp)
+    vizInputs = [flow_oridest, task_ppdp]
+    with open(opath.join(pkl_dir, 'dplym_%s.pkl' % problemName), 'wb') as fp:
+        pickle.dump(vizInputs, fp)
+    #
+    return prmt
+
+
+
+    # print(flow_oridest)
+
+
+
+
+
+
 
 if __name__ == '__main__':
-    mrtS1()
+    # mrtS1()
+    mrtS2()
