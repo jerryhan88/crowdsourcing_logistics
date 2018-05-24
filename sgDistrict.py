@@ -11,6 +11,18 @@ import folium, json, webbrowser
 from __path_organizer import ef_dpath, pf_dpath, viz_dpath
 
 
+xConsiderDist = [   'North-Eastern Islands',
+                    'Tuas View Extension',
+                    'Jurong Island And Bukom',
+                    'Southern Group',
+                    'Semakau',
+                    'Sudong',
+                    'Pulau Seletar',
+                 ]
+
+
+
+
 def get_districtPopPoly():
     csv_fpath = opath.join(pf_dpath, 'DistrictsPopulation.csv')
     pop_fpath_PKL = opath.join(pf_dpath, 'DistrictsPopulation.pkl')
@@ -30,6 +42,8 @@ def get_districtPopPoly():
             if district_name in ['Subzone', 'Total', '']:
                 continue
             population = int(sh.cell(i, 3).value) if sh.cell(i, 3).value != '-' else 0
+            if district_name in xConsiderDist:
+                continue
             distPop[district_name] = population
         #
         distPoly = {}
@@ -47,6 +61,8 @@ def get_districtPopPoly():
                 district_name = district_name.replace("'S", "'s")
             if "S'Pore" in district_name:
                 district_name = district_name.replace("S'Pore", "S'pore")
+            if district_name in xConsiderDist:
+                continue
             assert district_name in distPop
             distPoly[district_name] = poly_coords
             with open(csv_fpath, 'a') as w_csvfile:

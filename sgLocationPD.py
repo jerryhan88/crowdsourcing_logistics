@@ -10,7 +10,7 @@ from sgDistrict import get_distPoly
 MAX_DETOUR_DURATION = 10  # min.
 
 new_header = ['typePD', 'Lat', 'Lng', 'nearestMRT', 'Duration', 'Location', 'District']
-pdLoc = namedtuple('pdLoc', new_header)
+pdLoc = namedtuple('pdLocs', new_header)
 
 
 def get_locationPD():

@@ -1,5 +1,8 @@
 import os.path as opath
 import sys
+import pickle
+from itertools import chain
+import numpy as np
 #
 from PyQt5.QtWidgets import QWidget, QApplication, QShortcut
 from PyQt5.QtGui import (QPainter, QPen, QColor, QFont, QTextDocument,
@@ -34,29 +37,39 @@ HEIGHT = lat_gap * (WIDTH / lng_gap)
 
 mainFrameOrigin = (60, 100)
 
-SHOW_ALL_PD = True
-SHOW_MRT_LINE = False
-SHOW_FLOW = True
+SHOW_ALL_PD = False
+SHOW_MRT_LINE = True
 SHOW_DISTRICT = True
 
-
-CADI_FLOW = [
-    ('Tampines', 'Raffles Place', 1),
-    ('Bedok', 'Raffles Place', 1),
-    ('Tampines', 'Tanjong Pagar', 1),
-
-    ('Bishan', 'Raffles Place', 1),
-    ('Yishun', 'Orchard', 1),
-    ('Ang Mo Kio', 'Raffles Place', 1),
-
-    ('Choa Chu Kang', 'Jurong East', 1),
-    ('Boon Lay', 'Jurong East', 1),
-    ('Yew Tee', 'Jurong East', 1),
-
-    ('Lakeside', 'Tanjong Pagar', 1),
-    ('Lakeside', 'Raffles Place', 1),
-    ('Boon Lay', 'Tanjong Pagar', 1),
+pallet = [
+    Color('blue').get_hex_l(),
+    Color('brown').get_hex_l(),
+    Color('magenta').get_hex_l(),
+    Color('green').get_hex_l(),
+    Color('indigo').get_hex_l(),
+    Color('khaki').get_hex_l(),
+    Color('maroon').get_hex_l(),
+    Color('navy').get_hex_l(),
+    Color('orange').get_hex_l(),
+    Color('pink').get_hex_l(),
+    Color('red').get_hex_l(),
+    Color('grey').get_hex_l(),
 ]
+
+D360 = 360.0
+
+
+def sort_clockwise(points):
+    c = np.array(list(map(sum, zip(*points)))) / len(points)
+    cp = c + np.array([1, 0])
+    clockwiseDegrees = []
+    for i, ca in enumerate([np.array(p) - c for p in points]):
+        degree = np.degrees(np.arccos(np.dot(ca, cp) / (np.linalg.norm(ca) * np.linalg.norm(cp))))
+        if 0 <= ca[1]:
+            clockwiseDegrees.append([degree, points[i]])
+        else:
+            clockwiseDegrees.append([D360 - degree, points[i]])
+    return [p for _, p in sorted(clockwiseDegrees)]
 
 
 def convert_GPS2xy(lng, lat):
@@ -114,7 +127,7 @@ class Singapore(object):
 
 
 class Station(object):
-    STN_markSize = 15
+    STN_markSize = 25
 
     def __init__(self, STN, lat, lng):
         self.STN = STN
@@ -145,18 +158,19 @@ class LocPD(object):
 
 
 class Flow(object):
-    def __init__(self, count, route, mrt_coords):
-        self.count = count
+    lineProp = 30
+
+    def __init__(self, weight, route, mrt_coords):
+        self.weight = weight
         self.points = []
         for mrt in route:
             lat, lng = mrt_coords[mrt]
             x, y = convert_GPS2xy(lng, lat)
             self.points.append(QPoint(x, y))
 
-    def set_weight(self, sumCount):
-        self.weight = self.count / float(sumCount)
-
     def draw(self, qp):
+        pen = QPen(Qt.black, self.weight * Flow.lineProp, Qt.SolidLine)
+        qp.setPen(pen)
         for i in range(len(self.points) - 1):
             p0 = self.points[i]
             p1 = self.points[i + 1]
@@ -165,14 +179,15 @@ class Flow(object):
 
 class Network(object):
     thickness = 1.0
+    lineStyle = Qt.DotLine
     linePen = {
-        'BP': QPen(QColor(Color('grey').get_hex_l()), thickness, Qt.SolidLine),
-        'CC': QPen(QColor(Color('orange').get_hex_l()), thickness, Qt.SolidLine),
-        'EW': QPen(QColor(Color('green').get_hex_l()), thickness, Qt.SolidLine),
-        'NE': QPen(QColor(Color('purple').get_hex_l()), thickness, Qt.SolidLine),
-        'NS': QPen(QColor(Color('red').get_hex_l()), thickness, Qt.SolidLine),
-        'PTC': QPen(QColor(Color('grey').get_hex_l()), thickness, Qt.SolidLine),
-        'STC': QPen(QColor(Color('grey').get_hex_l()), thickness, Qt.SolidLine),
+        'BP': QPen(QColor(Color('grey').get_hex_l()), thickness, lineStyle),
+        'CC': QPen(QColor(Color('orange').get_hex_l()), thickness, lineStyle),
+        'EW': QPen(QColor(Color('green').get_hex_l()), thickness, lineStyle),
+        'NE': QPen(QColor(Color('purple').get_hex_l()), thickness, lineStyle),
+        'NS': QPen(QColor(Color('red').get_hex_l()), thickness, lineStyle),
+        'PTC': QPen(QColor(Color('grey').get_hex_l()), thickness, lineStyle),
+        'STC': QPen(QColor(Color('grey').get_hex_l()), thickness, lineStyle),
     }
 
     def __init__(self, mrt_coords):
@@ -194,38 +209,101 @@ class Network(object):
             qp.drawLine(p0, p1)
 
 
+class Bundle(object):
+    font = QFont('Decorative', 15)
+    labelH = 30
+    unit_labelW = 15
+
+    def __init__(self, bid, assTaskIDs, points):
+        self.bid = bid
+        #
+        self.label = QTextDocument()
+        _assTaskIDs = str(assTaskIDs)
+        self.label.setHtml("b<sub>%d</sub>: %s" % (self.bid, _assTaskIDs))
+        self.label.setDefaultFont(Bundle.font)
+        #
+        self.points = points
+        c = np.array(list(map(sum, zip(*points)))) / len(points)
+        self.labelW = (len("bx: ") + len(_assTaskIDs)) * Bundle.unit_labelW
+        self.lx, self.ly = c[0], c[1]
+
+    def draw(self, qp):
+        # qp.setFont(Bundle.font)
+        self.drawLabel(qp, self.label,
+                  self.lx, self.ly, self.labelW, Bundle.labelH)
+        pen = QPen(QColor(pallet[self.bid % len(pallet)]), 3, Qt.DashDotDotLine)
+        qp.setPen(pen)
+        for i in range(len(self.points) - 1):
+            x0, y0 = self.points[i]
+            x1, y1 = self.points[i + 1]
+            qp.drawLine(x0, y0, x1, y1)
+        x0, y0 = self.points[len(self.points) - 1]
+        x1, y1 = self.points[0]
+        qp.drawLine(x0, y0, x1, y1)
+
+    def drawLabel(self, qp, label, cx, cy, w, h):
+        qp.translate(cx - w / 2, cy - h / 2)
+        label.drawContents(qp, QRectF(0, 0, w, h))
+        qp.translate(-(cx - w / 2), -(cy - h / 2))
+
+
 class Viz(QWidget):
     font = QFont('Decorative', 15)
     labelH = 30
     unit_labelW = 15
 
-    def __init__(self):
+    def __init__(self, pkl_files):
         super().__init__()
+        #
+        locationPD = get_locationPD()
+        mrt_coords = get_coordMRT()
+        #
         self.sg = Singapore()
         self.objForDrawing = [self.sg]
         #
         if SHOW_ALL_PD:
-            self.pdLoc = []
-            locationPD = get_locationPD()
             for o in locationPD:
-                self.pdLoc.append(LocPD(*o))
-            self.objForDrawing += self.pdLoc
-        mrt_coords = get_coordMRT()
+                self.objForDrawing.append(LocPD(*o))
         if SHOW_MRT_LINE:
-            self.mrts = []
             for STN, (lat, lng) in mrt_coords.items():
-                self.mrts.append(Station(STN, lat, lng))
-            self.objForDrawing += self.mrts
-            #
-            self.mrtNetwork = Network(mrt_coords)
-            self.objForDrawing += [self.mrtNetwork]
-        if SHOW_FLOW:
-            flows = []
+                self.objForDrawing.append(Station(STN, lat, lng))
+            self.objForDrawing.append(Network(mrt_coords))
+        if pkl_files:
+            drawingInfo = {}
+            for k, fpath in pkl_files.items():
+                with open(fpath, 'rb') as fp:
+                    drawingInfo[k] = pickle.load(fp)
+            flow_oridest, task_ppdp = drawingInfo['dplym']
+            w_k = drawingInfo['prmts']['w_k']
             mrtNetNX = get_mrtNetNX()
-            for mrt0, mrt1, count in CADI_FLOW:
+            for k, (mrt0, mrt1) in enumerate(flow_oridest):
                 route = get_route(mrtNetNX, mrt0, mrt1)
-                flows.append(Flow(count, route, mrt_coords))
-            self.objForDrawing += flows
+                self.objForDrawing.append(Flow(w_k[k], route, mrt_coords))
+                #
+                lat0, lng0 = mrt_coords[mrt0]
+                self.objForDrawing.append(Station(mrt0, lat0, lng0))
+                lat1, lng1 = mrt_coords[mrt1]
+                self.objForDrawing.append(Station(mrt1, lat1, lng1))
+            #
+            ln_locO = {o.Location: o for o in locationPD}
+            task_pdO = []
+            for pLoc, dLoc in task_ppdp:
+                po, do = LocPD(*ln_locO[pLoc]), LocPD(*ln_locO[dLoc])
+                self.objForDrawing.append(po)
+                self.objForDrawing.append(do)
+                task_pdO.append([po, do])
+            #
+            if 'CWL' in pkl_files['sol']:
+                C, q_c = [drawingInfo['sol'].get(k) for k in ['C', 'q_c']]
+                generatedBundles = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
+                for bid, bc in enumerate(generatedBundles):
+                    points = []
+                    for tid in bc:
+                        po, do = task_pdO[tid]
+                        points.append([po.cx, po.cy])
+                        points.append([do.cx, do.cy])
+                    points = sort_clockwise(points)
+                    self.objForDrawing.append(Bundle(bid, bc, points))
         #
         self.mousePressed = False
         self.px, self.py = -1, -1
@@ -265,8 +343,6 @@ class Viz(QWidget):
     #     cursor = QCursor()
         # print(cursor.pos())
 
-
-
     def paintEvent(self, e):
         qp = QPainter()
         qp.begin(self)
@@ -284,8 +360,15 @@ class Viz(QWidget):
 
 
 if __name__ == '__main__':
-    # get_sgBoarderXY()
+    import os.path as opath
+
+
+    pkl_files = {
+        'dplym': opath.join('_temp', 'dplym_mrtS1_dt80.pkl'),
+        'prmts': opath.join('_temp', 'prmts_mrtS1_dt80.pkl'),
+        'sol': opath.join('_temp', 'sol_mrtS1_dt80_CWL.pkl')
+    }
 
     app = QApplication(sys.argv)
-    viz = Viz()
+    viz = Viz(pkl_files)
     sys.exit(app.exec_())
