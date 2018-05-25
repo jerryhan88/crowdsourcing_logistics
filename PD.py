@@ -89,37 +89,5 @@ def run(prmt, pd_inputs):
     return PD.objVal, route
 
 
-def get_wsFeasiblity(prmt, Ts):
-    K, w_k, _delta, cW = list(map(prmt.get, ['K', 'w_k', '_delta', 'cW']))
-    ws, feasiblity = 0, False
-    for k in K:
-        detourTime, route = run(prmt, {'k': k, 'Ts': Ts})
-        if detourTime <= _delta:
-            ws += w_k[k]
-        if ws > cW:
-            feasiblity = True
-            break
-    return feasiblity
-
-
 if __name__ == '__main__':
-    import os.path as opath
-    from problems import paperExample, ex1
-    from problems import convert_prob2prmt
-    #
-    problem = paperExample()
-    #
-    problemName = problem[0]
-    log_fpath = opath.join('_temp', '%s_PD.log')
-    #
-    etcSetting = {'LogFile': log_fpath}
-    grbSetting = {'LogFile': log_fpath}
-    #
-    ori_inputs = convert_prob2prmt(*problem)
-    Ts = [0, 2]
-    k = 0
-    pd_inputs = {'k': k, 'Ts': Ts}
-    detourTime, route = run(ori_inputs, pd_inputs, grbSetting)
-
-    print(detourTime)
-    print(route)
+    pass

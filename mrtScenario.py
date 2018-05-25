@@ -209,7 +209,7 @@ def mrtS2(pkl_dir='_temp'):
     flow_oridest = [(stations[i], stations[j])
                     for i in range(len(stations)) for j in range(len(stations)) if i != j]
 
-    tempList = []
+    locPD_aroundMRT = []
 
     with open(opath.join(pf_dpath, 'tt-MRT-LocationPD.csv')) as r_csvfile:
         reader = csv.DictReader(r_csvfile)
@@ -217,17 +217,16 @@ def mrtS2(pkl_dir='_temp'):
             nearestMRT, Location = [row[cn] for cn in ['nearestMRT', 'Location']]
             Duration = eval(row['Duration'])
             if nearestMRT in stations:
-                tempList.append(Location)
-            # locPD_MRT_tt[Location] = [Duration, nearestMRT]
+                locPD_aroundMRT.append(Location)
 
-    print(len(flow_oridest))
-    print(len(tempList), tempList)
+
+
     task_ppdp = []
     while len(task_ppdp) < numTasks:
-        i = randrange(len(tempList))
-        j = randrange(len(tempList))
+        i = randrange(len(locPD_aroundMRT))
+        j = randrange(len(locPD_aroundMRT))
         if i != j:
-            task_ppdp.append((tempList[i], tempList[j]))
+            task_ppdp.append((locPD_aroundMRT[i], locPD_aroundMRT[j]))
 
         #
     (numLocs, lid_loc, loc_lid), travel_time = handle_locNtt_MRT(flow_oridest, task_ppdp)

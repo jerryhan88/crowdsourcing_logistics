@@ -2,17 +2,33 @@ import multiprocessing
 import time
 import pickle
 import numpy as np
+from itertools import chain
 from gurobipy import *
 #
 from _util import write_log, itr2file, res2file
 
 from RMP import generate_RMP
-from PD import get_wsFeasiblity
-
-
+from PD import run as PD_run
 
 NUM_CORES = multiprocessing.cpu_count()
 
+
+def get_wsFeasiblity(prmt, cwl_inputs, Ts):
+    K, w_k, _delta, cW = list(map(prmt.get, ['K', 'w_k', '_delta', 'cW']))
+    u_i = cwl_inputs['u_i']
+    #
+    infeasiblePaths = set(chain(*[u_i[i] for i in Ts]))
+    ws, feasiblity = 0, False
+    for k in K:
+        if k in infeasiblePaths:
+            continue
+        detourTime, route = PD_run(prmt, {'k': k, 'Ts': Ts})
+        if detourTime <= _delta:
+            ws += w_k[k]
+        if ws > cW:
+            feasiblity = True
+            break
+    return feasiblity
 
 
 def LS_run(prmt, cwl_inputs):
@@ -35,7 +51,7 @@ def LS_run(prmt, cwl_inputs):
         for i in Ts1:
             vec[i] = 1
         rc = len(Ts1) - (np.array(vec) * np.array(pi_i)).sum() - mu
-        wsFeasiblity = get_wsFeasiblity(prmt, Ts1)
+        wsFeasiblity = get_wsFeasiblity(prmt, cwl_inputs, Ts1)
         if wsFeasiblity:
             rc_Ts1.append([rc, Ts1])
     #
@@ -56,8 +72,11 @@ def run(prmt, etc=None):
     #
     # Generate initial singleton bundles
     #
-    T, cB_P = [prmt.get(k) for k in ['T', 'cB_P']]
-    C, sC, p_c, e_ci, TB = [], set(), [], [], set()
+    T, cB_P, K,  = [prmt.get(k) for k in ['T', 'cB_P', 'K']]
+    t_ij, _delta = [prmt.get(k) for k in ['t_ij', '_delta']]
+    #
+    C, sC, p_c, e_ci,  = [], set(), [], []
+    TB, u_i = set(), [set() for _ in T]
     for i in T:
         Ts = [i]
         C.append(Ts)
@@ -68,11 +87,18 @@ def run(prmt, etc=None):
         vec = [0 for _ in range(len(T))]
         vec[i] = 1
         e_ci.append(vec)
+        pp, dp = 'p%d' % i, 'd%d' % i
+        for k in K:
+            _kP, _kM = 'ori%d' % k, 'dest%d' % k
+            detourTime = t_ij[_kP, pp] + t_ij[pp, dp] + t_ij[dp, _kM] - t_ij[_kP, _kM]
+            if _delta < detourTime:
+                u_i[i].add(k)
     #
     cwl_inputs['C'] = C
     cwl_inputs['sC'] = sC
     cwl_inputs['p_c'] = p_c
     cwl_inputs['e_ci'] = e_ci
+    cwl_inputs['u_i'] = u_i
     cwl_inputs['TB'] = TB
     #
     RMP, q_c, taskAC, numBC = generate_RMP(prmt, cwl_inputs)
