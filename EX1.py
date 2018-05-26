@@ -4,7 +4,6 @@ import pickle
 from gurobipy import *
 #
 from _util import log2file, res2file
-from problems import convert_prob2prmt
 
 NUM_CORES = multiprocessing.cpu_count()
 

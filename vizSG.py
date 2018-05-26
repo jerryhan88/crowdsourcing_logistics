@@ -256,6 +256,7 @@ class Viz(QWidget):
 
     def __init__(self, pkl_files):
         super().__init__()
+        self.app_name = 'Viz'
         #
         locationPD = get_locationPD()
         mrt_coords = get_coordMRT()
@@ -275,6 +276,7 @@ class Viz(QWidget):
             for k, fpath in pkl_files.items():
                 with open(fpath, 'rb') as fp:
                     drawingInfo[k] = pickle.load(fp)
+            self.app_name += '-%s' % drawingInfo['prmts']['problemName']
             flow_oridest, task_ppdp = drawingInfo['dplym']
             w_k = drawingInfo['prmts']['w_k']
             mrtNetNX = get_mrtNetNX()
@@ -317,7 +319,7 @@ class Viz(QWidget):
 
     def initUI(self):
         self.setGeometry(FRAME_ORIGIN[0], FRAME_ORIGIN[1], WIDTH, HEIGHT)
-        self.setWindowTitle('Viz')
+        self.setWindowTitle(self.app_name)
         self.setFixedSize(QSize(WIDTH, HEIGHT))
         #
         if SAVE_IMAGE:
@@ -377,11 +379,11 @@ class Viz(QWidget):
 if __name__ == '__main__':
     import os.path as opath
 
-
+    prefix = '5out-nt100-dPD30-dp25-fp75'
     pkl_files = {
-        'dplym': opath.join('_temp', 'dplym_mrtS2_dt60.pkl'),
-        'prmts': opath.join('_temp', 'prmts_mrtS2_dt60.pkl'),
-        'sol': opath.join('_temp', 'sol_mrtS2_dt60_CWL.pkl')
+        'dplym': opath.join('_temp', 'dplym_%s.pkl' % prefix),
+        'prmts': opath.join('_temp', 'prmts_%s.pkl' % prefix),
+        'sol': opath.join('_temp', 'sol_%s_CWL.pkl' % prefix)
     }
 
     app = QApplication(sys.argv)

@@ -3,47 +3,52 @@ import os
 import shutil
 import pickle
 import csv
-from random import choice, randrange
-import multiprocessing
-
 #
 from __path_organizer import exp_dpath
-from problems import randomProb_EuclDist
+from mrtScenario import gen_instance, inputConvertPickle
+from mrtScenario import PER25, PER50, PER75, STATIONS
+#
 from EX1 import run as EX1_run
 from EX2 import run as EX2_run
+from CWL import run as CWL_run
 # from BNP import run as BNP_run
-# from CWL import run as CWL_run
 # from GH import run as GH_run
 
 
 def gen_problems(problem_dpath):
-    #
-    # Generate problems
-    #
     if not opath.exists(problem_dpath):
         os.mkdir(problem_dpath)
     #
-    thVolume, thDetour = 3, 0.8
-    for numPaths in [5, 10]:
-        for numTasks, numBundles in [
-                    (6, 2),
-
-            (8, 3), (10, 4),
-        ]:
-            randomProb_EuclDist(problem_dpath, numTasks, numBundles, thVolume, numPaths, thDetour)
+    stationSel = '11interOut'
+    stations = STATIONS[stationSel]
+    min_durPD = 20
+    minTB, maxTB = 2, 4
+    flowPER, detourPER = PER50, PER50
+    for numTasks in [50, 100, 200, 400, 800]:
+        numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
+        problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
+        #
+        flow_oridest, task_ppdp, \
+        flows, tasks, \
+        numLocs, travel_time, thDetour, \
+        minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
+        problem = [problemName,
+                   flows, tasks,
+                   numBundles, minTB, maxTB,
+                   numLocs, travel_time, thDetour,
+                   minWS]
+        inputConvertPickle(problem, flow_oridest, task_ppdp, problem_dpath)
 
 
 def run_experiments(machine_num):
     _TimeLimit = 10 * 60 * 60
     machine_dpath = opath.join(exp_dpath, 'm%d' % machine_num)
-    problem_dpath = opath.join(machine_dpath, '__problems')
+    problem_dpath = opath.join(machine_dpath, 'prmts')
     for path in [machine_dpath, problem_dpath]:
         assert opath.exists(path), path
     log_dpath = opath.join(machine_dpath, 'log')
-    res_dpath = opath.join(machine_dpath, 'res')
-    bbt_dpath = opath.join(machine_dpath, 'bpt')
-    itr_dpath = opath.join(machine_dpath, 'itr')
-    for path in [log_dpath, res_dpath, itr_dpath, bbt_dpath]:
+    sol_dpath = opath.join(machine_dpath, 'res')
+    for path in [log_dpath, sol_dpath]:
         if opath.exists(path):
             shutil.rmtree(path)
         os.mkdir(path)
@@ -56,19 +61,29 @@ def run_experiments(machine_num):
         problemName = prmt['problemName']
         ###############################################################
         # EX1
-        etc = {'solFilePKL': opath.join(res_dpath, 'sol_%s_EX1.pkl' % problemName),
-               'solFileCSV': opath.join(res_dpath, 'sol_%s_EX1.csv' % problemName),
-               'solFileTXT': opath.join(res_dpath, 'sol_%s_EX1.txt' % problemName),
-               'logFile': opath.join(log_dpath, '%s_EX1.log' % problemName)}
-        EX1_run(prmt, etc)
+        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_EX1.pkl' % problemName),
+        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_EX1.csv' % problemName),
+        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_EX1.txt' % problemName),
+        #        'logFile': opath.join(log_dpath, '%s_EX1.log' % problemName)}
+        # EX1_run(prmt, etc)
         ###############################################################
         # EX2
-        # etc = {'solFilePKL': opath.join(res_dpath, 'sol_%s_EX2.pkl' % problemName),
-        #        'solFileCSV': opath.join(res_dpath, 'sol_%s_EX2.csv' % problemName),
-        #        'solFileTXT': opath.join(res_dpath, 'sol_%s_EX2.txt' % problemName),
+        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_EX2.pkl' % problemName),
+        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_EX2.csv' % problemName),
+        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_EX2.txt' % problemName),
         #        'logFile': opath.join(log_dpath, '%s_EX2.log' % problemName)}
         # EX2_run(prmt, etc)
         ###############################################################
+        #
+        ###############################################################
+        # CWL
+        etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL.pkl' % problemName),
+               'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL.csv' % problemName),
+               'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL.txt' % problemName),
+               'logFile': opath.join(log_dpath, '%s_CWL.log' % problemName),
+               'itrFileCSV': opath.join(log_dpath, '%s_itrCWL.csv' % problemName),
+               }
+        CWL_run(prmt, etc)
         #
         ###############################################################
         # BNP
@@ -84,20 +99,7 @@ def run_experiments(machine_num):
         #               'Threads': _numThreads}
         # BNP_run(problem, etcSetting, grbSetting)
         ###############################################################
-        #
-        ###############################################################
-        # CWL
-        # problemName = problem[0]
-        # log_fpath = opath.join(log_dpath, '%s-CWL.log' % problemName)
-        # res_fpath = opath.join(res_dpath, '%s-CWL.csv' % problemName)
-        # itr_fpath = opath.join(itr_dpath, '%s-itrCWL.csv' % problemName)
-        # etcSetting = {'LogFile': log_fpath,
-        #               'ResFile': res_fpath,
-        #               'itrFile': itr_fpath,
-        #               'TimeLimit': _TimeLimit}
-        # grbSetting = {'LogFile': log_fpath,
-        #               'Threads': _numThreads}
-        # CWL_run(problem, etcSetting, grbSetting)
+
         ###############################################################
         #
         ###############################################################
@@ -222,6 +224,6 @@ def read_result(resF,logF):
 
 if __name__ == '__main__':
     gen_problems(opath.join(exp_dpath, 'tempProb'))
-    run_experiments(101)
+    # run_experiments(101)
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()

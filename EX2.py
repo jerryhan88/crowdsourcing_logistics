@@ -13,7 +13,6 @@ def run(prmt, etc=None):
     if 'TimeLimit' not in etc:
         etc['TimeLimit'] = 1e400
     etc['startTS'] = startCpuTime
-    problemName = prmt['problemName']
     #
     def callbackF(m, where):
         if where == GRB.Callback.MIP:
@@ -146,9 +145,9 @@ def run(prmt, etc=None):
     EX.optimize(callbackF)
     #
     if EX.status == GRB.Status.INFEASIBLE:
-        EX.write('%s.lp' % problemName)
+        EX.write('%s.lp' % prmt['problemName'])
         EX.computeIIS()
-        EX.write('%s.ilp' % problemName)
+        EX.write('%s.ilp' % prmt['problemName'])
     #
     if etc and EX.status != GRB.Status.INFEASIBLE:
         assert 'solFilePKL' in etc

@@ -1,16 +1,34 @@
+import os.path as opath
 import multiprocessing
 import time
-import pickle
+import pickle, csv
 import numpy as np
 from itertools import chain
 from gurobipy import *
 #
-from _util import write_log, itr2file, res2file
+from _util import write_log, res2file
 
 from RMP import generate_RMP
 from PD import run as PD_run
 
 NUM_CORES = multiprocessing.cpu_count()
+LOG_INTER_RESULTS = False
+
+
+def itr2file(fpath, contents=[]):
+    if not contents:
+        if opath.exists(fpath):
+            os.remove(fpath)
+        with open(fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            header = ['itrNum', 'eliCpuTime', 'eliWallTime',
+                      'numCols', 'numTB',
+                      'relObjV', 'selBC', 'selBC_RC', 'new_RC_BC']
+            writer.writerow(header)
+    else:
+        with open(fpath, 'a') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            writer.writerow(contents)
 
 
 def get_wsFeasiblity(prmt, cwl_inputs, Ts):
@@ -109,8 +127,7 @@ def run(prmt, etc=None):
             break
         LRMP = RMP.relax()
         LRMP.setParam('Threads', NUM_CORES)
-        if etc['logFile']:
-            LRMP.setParam('LogFile', etc['logFile'])
+        LRMP.setParam('OutputFlag', False)
         LRMP.optimize()
         if LRMP.status == GRB.Status.INFEASIBLE:
             logContents = 'Relaxed model is infeasible!!\n'
@@ -127,18 +144,19 @@ def run(prmt, etc=None):
         cwl_inputs['pi_i'] = pi_i
         cwl_inputs['mu'] = mu
         #
-        logContents = 'Start %dth iteration\n' % counter
-        logContents += '\t Columns\n'
-        logContents += '\t\t # of columns %d\n' % len(cwl_inputs['C'])
-        logContents += '\t\t %s\n' % str(cwl_inputs['C'])
-        logContents += '\t\t %s\n' % str(['%.2f' % v for v in cwl_inputs['p_c']])
-        logContents += '\t Relaxed objVal\n'
-        logContents += '\t\t z: %.2f\n' % LRMP.objVal
-        logContents += '\t\t RC: %s\n' % str(['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
-        logContents += '\t Dual V\n'
-        logContents += '\t\t Pi: %s\n' % str(['%.2f' % v for v in pi_i])
-        logContents += '\t\t mu: %.2f\n' % mu
-        write_log(etc['logFile'], logContents)
+        if LOG_INTER_RESULTS:
+            logContents = 'Start %dth iteration\n' % counter
+            logContents += '\t Columns\n'
+            logContents += '\t\t # of columns %d\n' % len(cwl_inputs['C'])
+            logContents += '\t\t %s\n' % str(cwl_inputs['C'])
+            logContents += '\t\t %s\n' % str(['%.2f' % v for v in cwl_inputs['p_c']])
+            logContents += '\t Relaxed objVal\n'
+            logContents += '\t\t z: %.2f\n' % LRMP.objVal
+            logContents += '\t\t RC: %s\n' % str(['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
+            logContents += '\t Dual V\n'
+            logContents += '\t\t Pi: %s\n' % str(['%.2f' % v for v in pi_i])
+            logContents += '\t\t mu: %.2f\n' % mu
+            write_log(etc['logFile'], logContents)
         #
         c0, minRC = -1, 1e400
         for rc, c in [(LRMP.getVarByName("q[%d]" % c).RC, c) for c in range(len(C))]:
@@ -154,22 +172,14 @@ def run(prmt, etc=None):
             break
         cwl_inputs['c0'] = c0
         #
-        startCpuTimeP, startWallTimeP = time.clock(), time.time()
         rc_Ts1 = LS_run(prmt, cwl_inputs)
-        #
         if time.clock() - etc['startTS'] > etc['TimeLimit']:
             break
         #
-        endCpuTimeP, endWallTimeP = time.clock(), time.time()
-        eliCpuTimeP, eliWallTimeP = endCpuTimeP - startCpuTimeP, endWallTimeP - startWallTimeP
-        #
-        logContents = '%dth iteration\n' % counter
-        logContents += '\t Cpu Time: %f\n' % eliCpuTimeP
-        logContents += '\t Wall Time: %f\n' % eliWallTimeP
-        write_log(etc['logFile'], logContents)
-        itr2file(etc['itrFileCSV'], [counter, '%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP, '%.2f' % LRMP.objVal,
-                                     C[c0], '%.2f' % minRC,
-                                     str(rc_Ts1)])
+        eliCpuTimeP, eliWallTimeP = time.clock() - etc['startCpuTime'], time.time() - etc['startWallTime']
+        itr2file(etc['itrFileCSV'], [counter, '%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP,
+                                     len(cwl_inputs['C']), len(cwl_inputs['TB']),
+                                     '%.2f' % LRMP.objVal, C[c0], '%.2f' % minRC, str(rc_Ts1)])
         if len(rc_Ts1) == 0:
             TB.add(c0)
         else:
@@ -241,13 +251,12 @@ def run(prmt, etc=None):
 
 
 if __name__ == '__main__':
-    import os.path as opath
     from problems import euclideanDistEx0
     from mrtScenario import mrtS1, mrtS2
     #
-    # prmt = euclideanDistEx0()
-    # prmt = mrtS1()
-    prmt = mrtS2()
+    # prmt = euclideRanDistEx0()
+    prmt = mrtS1()
+    # prmt = mrtS2()
     problemName = prmt['problemName']
     #
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL.pkl' % problemName),

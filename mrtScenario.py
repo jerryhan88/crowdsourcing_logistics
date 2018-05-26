@@ -1,10 +1,153 @@
 import os.path as opath
 import csv, pickle
+import numpy as np
+from random import seed, choice
 #
 from __path_organizer import ez_dpath, pf_dpath
-from problems import convert_prob2prmt
 
 aDayNight_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801-H18H23.csv')
+aDay_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801.csv')
+seed(0)
+
+PER25, PER50, PER75 = np.arange(25, 100, 25)
+STATIONS = {
+    '4small': ['Paya Lebar', 'Raffles Place', 'Bishan', 'Dhoby Ghaut'],
+    '5out': ['Raffles Place', 'Tampines', 'Yishun', 'Jurong East', 'Choa Chu Kang'],
+    '7inter': ['Paya Lebar', 'Raffles Place', 'HarbourFront', 'Buona Vista', 'Bishan', 'Serangoon', 'Dhoby Ghaut'],
+    '11interOut': ['Tampines', 'Yishun', 'Jurong East', 'Choa Chu Kang',
+               'Paya Lebar', 'Raffles Place', 'HarbourFront', 'Buona Vista', 'Bishan', 'Serangoon', 'Dhoby Ghaut'],
+}
+
+
+def convert_prob2prmt(problemName,
+                      flows, tasks,
+                      numBundles, minTB, maxTB,
+                      numLocs, travel_time, thDetour,
+                      minWS):
+    B = list(range(numBundles))
+    cB_M, cB_P = minTB, maxTB
+    cW = minWS
+    T = list(range(len(tasks)))
+    iPs, iMs = list(zip(*[(tasks[i][1], tasks[i][2]) for i in T]))
+    P, D = set(), set()
+    _N = {}
+    for i in T:
+        P.add('p%d' % i)
+        D.add('d%d' % i)
+        #
+        _N['p%d' % i] = iPs[i]
+        _N['d%d' % i] = iMs[i]
+    #
+    # Path
+    #
+    c_k, temp_OD = [], []
+    if type(flows) == list:
+        for i in range(numLocs):
+            for j in range(numLocs):
+                if flows[i][j] == 0:
+                    continue
+                c = flows[i][j]
+                temp_OD.append((i, j))
+                c_k.append(c)
+    else:
+        assert type(flows) == dict
+        for (i, j), c in flows.items():
+            if c == 0:
+                continue
+            temp_OD.append((i, j))
+            c_k.append(c)
+    sumC = sum(c_k)
+    K = list(range(len(c_k)))
+    w_k = [c_k[k] / float(sumC) for k in K]
+    _kP, _kM = list(zip(*[temp_OD[k] for k in K]))
+    _delta = thDetour
+    t_ij = {}
+    for k in K:
+        kP, kM = 'ori%d' % k, 'dest%d' % k
+        t_ij[kP, kP] = travel_time[_kP[k]][_kP[k]]
+        t_ij[kM, kM] = travel_time[_kM[k]][_kM[k]]
+        t_ij[kP, kM] = travel_time[_kP[k]][_kM[k]]
+        t_ij[kM, kP] = travel_time[_kM[k]][_kP[k]]
+        for i in _N:
+            t_ij[kP, i] = travel_time[_kP[k]][_N[i]]
+            t_ij[i, kP] = travel_time[_N[i]][_kP[k]]
+            #
+            t_ij[kM, i] = travel_time[_kM[k]][_N[i]]
+            t_ij[i, kM] = travel_time[_N[i]][_kM[k]]
+    for i in _N:
+        for j in _N:
+            t_ij[i, j] = travel_time[_N[i]][_N[j]]
+    N = set(_N.keys())
+    #
+    return {'problemName': problemName,
+            'bB': numBundles,
+            'B': B, 'cB_M': cB_M, 'cB_P': cB_P,
+            'K': K, 'w_k': w_k,
+            'T': T, 'P': P, 'D': D, 'N': N,
+            't_ij': t_ij, '_delta': _delta,
+            'cW': cW}
+
+
+
+def gen_instance(stations, numTasks, min_durPD, detourPER, flowPER):
+    flow_oridest = [(stations[i], stations[j])
+                    for i in range(len(stations)) for j in range(len(stations)) if i != j]
+    locPD_durMRT = []
+    with open(opath.join(pf_dpath, 'tt-MRT-LocationPD.csv')) as r_csvfile:
+        reader = csv.DictReader(r_csvfile)
+        for row in reader:
+            nearestMRT, Location = [row[cn] for cn in ['nearestMRT', 'Location']]
+            Duration = eval(row['Duration'])
+            if nearestMRT in stations:
+                locPD_durMRT.append([Location, Duration, nearestMRT])
+    MRTs_tt, locPD_MRT_tt = get_travelTimeSG()
+    task_ppdp = []
+    while len(task_ppdp) < numTasks:
+        loc0, dur0, nMRT0 = choice(locPD_durMRT)
+        loc1, dur1, nMRT1 = choice(locPD_durMRT)
+        k = (nMRT0, nMRT1) if nMRT0 < nMRT1 else(nMRT1, nMRT0)
+        if loc0 != loc1 and min_durPD < dur0 + MRTs_tt[k] + dur1:
+            task_ppdp.append((loc0, loc1))
+    #
+    (numLocs, lid_loc, loc_lid), travel_time = handle_locNtt_MRT(flow_oridest, task_ppdp)
+    detourTimes = []
+    for ori, dest in flow_oridest:
+        iori, idest = [loc_lid.get(k) for k in [ori, dest]]
+        for pp, dp in task_ppdp:
+            ipp, idp = [loc_lid.get(k) for k in [pp, dp]]
+            detourTimes.append(travel_time[iori][ipp] + travel_time[ipp][idp] + travel_time[idp][idest] \
+                               - travel_time[iori][idest])
+    thDetour = np.percentile(detourTimes, detourPER)
+    #
+    flows = {}
+    with open(aDay_EZ_fpath) as r_csvfile:
+        reader = csv.DictReader(r_csvfile)
+        for row in reader:
+            fSTN, tSTN = [row[cn] for cn in ['fSTN', 'tSTN']]
+            count = eval(row['count'])
+            if (fSTN, tSTN) in flow_oridest:
+                flows[loc_lid[fSTN], loc_lid[tSTN]] = count
+    assert len(flows) == len(flow_oridest)
+    counts = np.array(list(flows.values()))
+    weights = counts / counts.sum()
+    minWS = np.percentile(weights, flowPER)
+    tasks = []
+    for i, (loc0, loc1) in enumerate(task_ppdp):
+        tasks.append((i, loc_lid[loc0], loc_lid[loc1]))
+    #
+    return flow_oridest, task_ppdp, flows, tasks, numLocs, travel_time, thDetour, minWS
+
+
+def inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir):
+    problemName = problem[0]
+    prmt = convert_prob2prmt(*problem)
+    with open(opath.join(pkl_dir, 'prmts_%s.pkl' % problemName), 'wb') as fp:
+        pickle.dump(prmt, fp)
+    vizInputs = [flow_oridest, task_ppdp]
+    with open(opath.join(pkl_dir, 'dplym_%s.pkl' % problemName), 'wb') as fp:
+        pickle.dump(vizInputs, fp)
+    #
+    return prmt
 
 
 def get_travelTimeSG():
@@ -93,23 +236,6 @@ def handle_locNtt_MRT(flow_oridest, task_ppdp):
     return (numLocs, lid_loc, loc_lid), travel_time
 
 
-
-def temp():
-    travel_time[loc_lid['Raffles Place']][loc_lid['Tampines']]
-    
-    
-    MRTs_tt['Paya Lebar', 'Raffles Place'] + 5.41666666666666
-    
-    MRTs_tt['Paya Lebar', 'Tampines'] + 5.41666666666666
-    
-    travel_time[loc_lid['Raffles Place']][loc_lid['Hi-Tech Phone Centre Pte Ltd at 810 Geylang Road, #01-06']]
-    travel_time[loc_lid['Hi-Tech Phone Centre Pte Ltd at 810 Geylang Road, #01-06']][loc_lid['Tampines']]
-
-    ('Hi-Tech Phone Centre Pte Ltd at 810 Geylang Road, #01-06', 'POPStation@Bedok Point'),
-
-    ('Alfa Marketing at 1G Cantonment Road, #01-07, Pinnacle @ Duxton', 'POPStation@General Post Office'),
-
-
 def mrtS1(pkl_dir='_temp'):
     thDetour = 80
     problemName = 'mrtS1_dt%d' % thDetour
@@ -188,86 +314,30 @@ def mrtS1(pkl_dir='_temp'):
         pickle.dump(vizInputs, fp)
     #
     return prmt
-    
-# MIN_HOP = 8
-# def random_generation():
 
 
 def mrtS2(pkl_dir='_temp'):
-    from random import seed, randrange
-    seed(0)
+    stationSel = '5out'
+    stations = STATIONS[stationSel]
+    numTasks = 50
+    min_durPD = 30
+    detourPER, flowPER = PER50, PER75
+    minTB, maxTB = 2, 4
+    numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
+    problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
     #
-    thDetour = 80
-    problemName = 'mrtS2_dt%d' % thDetour
-    numBundles, minTB, maxTB = 4, 2, 3
-    minWS = 0.2
-
-
-    stations = ['Raffles Place', 'Tampines', 'Yishun', 'Jurong East', 'Choa Chu Kang', 'Bishan']
-    numTasks = 20
-
-    flow_oridest = [(stations[i], stations[j])
-                    for i in range(len(stations)) for j in range(len(stations)) if i != j]
-
-    locPD_aroundMRT = []
-
-    with open(opath.join(pf_dpath, 'tt-MRT-LocationPD.csv')) as r_csvfile:
-        reader = csv.DictReader(r_csvfile)
-        for row in reader:
-            nearestMRT, Location = [row[cn] for cn in ['nearestMRT', 'Location']]
-            Duration = eval(row['Duration'])
-            if nearestMRT in stations:
-                locPD_aroundMRT.append(Location)
-
-
-
-    task_ppdp = []
-    while len(task_ppdp) < numTasks:
-        i = randrange(len(locPD_aroundMRT))
-        j = randrange(len(locPD_aroundMRT))
-        if i != j:
-            task_ppdp.append((locPD_aroundMRT[i], locPD_aroundMRT[j]))
-
-        #
-    (numLocs, lid_loc, loc_lid), travel_time = handle_locNtt_MRT(flow_oridest, task_ppdp)
-    #
-    flows = {}
-    with open(aDayNight_EZ_fpath) as r_csvfile:
-        reader = csv.DictReader(r_csvfile)
-        for row in reader:
-            fSTN, tSTN = [row[cn] for cn in ['fSTN', 'tSTN']]
-            count = eval(row['count'])
-            if (fSTN, tSTN) in flow_oridest:
-                flows[loc_lid[fSTN], loc_lid[tSTN]] = count
-    assert len(flows) == len(flow_oridest)
-    tasks = []
-    for i, (loc0, loc1) in enumerate(task_ppdp):
-        tasks.append((i, loc_lid[loc0], loc_lid[loc1]))
-    #
+    flow_oridest, task_ppdp, \
+    flows, tasks, \
+    numLocs, travel_time, thDetour, \
+    minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
     problem = [problemName,
                flows, tasks,
                numBundles, minTB, maxTB,
                numLocs, travel_time, thDetour,
                minWS]
-    with open(opath.join(pkl_dir, 'problem_%s.pkl' % problemName), 'wb') as fp:
-        pickle.dump(problem, fp)
-    prmt = convert_prob2prmt(*problem)
-    with open(opath.join(pkl_dir, 'prmts_%s.pkl' % problemName), 'wb') as fp:
-        pickle.dump(prmt, fp)
-    vizInputs = [flow_oridest, task_ppdp]
-    with open(opath.join(pkl_dir, 'dplym_%s.pkl' % problemName), 'wb') as fp:
-        pickle.dump(vizInputs, fp)
+    prmt = inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir)
     #
     return prmt
-
-
-
-    # print(flow_oridest)
-
-
-
-
-
 
 
 if __name__ == '__main__':

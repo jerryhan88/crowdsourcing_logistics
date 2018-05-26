@@ -46,19 +46,6 @@ def bpt2file(fpath, contents=[]):
             writer = csv.writer(w_csvfile, lineterminator='\n')
             writer.writerow(contents)
 
-def itr2file(fpath, contents=[]):
-    if not contents:
-        if opath.exists(fpath):
-            os.remove(fpath)
-        with open(fpath, 'wt') as w_csvfile:
-            writer = csv.writer(w_csvfile, lineterminator='\n')
-            header = ['itrNum', 'eliCpuTime', 'eliWallTime', 'relObjV', 'selBC', 'selBC_RC', 'new_RC_BC', ]
-            writer.writerow(header)
-    else:
-        with open(fpath, 'a') as w_csvfile:
-            writer = csv.writer(w_csvfile, lineterminator='\n')
-            writer.writerow(contents)
-
 def set_grbSettings(m, grb_settings):
     for k, v in grb_settings.items():
         m.setParam(k, v)
