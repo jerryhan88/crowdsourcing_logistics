@@ -10,7 +10,7 @@ from mrtScenario import PER25, PER50, PER75, STATIONS
 #
 from EX1 import run as EX1_run
 from EX2 import run as EX2_run
-from CWL import run as CWL_run
+from CWL1 import run as CWL_run
 # from BNP import run as BNP_run
 # from GH import run as GH_run
 
@@ -19,12 +19,17 @@ def gen_problems(problem_dpath):
     if not opath.exists(problem_dpath):
         os.mkdir(problem_dpath)
     #
-    stationSel = '11interOut'
+    stationSel = '5out'
     stations = STATIONS[stationSel]
     min_durPD = 20
-    minTB, maxTB = 2, 4
-    flowPER, detourPER = PER50, PER50
-    for numTasks in [50, 100, 200, 400, 800]:
+    minTB, maxTB = 2, 3
+    flowPER, detourPER = PER75, PER25
+    for numTasks in [
+                    # 50,
+                     100,
+                     200,
+        # 400, 800
+                     ]:
         numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
         problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
         #

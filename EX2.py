@@ -1,11 +1,27 @@
 import multiprocessing
 import time
-import pickle
+import pickle, csv
 from gurobipy import *
 #
 from _util import log2file, res2file
 
 NUM_CORES = multiprocessing.cpu_count()
+LOGGING_INTERVAL = 20
+
+
+def itr2file(fpath, contents=[]):
+    if not contents:
+        if opath.exists(fpath):
+            os.remove(fpath)
+        with open(fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            header = ['eliCpuTime', 'eliWallTime',
+                      'objbst', 'objbnd', 'gap']
+            writer.writerow(header)
+    else:
+        with open(fpath, 'a') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            writer.writerow(contents)
 
 
 def run(prmt, etc=None):
@@ -13,6 +29,10 @@ def run(prmt, etc=None):
     if 'TimeLimit' not in etc:
         etc['TimeLimit'] = 1e400
     etc['startTS'] = startCpuTime
+    etc['startCpuTime'] = startCpuTime
+    etc['startWallTime'] = startWallTime
+    etc['lastLoggingTime'] = startWallTime
+    itr2file(etc['itrFileCSV'])
     #
     def callbackF(m, where):
         if where == GRB.Callback.MIP:
@@ -21,6 +41,14 @@ def run(prmt, etc=None):
                 logContents += 'Interrupted by time limit\n'
                 log2file(etc['LogFile'], logContents)
                 m.terminate()
+            if time.time() - etc['lastLoggingTime'] > LOGGING_INTERVAL:
+                etc['lastLoggingTime'] = time.time()
+                eliCpuTimeP, eliWallTimeP = time.clock() - etc['startCpuTime'], time.time() - etc['startWallTime']
+                objbst = m.cbGet(GRB.Callback.MIP_OBJBST)
+                objbnd = m.cbGet(GRB.Callback.MIP_OBJBND)
+                gap = abs(objbst - objbnd) / (0.000001 + abs(objbst))
+                itr2file(etc['itrFileCSV'], ['%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP,
+                                             '%.2f' % objbst, '%.2f' % objbnd, '%.2f' % gap])
     #
     B, cB_M, cB_P = list(map(prmt.get, ['B', 'cB_M', 'cB_P']))
     T, P, D, N = list(map(prmt.get, ['T', 'P', 'D', 'N']))
@@ -228,7 +256,8 @@ if __name__ == '__main__':
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX2.pkl' % problemName),
            'solFileCSV': opath.join('_temp', 'sol_%s_EX2.csv' % problemName),
            'solFileTXT': opath.join('_temp', 'sol_%s_EX2.txt' % problemName),
-           'logFile': opath.join('_temp', '%s_EX2.log' % problemName)
+           'logFile': opath.join('_temp', '%s_EX2.log' % problemName),
+           'itrFileCSV': opath.join('_temp', '%s_itrEX2.csv' % problemName),
            }
     #
     run(prmt, etc)

@@ -6,10 +6,9 @@ import numpy as np
 from itertools import chain
 from gurobipy import *
 #
-from _util import write_log, res2file
-
 from RMP import generate_RMP
 from PD import run as PD_run
+from _util import write_log, res2file
 
 NUM_CORES = multiprocessing.cpu_count()
 LOG_INTER_RESULTS = False
@@ -83,14 +82,10 @@ def run(prmt, etc=None):
     etc['startTS'] = startCpuTime
     etc['startCpuTime'] = startCpuTime
     etc['startWallTime'] = startWallTime
-    problemName = prmt['problemName']
     itr2file(etc['itrFileCSV'])
     #
     cwl_inputs = {}
-    #
-    # Generate initial singleton bundles
-    #
-    T, cB_P, K,  = [prmt.get(k) for k in ['T', 'cB_P', 'K']]
+    T, cB_P, K = [prmt.get(k) for k in ['T', 'cB_P', 'K']]
     t_ij, _delta = [prmt.get(k) for k in ['t_ij', '_delta']]
     #
     C, sC, p_c, e_ci,  = [], set(), [], []
@@ -105,10 +100,10 @@ def run(prmt, etc=None):
         vec = [0 for _ in range(len(T))]
         vec[i] = 1
         e_ci.append(vec)
-        pp, dp = 'p%d' % i, 'd%d' % i
+        iP, iM = 'p%d' % i, 'd%d' % i
         for k in K:
-            _kP, _kM = 'ori%d' % k, 'dest%d' % k
-            detourTime = t_ij[_kP, pp] + t_ij[pp, dp] + t_ij[dp, _kM] - t_ij[_kP, _kM]
+            kP, kM = 'ori%d' % k, 'dest%d' % k
+            detourTime = t_ij[kP, iP] + t_ij[iP, iM] + t_ij[iM, kM] - t_ij[kP, kM]
             if _delta < detourTime:
                 u_i[i].add(k)
     #
@@ -134,9 +129,9 @@ def run(prmt, etc=None):
             logContents += 'No solution!\n'
             write_log(etc['logFile'], logContents)
             #
-            LRMP.write('%s.lp' % problemName)
+            LRMP.write('%s.lp' % prmt['problemName'])
             LRMP.computeIIS()
-            LRMP.write('%s.ilp' % problemName)
+            LRMP.write('%s.ilp' % prmt['problemName'])
             assert False
         #
         pi_i = [LRMP.getConstrByName("taskAC[%d]" % i).Pi for i in T]
@@ -251,10 +246,8 @@ def run(prmt, etc=None):
 
 
 if __name__ == '__main__':
-    from problems import euclideanDistEx0
     from mrtScenario import mrtS1, mrtS2
     #
-    # prmt = euclideRanDistEx0()
     prmt = mrtS1()
     # prmt = mrtS2()
     problemName = prmt['problemName']

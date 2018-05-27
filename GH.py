@@ -1,164 +1,122 @@
+import os.path as opath
 import time
+import pickle
 #
-from _util import write_log, res2file
-from problems import *
+from _util import res2file
+from PD_IH import run as PD_IH_run
 
 
-def run(problem, etcSetting=None, returnSol=False):
+def estimate_WS(prmt, gh_inputs, b, i0):
+    K, w_k, _delta = list(map(prmt.get, ['K', 'w_k', '_delta']))
+    s_bk = gh_inputs['s_bk']
+    ws, seqs = 0.0, []
+    for k in K:
+        seq0 = s_bk[b, k]
+        detourTime, seq1 = PD_IH_run(prmt, {'seq0': seq0, 'i0': i0})
+        if detourTime <= _delta:
+            ws += w_k[k]
+        seqs.append(seq1)
+    #
+    return ws, seqs
+
+
+def run(prmt, etc):
     startCpuTime, startWallTime = time.clock(), time.time()
+    if 'TimeLimit' not in etc:
+        etc['TimeLimit'] = 1e400
+    etc['startTS'] = startCpuTime
+    etc['startCpuTime'] = startCpuTime
+    etc['startWallTime'] = startWallTime
     #
-    ori_inputs = convert_prob2prmt(*problem)
-    bB = ori_inputs['bB']
-    T, r_i, v_i, _lambda = list(map(ori_inputs.get, ['T', 'r_i', 'v_i', '_lambda']))
-    K, w_k = list(map(ori_inputs.get, ['K', 'w_k']))
-    t_ij, _delta = list(map(ori_inputs.get, ['t_ij', '_delta']))
+    bB = prmt['bB']
+    T, cB_P = [prmt.get(k) for k in ['T', 'cB_P']]
+    K, w_k = [prmt.get(k) for k in ['K', 'w_k']]
+    t_ij, _delta, cW = [prmt.get(k) for k in ['t_ij', '_delta', 'cW']]
     #
-    a_t = []
+    a_t = [0.0 for _ in T]
     for i in T:
-        a = 0
         iP, iM = 'p%d' % i, 'd%d' % i
         for k in K:
             kP, kM = 'ori%d' % k, 'dest%d' % k
-            d_ik = (t_ij[kP, iP] + t_ij[iP, iM] + t_ij[iM, kM]) / t_ij[kP, kM]
-            a += r_i[i] * (w_k[k] / d_ik)
-        a_t.append(a)
+            detourTime = t_ij[kP, iP] + t_ij[iP, iM] + t_ij[iM, kM] - t_ij[kP, kM]
+            if detourTime < _delta:
+                a_t[i] += w_k[k]
     #
     B = list(range(bB))
-    bundles = [[] for _ in B]
-    B_seq = [{} for _ in B]
-    a_b = [0.0 for _ in B]
+    bc = [[] for _ in B]
+    s_bk = {(b, k): ['ori%d' % k, 'dest%d' % k] for b in B for k in K}
+    gh_inputs = {'bc': bc, 's_bk': s_bk}
+    T = T[:]
     while T:
-        bundle_updatedX = [False for _ in B]
+        updated = [False for _ in B]
         for b in B:
-            if _lambda <= sum(v_i[i] for i in bundles[b]):
-                bundle_updatedX[b] = True
+            if cB_P == len(bc[b]):
                 continue
-            best_a_b, best_bSeq, max_i = -1e400, None, None
-            if not bundles[b]:
-                max_a_t = -1e400
-                for i in T:
-                    if max_a_t < a_t[i]:
-                        max_a_t, max_i = a_t[i], i
-                best_a_b, best_bSeq = estimateBundleAtt(K, w_k, r_i, t_ij, _delta, bundles[b], B_seq[b], max_i)
+            if not bc[b]:
+                max_a_t, max_i = -1e400, None
+                for i0 in T:
+                    if max_a_t < a_t[i0]:
+                        max_a_t, max_i = a_t[i0], i0
+                ws1, seqs1 = estimate_WS(prmt, gh_inputs, b, max_i)
+                if ws1 > cW:
+                    updated[b] = True
+                    i0 = max_i
             else:
-                for i in T:
-                    if _lambda < sum(v_i[i] for i in bundles[b]) + v_i[i]:
-                        continue
-                    est_a_b, est_bSeq = estimateBundleAtt(K, w_k, r_i, t_ij, _delta, bundles[b], B_seq[b], i)
-                    if best_a_b < est_a_b:
-                        best_a_b, best_bSeq, max_i = est_a_b, est_bSeq, i
-            if a_b[b] < best_a_b:
-                bundles[b].append(max_i)
-                a_b[b], B_seq[b] = best_a_b, best_bSeq
-                T.pop(T.index(max_i))
-            else:
-                bundle_updatedX[b] = True
+                for i0 in T:
+                    ws1, seqs1 = estimate_WS(prmt, gh_inputs, b, i0)
+                    if ws1 > cW:
+                        updated[b] = True
+                        break
             #
+            if updated[b]:
+                bc[b].append(i0)
+                for k in K:
+                    s_bk[b, k] = seqs1[k]
+                T.pop(T.index(i0))
             if not T:
                 break
-        if sum(bundle_updatedX) == bB:
+        if sum(updated) == 0:
             break
     #
-    if returnSol:
-        assert etcSetting is None
-        return sum(a_b), bundles
-    else:
-        #
-        endCpuTime, endWallTime = time.clock(), time.time()
-        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        #
-        logContents = 'Summary\n'
-        logContents += '\t Cpu Time: %f\n' % eliCpuTime
-        logContents += '\t Wall Time: %f\n' % eliWallTime
-        logContents += '\t ObjV: %.3f\n' % sum(a_b)
-        logContents += '\t chosen B.: %s\n' % str(bundles)
-        #
-        logContents += '\n'
-        for b in B:
-            br = sum([r_i[i] for i in bundles[b]])
-            p = 0
-            for k in K:
-                kP, kM = 'ori%d' % k, 'dest%d' % k
-                if B_seq[b]:
-                    detourTime = calc_detourTime(kP, kM, B_seq[b][k], t_ij)
-                    route = [kP] + B_seq[b][k] + [kM]
-                    if detourTime <= _delta:
-                        p += w_k[k] * br
-                        logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 1, str(route))
-                    else:
-                        logContents += '\t k%d, w %.2f dt %.2f; %d;\t %s\n' % (k, w_k[k], detourTime, 0, str(route))
-                    logContents += '\t\t\t\t\t\t %.3f\n' % p
-                else:
-                    logContents += '\t\t\t\t\t\t no tasks\n'
-
-        write_log(etcSetting['LogFile'], logContents)
-        #
-        try:
-            res2file(etcSetting['ResFile'], sum(a_b), None, eliCpuTime, eliWallTime)
-        except:
-            res2file(etcSetting['ResFile'], -1, -1, eliCpuTime, eliWallTime)
-
-
-def estimateBundleAtt(K, w_k, r_i, t_ij, _delta, b, bSeq, est_i):
-    iP, iM = 'p%d' % est_i, 'd%d' % est_i
-    ws, est_bSeq = 0.0, {}
-    if not b:
-        for k in K:
-            kP, kM = 'ori%d' % k, 'dest%d' % k
-            detourTime = t_ij[kP, iP] + t_ij[iP, iM] + t_ij[iM, kM]
-            detourTime -= t_ij[kP, kM]
-            est_bSeq[k] = [iP, iM]
-            if detourTime <= _delta:
-                ws += w_k[k]
-    else:
-        for k in K:
-            kP, kM = 'ori%d' % k, 'dest%d' % k
-            least_detourTime, best_seq = 1e400, None
-            for i in range(len(bSeq[k])):
-                if i == len(bSeq[k]) - 1:
-                    j = i
-                    #
-                    new_seq = bSeq[k][:]
-                    new_seq.insert(i, iP)
-                    new_seq.insert(j + 1, iM)
-                    detourTime = calc_detourTime(kP, kM, new_seq, t_ij)
-                    if detourTime < least_detourTime:
-                        least_detourTime, best_seq = detourTime, new_seq
-                else:
-                    for j in range(i, len(bSeq[k])):
-                        new_seq = bSeq[k][:]
-                        new_seq.insert(i, iP)
-                        new_seq.insert(j + 1, iM)
-                        detourTime = calc_detourTime(kP, kM, new_seq, t_ij)
-                        if detourTime < least_detourTime:
-                            least_detourTime, best_seq = detourTime, new_seq
-            est_bSeq[k] = best_seq
-            if least_detourTime <= _delta:
-                ws += w_k[k]
+    # Handle termination
     #
-    est_a_b = (sum(r_i[i] for i in b) + r_i[est_i]) * ws
-    return est_a_b, est_bSeq
 
-
-def calc_detourTime(kP, kM, seq, t_ij):
-    detourTime = t_ij[kP, seq[0]] + \
-             sum(t_ij[seq[i], seq[i + 1]] for i in range(len(seq) - 1)) + \
-             t_ij[seq[-1], kM]
-    detourTime -= t_ij[kP, kM]
-    return detourTime
+    if etc:
+        assert 'solFilePKL' in etc
+        assert 'solFileCSV' in etc
+        assert 'solFileTXT' in etc
+        #
+        objVal = sum(len(o) for o in bc)
+        with open(etc['solFileTXT'], 'w') as f:
+            endCpuTime, endWallTime = time.clock(), time.time()
+            eliCpuTime = endCpuTime - etc['startCpuTime']
+            eliWallTime = endWallTime - etc['startWallTime']
+            logContents = 'Summary\n'
+            logContents += '\t Cpu Time: %f\n' % eliCpuTime
+            logContents += '\t Wall Time: %f\n' % eliWallTime
+            logContents += '\t ObjV: %.3f\n' % objVal
+            logContents += 'Chosen bundles\n'
+            logContents += '%s\n' % str(bc)
+            f.write(logContents)
+            f.write('\n')
+        res2file(etc['solFileCSV'], objVal, -1, eliCpuTime, eliWallTime)
+        #
+        sol = {'bc': bc}
+        with open(etc['solFilePKL'], 'wb') as fp:
+            pickle.dump(sol, fp)
 
 
 if __name__ == '__main__':
-    import os.path as opath
-    from problems import paperExample, ex1
+    from mrtScenario import mrtS1, mrtS2
     #
-    problem = paperExample()
-    # problem = ex1()
-    problemName = problem[0]
-    log_fpath = opath.join('_temp', '%s_GH.log' % problemName)
-    res_fpath = opath.join('_temp', '%s_GH.csv' % problemName)
-    etcSetting = {'LogFile': log_fpath,
-                  'ResFile': res_fpath,
-                  }
+    prmt = mrtS1()
+    # prmt = mrtS2()
+    problemName = prmt['problemName']
     #
-    run(problem, etcSetting)
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_GH.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_GH.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_GH.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_GH.log' % problemName),
+           }
+    #
+    run(prmt, etc)
