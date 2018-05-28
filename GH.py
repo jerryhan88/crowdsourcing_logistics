@@ -20,7 +20,7 @@ def estimate_WS(prmt, gh_inputs, b, i0):
     return ws, seqs
 
 
-def run(prmt, etc):
+def run(prmt, etc={}):
     startCpuTime, startWallTime = time.clock(), time.time()
     if 'TimeLimit' not in etc:
         etc['TimeLimit'] = 1e400
@@ -80,7 +80,7 @@ def run(prmt, etc):
     #
     # Handle termination
     #
-    if etc:
+    if 'solFileCSV' in etc:
         assert 'solFilePKL' in etc
         assert 'solFileCSV' in etc
         assert 'solFileTXT' in etc
@@ -103,6 +103,8 @@ def run(prmt, etc):
         sol = {'bc': bc}
         with open(etc['solFilePKL'], 'wb') as fp:
             pickle.dump(sol, fp)
+    #
+    return bc, s_bk
 
 
 if __name__ == '__main__':

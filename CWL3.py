@@ -8,58 +8,15 @@ from gurobipy import *
 #
 from RMP import generate_RMP
 from CWL1 import itr2file
+from CWL2 import LS_run
 from _util import write_log, res2file
 from _util_cython import gen_cFile
-
-prefix = 'PD_IH'
+prefix = 'GH'
 gen_cFile(prefix)
-from PD_IH import run as PD_IH_run
-
+from GH import run as GH_run
 
 NUM_CORES = multiprocessing.cpu_count()
 LOG_INTER_RESULTS = False
-
-
-def estimate_WS(prmt, cwl_inputs, c, i0):
-    K, w_k, _delta = list(map(prmt.get, ['K', 'w_k', '_delta']))
-    s_ck = cwl_inputs['s_ck']
-    ws, seqs = 0.0, []
-    for k in K:
-        seq0 = s_ck[c, k]
-        detourTime, seq1 = PD_IH_run(prmt, {'seq0': seq0, 'i0': i0})
-        if detourTime <= _delta:
-            ws += w_k[k]
-        seqs.append(seq1)
-    #
-    return ws, seqs
-
-
-def LS_run(prmt, cwl_inputs):
-    T, cB_P, cW = [prmt.get(k) for k in ['T', 'cB_P', 'cW']]
-    #
-    pi_i, mu = [cwl_inputs.get(k) for k in ['pi_i', 'mu']]
-    C, sC, c0 = [cwl_inputs.get(k) for k in ['C', 'sC', 'c0']]
-    #
-    Ts0 = C[c0]
-    rc_Ts1_seqs = []
-    for i0 in T:
-        if i0 in Ts0:
-            continue
-        Ts1 = Ts0[:] + [i0]
-        if frozenset(tuple(Ts1)) in sC:
-            continue
-        if len(Ts1) > cB_P:
-            continue
-        ws, seqs = estimate_WS(prmt, cwl_inputs, c0, i0)
-        if ws > cW:
-            vec = [0 for _ in range(len(T))]
-            for i in Ts1:
-                vec[i] = 1
-            rc = len(Ts1) - (np.array(vec) * np.array(pi_i)).sum() - mu
-            #
-            rc_Ts1_seqs.append([rc, Ts1, seqs])
-    #
-    return rc_Ts1_seqs
 
 
 def run(prmt, etc=None):
@@ -72,7 +29,7 @@ def run(prmt, etc=None):
     itr2file(etc['itrFileCSV'])
     #
     cwl_inputs = {}
-    T, cB_P, K = [prmt.get(k) for k in ['T', 'cB_P', 'K']]
+    T, cB_M, cB_P, K, bB = [prmt.get(k) for k in ['T', 'cB_M', 'cB_P', 'K', 'bB']]
     #
     C, sC, p_c, e_ci = [], set(), [], []
     TB = set()
@@ -91,6 +48,24 @@ def run(prmt, etc=None):
         #
         vec = [0 for _ in range(len(T))]
         vec[i] = 1
+        e_ci.append(vec)
+    #
+    bc, s_bk = GH_run(prmt)
+    for b in range(bB):
+        Ts = bc[b]
+        if len(Ts) < cB_M:
+            continue
+        c = len(C)
+        for k in K:
+            s_ck[c, k] = s_bk[b, k]
+        C.append(Ts)
+        sC.add(frozenset(tuple(Ts)))
+        #
+        p_c.append(len(Ts))
+        #
+        vec = [0 for _ in range(len(T))]
+        for i in Ts:
+            vec[i] = 1
         e_ci.append(vec)
     #
     cwl_inputs['C'] = C
@@ -258,11 +233,11 @@ if __name__ == '__main__':
     # prmt = mrtS2()
     problemName = prmt['problemName']
     #
-    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL2.pkl' % problemName),
-           'solFileCSV': opath.join('_temp', 'sol_%s_CWL2.csv' % problemName),
-           'solFileTXT': opath.join('_temp', 'sol_%s_CWL2.txt' % problemName),
-           'logFile': opath.join('_temp', '%s_CWL2.log' % problemName),
-           'itrFileCSV': opath.join('_temp', '%s_itrCWL2.csv' % problemName),
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL3.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_CWL3.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_CWL3.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_CWL3.log' % problemName),
+           'itrFileCSV': opath.join('_temp', '%s_itrCWL3.csv' % problemName),
            }
     #
     run(prmt, etc)

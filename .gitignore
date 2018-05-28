@@ -13,6 +13,7 @@
 *.so
 *.txt
 *.csv
+*.pyx
 z_html
 __pycache__/
 build/
