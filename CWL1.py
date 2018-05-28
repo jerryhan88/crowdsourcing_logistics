@@ -7,7 +7,7 @@ from itertools import chain
 from gurobipy import *
 #
 from RMP import generate_RMP
-from PD import run as PD_run
+from PD_MM import run as PD_run
 from _util import write_log, res2file
 
 NUM_CORES = multiprocessing.cpu_count()

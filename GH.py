@@ -29,7 +29,7 @@ def run(prmt, etc):
     etc['startWallTime'] = startWallTime
     #
     bB = prmt['bB']
-    T, cB_P = [prmt.get(k) for k in ['T', 'cB_P']]
+    T, cB_M, cB_P = [prmt.get(k) for k in ['T', 'cB_M', 'cB_P']]
     K, w_k = [prmt.get(k) for k in ['K', 'w_k']]
     t_ij, _delta, cW = [prmt.get(k) for k in ['t_ij', '_delta', 'cW']]
     #
@@ -86,7 +86,7 @@ def run(prmt, etc):
         assert 'solFileCSV' in etc
         assert 'solFileTXT' in etc
         #
-        objVal = sum(len(o) for o in bc)
+        objVal = sum(len(o) for o in bc if cB_M <= len(o))
         with open(etc['solFileTXT'], 'w') as f:
             endCpuTime, endWallTime = time.clock(), time.time()
             eliCpuTime = endCpuTime - etc['startCpuTime']

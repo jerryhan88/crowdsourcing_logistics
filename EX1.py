@@ -272,10 +272,11 @@ if __name__ == '__main__':
     prmt = mrtS1()
     problemName = prmt['problemName']
     #
-    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX0.pkl' % problemName),
-           'solFileCSV': opath.join('_temp', 'sol_%s_EX0.csv' % problemName),
-           'solFileTXT': opath.join('_temp', 'sol_%s_EX0.txt' % problemName),
-           'logFile': opath.join('_temp', '%s_EX0.log' % problemName)
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX1.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_EX1.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_EX1.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_EX1.log' % problemName),
+           'itrFileCSV': opath.join('_temp', '%s_itrEX1.csv' % problemName),
            }
     #
     run(prmt, etc)

@@ -10,7 +10,7 @@ from _util import write_log, bpt2file, res2file
 from _util import set_grbSettings
 from RMP import generate_RMP
 from SP import run as SP_run
-from PD import calc_expectedProfit
+from PD_MM import calc_expectedProfit
 from problems import convert_prob2prmt
 
 
