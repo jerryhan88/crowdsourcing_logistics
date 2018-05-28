@@ -80,7 +80,6 @@ def run(prmt, etc):
     #
     # Handle termination
     #
-
     if etc:
         assert 'solFilePKL' in etc
         assert 'solFileCSV' in etc

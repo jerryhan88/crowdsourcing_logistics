@@ -7,55 +7,36 @@ from itertools import chain
 from gurobipy import *
 #
 from RMP import generate_RMP
-from PD_MM import run as PD_MM_run
+from CWL1 import itr2file
+from PD_IH import run as PD_IH_run
 from _util import write_log, res2file
 
 NUM_CORES = multiprocessing.cpu_count()
 LOG_INTER_RESULTS = False
 
 
-def itr2file(fpath, contents=[]):
-    if not contents:
-        if opath.exists(fpath):
-            os.remove(fpath)
-        with open(fpath, 'wt') as w_csvfile:
-            writer = csv.writer(w_csvfile, lineterminator='\n')
-            header = ['itrNum', 'eliCpuTime', 'eliWallTime',
-                      'numCols', 'numTB',
-                      'relObjV', 'selBC', 'selBC_RC', 'new_RC_BC']
-            writer.writerow(header)
-    else:
-        with open(fpath, 'a') as w_csvfile:
-            writer = csv.writer(w_csvfile, lineterminator='\n')
-            writer.writerow(contents)
-
-
-def get_wsFeasiblity(prmt, cwl_inputs, Ts):
-    K, w_k, _delta, cW = list(map(prmt.get, ['K', 'w_k', '_delta', 'cW']))
-    u_i = cwl_inputs['u_i']
-    #
-    infeasiblePaths = set(chain(*[u_i[i] for i in Ts]))
-    ws, feasiblity = 0, False
+def estimate_WS(prmt, cwl_inputs, c, i0):
+    K, w_k, _delta = list(map(prmt.get, ['K', 'w_k', '_delta']))
+    s_ck = cwl_inputs['s_ck']
+    ws, seqs = 0.0, []
     for k in K:
-        if k in infeasiblePaths:
-            continue
-        detourTime, route = PD_MM_run(prmt, {'k': k, 'Ts': Ts})
+        seq0 = s_ck[c, k]
+        detourTime, seq1 = PD_IH_run(prmt, {'seq0': seq0, 'i0': i0})
         if detourTime <= _delta:
             ws += w_k[k]
-        if ws > cW:
-            feasiblity = True
-            break
-    return feasiblity
+        seqs.append(seq1)
+    #
+    return ws, seqs
 
 
 def LS_run(prmt, cwl_inputs):
-    T, cB_P = [prmt.get(k) for k in ['T', 'cB_P']]
+    T, cB_P, cW = [prmt.get(k) for k in ['T', 'cB_P', 'cW']]
     #
     pi_i, mu = [cwl_inputs.get(k) for k in ['pi_i', 'mu']]
     C, sC, c0 = [cwl_inputs.get(k) for k in ['C', 'sC', 'c0']]
     #
     Ts0 = C[c0]
-    rc_Ts1 = []
+    rc_Ts1_seqs = []
     for i0 in T:
         if i0 in Ts0:
             continue
@@ -64,15 +45,16 @@ def LS_run(prmt, cwl_inputs):
             continue
         if len(Ts1) > cB_P:
             continue
-        vec = [0 for _ in range(len(T))]
-        for i in Ts1:
-            vec[i] = 1
-        rc = len(Ts1) - (np.array(vec) * np.array(pi_i)).sum() - mu
-        wsFeasiblity = get_wsFeasiblity(prmt, cwl_inputs, Ts1)
-        if wsFeasiblity:
-            rc_Ts1.append([rc, Ts1])
+        ws, seqs = estimate_WS(prmt, cwl_inputs, c0, i0)
+        if ws > cW:
+            vec = [0 for _ in range(len(T))]
+            for i in Ts1:
+                vec[i] = 1
+            rc = len(Ts1) - (np.array(vec) * np.array(pi_i)).sum() - mu
+            #
+            rc_Ts1_seqs.append([rc, Ts1, seqs])
     #
-    return rc_Ts1
+    return rc_Ts1_seqs
 
 
 def run(prmt, etc=None):
@@ -86,11 +68,16 @@ def run(prmt, etc=None):
     #
     cwl_inputs = {}
     T, cB_P, K = [prmt.get(k) for k in ['T', 'cB_P', 'K']]
-    t_ij, _delta = [prmt.get(k) for k in ['t_ij', '_delta']]
     #
     C, sC, p_c, e_ci = [], set(), [], []
-    TB, u_i = set(), [set() for _ in T]
+    TB = set()
+    s_ck = {}
     for i in T:
+        c = len(C)
+        iP, iM = 'p%d' % i, 'd%d' % i
+        for k in K:
+            kP, kM = 'ori%d' % k, 'dest%d' % k
+            s_ck[c, k] = [kP, iP, iM, kM]
         Ts = [i]
         C.append(Ts)
         sC.add(frozenset(tuple(Ts)))
@@ -100,19 +87,13 @@ def run(prmt, etc=None):
         vec = [0 for _ in range(len(T))]
         vec[i] = 1
         e_ci.append(vec)
-        iP, iM = 'p%d' % i, 'd%d' % i
-        for k in K:
-            kP, kM = 'ori%d' % k, 'dest%d' % k
-            detourTime = t_ij[kP, iP] + t_ij[iP, iM] + t_ij[iM, kM] - t_ij[kP, kM]
-            if _delta < detourTime:
-                u_i[i].add(k)
     #
     cwl_inputs['C'] = C
     cwl_inputs['sC'] = sC
     cwl_inputs['p_c'] = p_c
     cwl_inputs['e_ci'] = e_ci
     cwl_inputs['TB'] = TB
-    cwl_inputs['u_i'] = u_i
+    cwl_inputs['s_ck'] = s_ck
     #
     RMP, q_c, taskAC, numBC = generate_RMP(prmt, cwl_inputs)
     #
@@ -167,7 +148,8 @@ def run(prmt, etc=None):
             break
         cwl_inputs['c0'] = c0
         #
-        rc_Ts1 = LS_run(prmt, cwl_inputs)
+        rc_Ts1_seqs = LS_run(prmt, cwl_inputs)
+        rc_Ts1 = [[o[0], o[1]] for o in rc_Ts1_seqs]
         if time.clock() - etc['startTS'] > etc['TimeLimit']:
             break
         #
@@ -175,11 +157,11 @@ def run(prmt, etc=None):
         itr2file(etc['itrFileCSV'], [counter, '%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP,
                                      len(cwl_inputs['C']), len(cwl_inputs['TB']),
                                      '%.2f' % LRMP.objVal, C[c0], '%.2f' % minRC, str(rc_Ts1)])
-        if len(rc_Ts1) == 0:
+        if len(rc_Ts1_seqs) == 0:
             TB.add(c0)
         else:
             is_updated = False
-            for rc, Ts1 in rc_Ts1:
+            for rc, Ts1, seqs in rc_Ts1_seqs:
                 if rc < 0:
                     continue
                 is_updated = True
@@ -198,6 +180,8 @@ def run(prmt, etc=None):
                 col.addTerms(1, numBC)
                 #
                 q_c[len(C)] = RMP.addVar(obj=p_c[len(C)], vtype=GRB.BINARY, name="q[%d]" % len(C), column=col)
+                for k in K:
+                    s_ck[len(C), k] = seqs[k]
                 C.append(Ts1)
                 sC.add(frozenset(tuple(Ts1)))
                 RMP.update()
@@ -252,11 +236,11 @@ if __name__ == '__main__':
     # prmt = mrtS2()
     problemName = prmt['problemName']
     #
-    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL1.pkl' % problemName),
-           'solFileCSV': opath.join('_temp', 'sol_%s_CWL1.csv' % problemName),
-           'solFileTXT': opath.join('_temp', 'sol_%s_CWL1.txt' % problemName),
-           'logFile': opath.join('_temp', '%s_CWL1.log' % problemName),
-           'itrFileCSV': opath.join('_temp', '%s_itrCWL1.csv' % problemName),
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL2.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_CWL2.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_CWL2.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_CWL2.log' % problemName),
+           'itrFileCSV': opath.join('_temp', '%s_itrCWL2.csv' % problemName),
            }
     #
     run(prmt, etc)

@@ -3,6 +3,7 @@ import os
 import shutil
 import pickle
 import csv
+from random import seed
 #
 from __path_organizer import exp_dpath
 from mrtScenario import gen_instance, inputConvertPickle
@@ -11,28 +12,38 @@ from mrtScenario import PER25, PER50, PER75, STATIONS
 from EX1 import run as EX1_run
 from EX2 import run as EX2_run
 from CWL1 import run as CWL_run
-# from BNP import run as BNP_run
 # from GH import run as GH_run
+# from BNP import run as BNP_run
+
 
 
 def gen_problems(problem_dpath):
+
     if not opath.exists(problem_dpath):
         os.mkdir(problem_dpath)
+        for dname in ['dplym', 'prmts']:
+            os.mkdir(opath.join(problem_dpath, dname))
     #
-    stationSel = '5out'
+
+    #  '4small', '5out', '7inter', '11interOut'
+
+    stationSel = '4small'
     stations = STATIONS[stationSel]
     min_durPD = 20
     minTB, maxTB = 2, 3
     flowPER, detourPER = PER75, PER25
+
     for numTasks in [
+                    10,
                     # 50,
-                     100,
-                     200,
-        # 400, 800
+                    # 100,
+                    # 200,
+                    # 400, 800
                      ]:
         numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
         problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
         #
+        seed(0)
         flow_oridest, task_ppdp, \
         flows, tasks, \
         numLocs, travel_time, thDetour, \
@@ -52,7 +63,7 @@ def run_experiments(machine_num):
     for path in [machine_dpath, problem_dpath]:
         assert opath.exists(path), path
     log_dpath = opath.join(machine_dpath, 'log')
-    sol_dpath = opath.join(machine_dpath, 'res')
+    sol_dpath = opath.join(machine_dpath, 'sol')
     for path in [log_dpath, sol_dpath]:
         if opath.exists(path):
             shutil.rmtree(path)
@@ -69,26 +80,30 @@ def run_experiments(machine_num):
         # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_EX1.pkl' % problemName),
         #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_EX1.csv' % problemName),
         #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_EX1.txt' % problemName),
-        #        'logFile': opath.join(log_dpath, '%s_EX1.log' % problemName)}
+        #        'logFile': opath.join(log_dpath, '%s_EX1.log' % problemName),
+        #        'itrFileCSV': opath.join(log_dpath, '%s_itrEX1.csv' % problemName)
+        #        }
         # EX1_run(prmt, etc)
         ###############################################################
         # EX2
-        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_EX2.pkl' % problemName),
-        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_EX2.csv' % problemName),
-        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_EX2.txt' % problemName),
-        #        'logFile': opath.join(log_dpath, '%s_EX2.log' % problemName)}
-        # EX2_run(prmt, etc)
+        etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_EX2.pkl' % problemName),
+               'solFileCSV': opath.join(sol_dpath, 'sol_%s_EX2.csv' % problemName),
+               'solFileTXT': opath.join(sol_dpath, 'sol_%s_EX2.txt' % problemName),
+               'logFile': opath.join(log_dpath, '%s_EX2.log' % problemName),
+               'itrFileCSV': opath.join(log_dpath, '%s_itrEX2.csv' % problemName)
+               }
+        EX2_run(prmt, etc)
         ###############################################################
         #
         ###############################################################
         # CWL
-        etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL.pkl' % problemName),
-               'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL.csv' % problemName),
-               'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL.txt' % problemName),
-               'logFile': opath.join(log_dpath, '%s_CWL.log' % problemName),
-               'itrFileCSV': opath.join(log_dpath, '%s_itrCWL.csv' % problemName),
-               }
-        CWL_run(prmt, etc)
+        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL.pkl' % problemName),
+        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL.csv' % problemName),
+        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL.txt' % problemName),
+        #        'logFile': opath.join(log_dpath, '%s_CWL.log' % problemName),
+        #        'itrFileCSV': opath.join(log_dpath, '%s_itrCWL.csv' % problemName),
+        #        }
+        # CWL_run(prmt, etc)
         #
         ###############################################################
         # BNP
@@ -228,7 +243,7 @@ def read_result(resF,logF):
 
 
 if __name__ == '__main__':
-    gen_problems(opath.join(exp_dpath, 'tempProb'))
+    gen_problems(opath.join(exp_dpath, 'm2'))
     # run_experiments(101)
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()

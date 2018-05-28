@@ -1,13 +1,13 @@
 import os.path as opath
 import csv, pickle
 import numpy as np
-from random import seed, choice
+from random import choice
+from functools import reduce
 #
 from __path_organizer import ez_dpath, pf_dpath
 
 aDayNight_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801-H18H23.csv')
 aDay_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801.csv')
-seed(0)
 
 PER25, PER50, PER75 = np.arange(25, 100, 25)
 STATIONS = {
@@ -141,10 +141,10 @@ def gen_instance(stations, numTasks, min_durPD, detourPER, flowPER):
 def inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir):
     problemName = problem[0]
     prmt = convert_prob2prmt(*problem)
-    with open(opath.join(pkl_dir, 'prmts_%s.pkl' % problemName), 'wb') as fp:
+    with open(reduce(opath.join, [pkl_dir, 'prmts', 'prmts_%s.pkl' % problemName]), 'wb') as fp:
         pickle.dump(prmt, fp)
     vizInputs = [flow_oridest, task_ppdp]
-    with open(opath.join(pkl_dir, 'dplym_%s.pkl' % problemName), 'wb') as fp:
+    with open(reduce(opath.join, [pkl_dir, 'dplym', 'dplym_%s.pkl' % problemName]), 'wb') as fp:
         pickle.dump(vizInputs, fp)
     #
     return prmt
@@ -304,8 +304,6 @@ def mrtS1(pkl_dir='_temp'):
                numBundles, minTB, maxTB,
                numLocs, travel_time, thDetour,
                minWS]
-    with open(opath.join(pkl_dir, 'problem_%s.pkl' % problemName), 'wb') as fp:
-        pickle.dump(problem, fp)
     prmt = convert_prob2prmt(*problem)
     with open(opath.join(pkl_dir, 'prmts_%s.pkl' % problemName), 'wb') as fp:
         pickle.dump(prmt, fp)

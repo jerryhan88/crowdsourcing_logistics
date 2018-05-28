@@ -1,3 +1,4 @@
+import os.path as opath
 import multiprocessing
 import time
 import pickle, csv
@@ -245,7 +246,6 @@ def run(prmt, etc=None):
 
 
 if __name__ == '__main__':
-    import os.path as opath
     from problems import euclideanDistEx0
     from mrtScenario import mrtS1
     #

@@ -11,8 +11,8 @@ def run(prmt, pd_inputs):
         seq1 = [kP, iP, iM, kM]
         detourTime1 = calc_detourTime(seq1, t_ij)
     else:
-        for i in range(1, len(seq0) - 1):
-            for j in range(i, len(seq0) - 1):
+        for i in range(1, len(seq0)):
+            for j in range(i, len(seq0)):
                 seq = seq0[:]
                 seq.insert(i, iP)
                 seq.insert(j + 1, iM)
