@@ -10,20 +10,6 @@ from __path_organizer import exp_dpath
 from _util_cython import gen_cFile
 from mrtScenario import gen_instance, inputConvertPickle
 from mrtScenario import PER25, PER50, PER75, STATIONS
-#
-from EX1 import run as EX1_run
-from EX2 import run as EX2_run
-from CWL1 import run as CWL1_run
-for prefix in ['CWL2', 'CWL3', 'CWL4', 'CWL5', 'GH']:
-    gen_cFile(prefix)
-from CWL2 import run as CWL2_run
-from CWL3 import run as CWL3_run
-from CWL4 import run as CWL4_run
-from CWL5 import run as CWL5_run
-from GH import run as GH_run
-# from BNP import run as BNP_run
-
-CWL_FUNCTIONS = [None, CWL1_run, CWL2_run, CWL3_run, CWL4_run, CWL5_run]
 
 
 def gen_problems(problem_dpath):
@@ -35,42 +21,51 @@ def gen_problems(problem_dpath):
 
     #  '4small', '5out', '7inter', '11interOut'
 
-    stationSel = '5out'
-    for stationSel in [
-                        # '5out',
-                       '7inter', '11interOut'
-                       ]:
-        stations = STATIONS[stationSel]
-        min_durPD = 20
-        minTB, maxTB = 2, 4
-        flowPER, detourPER = PER75, PER25
+    stationSel = '7inter'
+    stations = STATIONS[stationSel]
+    min_durPD = 20
+    minTB, maxTB = 2, 4
+    flowPER, detourPER = PER75, PER25
 
-        for numTasks in [
-                        # 10,
-                        50,
-                        # 100,
-                        # 200,
-                        # 400,
-                        # 800,
-                        # 1600,
-                         ]:
-            numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
-            problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
-            #
-            seed(0)
-            flow_oridest, task_ppdp, \
-            flows, tasks, \
-            numLocs, travel_time, thDetour, \
-            minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
-            problem = [problemName,
-                       flows, tasks,
-                       numBundles, minTB, maxTB,
-                       numLocs, travel_time, thDetour,
-                       minWS]
-            inputConvertPickle(problem, flow_oridest, task_ppdp, problem_dpath)
+    for numTasks in [
+                    # 10,
+                    # 50,
+                    # 100,
+                    # 200,
+                    # 400,
+                    # 800,
+                    1600,
+                     ]:
+        numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
+        problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
+        #
+        seed(0)
+        flow_oridest, task_ppdp, \
+        flows, tasks, \
+        numLocs, travel_time, thDetour, \
+        minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
+        problem = [problemName,
+                   flows, tasks,
+                   numBundles, minTB, maxTB,
+                   numLocs, travel_time, thDetour,
+                   minWS]
+        inputConvertPickle(problem, flow_oridest, task_ppdp, problem_dpath)
 
 
 def run_experiments(machine_num):
+    from EX1 import run as EX1_run
+    from EX2 import run as EX2_run
+    from CWL1 import run as CWL1_run
+    for prefix in ['CWL2', 'CWL3', 'CWL4', 'CWL5', 'GH']:
+        gen_cFile(prefix)
+    from CWL2 import run as CWL2_run
+    from CWL3 import run as CWL3_run
+    from CWL4 import run as CWL4_run
+    from CWL5 import run as CWL5_run
+    from GH import run as GH_run
+    from BNP import run as BNP_run
+    cwl_functions = [None, CWL1_run, CWL2_run, CWL3_run, CWL4_run, CWL5_run]
+    #
     _TimeLimit = 10 * 60 * 60
     machine_dpath = opath.join(exp_dpath, 'm%d' % machine_num)
     problem_dpath = opath.join(machine_dpath, 'prmts')
@@ -92,24 +87,24 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # GH
-        etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_GH.pkl' % problemName),
-               'solFileCSV': opath.join(sol_dpath, 'sol_%s_GH.csv' % problemName),
-               'solFileTXT': opath.join(sol_dpath, 'sol_%s_GH.txt' % problemName),
-               'logFile': opath.join(log_dpath, '%s_GH.log' % problemName),
-               }
-        GH_run(prmt, etc)
+        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_GH.pkl' % problemName),
+        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_GH.csv' % problemName),
+        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_GH.txt' % problemName),
+        #        'logFile': opath.join(log_dpath, '%s_GH.log' % problemName),
+        #        }
+        # GH_run(prmt, etc)
         ###############################################################
         #
         ###############################################################
         # CWL
-        for cwl_no in range(1, 6):
+        for cwl_no in range(4, 6):
             etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL%d.pkl' % (problemName, cwl_no)),
                    'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL%d.csv' % (problemName, cwl_no)),
                    'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL%d.txt' % (problemName, cwl_no)),
                    'logFile': opath.join(log_dpath, '%s_CWL%d.log' % (problemName, cwl_no)),
                    'itrFileCSV': opath.join(log_dpath, '%s_itrCWL%d.csv' % (problemName, cwl_no)),
                    }
-            CWL_FUNCTIONS[cwl_no](prmt, etc)
+            cwl_functions[cwl_no](prmt, etc)
         ###############################################################
         #
         ###############################################################
@@ -136,17 +131,13 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # BNP
-        # problemName = problem[0]
-        # log_fpath = opath.join(log_dpath, '%s-BNP.log' % problemName)
-        # res_fpath = opath.join(res_dpath, '%s-BNP.csv' % problemName)
-        # bpt_fpath = opath.join(bbt_dpath, '%s-bnpTree.csv' % problemName)
-        # etcSetting = {'LogFile': log_fpath,
-        #               'ResFile': res_fpath,
-        #               'bptFile': bpt_fpath,
-        #               'TimeLimit': _TimeLimit}
-        # grbSetting = {'LogFile': log_fpath,
-        #               'Threads': _numThreads}
-        # BNP_run(problem, etcSetting, grbSetting)
+        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_BNP.pkl' % problemName),
+        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_BNP.csv' % problemName),
+        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_BNP.txt' % problemName),
+        #        'logFile': opath.join(log_dpath, '%s_BNP.log' % problemName),
+        #        'itrFileCSV': opath.join(log_dpath, '%s_itrBNP.csv' % problemName),
+        #        }
+        # BNP_run(prmt, etc)
         ###############################################################
 
         ###############################################################
@@ -309,8 +300,8 @@ def read_result(resF,logF):
 
 
 if __name__ == '__main__':
-    gen_problems(opath.join(exp_dpath, 'm117'))
+    # gen_problems(opath.join(exp_dpath, 'm114'))
     # run_experiments(101)
-    # summary1()
+    summary1()
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()

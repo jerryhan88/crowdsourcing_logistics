@@ -4,7 +4,7 @@ import time
 import pickle, csv
 from gurobipy import *
 #
-from _util_logging import log2file, res2file
+from _util_logging import write_log, res2file
 
 NUM_CORES = multiprocessing.cpu_count()
 LOGGING_INTERVAL = 20
@@ -40,7 +40,7 @@ def run(prmt, etc=None):
             if time.clock() - etc['startTS'] > etc['TimeLimit']:
                 logContents = '\n'
                 logContents += 'Interrupted by time limit\n'
-                log2file(etc['LogFile'], logContents)
+                write_log(etc['logFile'], logContents)
                 m.terminate()
             if time.time() - etc['lastLoggingTime'] > LOGGING_INTERVAL:
                 etc['lastLoggingTime'] = time.time()
