@@ -9,7 +9,7 @@ from gurobipy import *
 from RMP import generate_RMP
 from CWL1 import itr2file
 from CWL2 import LS_run
-from _util import write_log, res2file
+from _util_logging import write_log, res2file
 from _util_cython import gen_cFile
 prefix = 'GH'
 gen_cFile(prefix)

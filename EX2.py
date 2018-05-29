@@ -4,7 +4,7 @@ import time
 import pickle, csv
 from gurobipy import *
 #
-from _util import log2file, res2file
+from _util_logging import log2file, res2file
 
 NUM_CORES = multiprocessing.cpu_count()
 LOGGING_INTERVAL = 20
@@ -62,7 +62,7 @@ def run(prmt, etc=None):
     #
     # Define decision variables
     #
-    EX = Model('EX1')
+    EX = Model('EX2')
     z_bi = {(b, i): EX.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (b, i))
             for b in B for i in T}
     y_bk = {(b, k): EX.addVar(vtype=GRB.BINARY, name='y[%d,%d]' % (b, k))
@@ -87,12 +87,7 @@ def run(prmt, etc=None):
         for i in T:  # eq:ObjF
             obj += z_bi[b, i]
     EX.setObjective(obj, GRB.MAXIMIZE)
-
-    for b in B:
-        EX.addConstr(quicksum(z_bi[b, i] for i in T) >= cB_M * g_b[b],
-                     name='minTB1[%d]' % b)
-        EX.addConstr(quicksum(z_bi[b, i] for i in T) <= cB_P * g_b[b],
-                     name='minTB2[%d]' % b)
+    #
     #
     # Define constrains
     #
@@ -101,6 +96,11 @@ def run(prmt, etc=None):
     for i in T:  # eq:taskA
         EX.addConstr(quicksum(z_bi[b, i] for b in B) <= 1,
                     name='ta[%d]' % i)
+    for b in B:
+        EX.addConstr(quicksum(z_bi[b, i] for i in T) >= cB_M * g_b[b],
+                     name='minTB1[%d]' % b)
+        EX.addConstr(quicksum(z_bi[b, i] for i in T) <= cB_P * g_b[b],
+                     name='minTB2[%d]' % b)
     #
     #  Routing_Flow
     #
@@ -167,7 +167,7 @@ def run(prmt, etc=None):
     #
     # Run Gurobi (Optimization)
     #
-    EX.params.LazyConstraints = 1
+    EX.setParam('LazyConstraints', True)
     EX.setParam('Threads', NUM_CORES)
     if etc['logFile']:
         EX.setParam('LogFile', etc['logFile'])

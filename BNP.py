@@ -1,32 +1,50 @@
-from sys import exit
-import datetime, time
+import os.path as opath
+import multiprocessing
+import time
+import pickle, csv
 import treelib
 import numpy as np
 from itertools import combinations
 from heapq import heappush, heappop
 from gurobipy import *
 #
-from _util import write_log, bpt2file, res2file
-from _util import set_grbSettings
+from _util_logging import write_log, res2file
 from RMP import generate_RMP
-from SP import run as SP_run
-from PD_MM import calc_expectedProfit
-from problems import convert_prob2prmt
+from BNP_SP import run as SP_run
 
 
+NUM_CORES = multiprocessing.cpu_count()
+LOG_INTER_RESULTS = False
+LOGGING_INTERVAL = 20
 EPSILON = 0.000000001
 
 
-def run(problem, etcSetting, grbSetting):
-    startCpuTimeBnP, startWallTimeBnP = time.clock(), time.time()
-    if 'TimeLimit' not in etcSetting:
-        etcSetting['TimeLimit'] = 1e400
-    etcSetting['startTS'] = startCpuTimeBnP
-    etcSetting['startCpuTimeBnP'] = startCpuTimeBnP
-    etcSetting['startWallTimeBnP'] = startWallTimeBnP
-    bpt2file(etcSetting['bptFile'])
+def itr2file(fpath, contents=[]):
+    if not contents:
+        if opath.exists(fpath):
+            os.remove(fpath)
+        with open(fpath, 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            header = ['nid',
+                      'eliCpuTime', 'eliWallTime',
+                      'eventType',
+                      'contents']
+            writer.writerow(header)
+    else:
+        with open(fpath, 'a') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            writer.writerow(contents)
+
+
+def run(prmt, etc=None):
+    startCpuTime, startWallTime = time.clock(), time.time()
+    if 'TimeLimit' not in etc:
+        etc['TimeLimit'] = 1e400
+    etc['startTS'] = startCpuTime
+    etc['startCpuTime'] = startCpuTime
+    etc['startWallTime'] = startWallTime
+    itr2file(etc['itrFileCSV'])
     #
-    ori_inputs = convert_prob2prmt(*problem)
     bnp_inputs = {}
     for cond in ['inclusiveC', 'exclusiveC']:
         bnp_inputs[cond] = []
@@ -40,10 +58,8 @@ def run(problem, etcSetting, grbSetting):
     tag, indentifier = '-', '*'
     bnpTree.create_node(tag, indentifier)
     rootNode = bnpTree.get_node('*')
-    rootNode.ni = bnpNode(indentifier, ori_inputs, bnp_inputs, etcSetting, grbSetting)  # ni: node instance
+    rootNode.ni = bnpNode(indentifier, prmt, bnp_inputs, etc)  # ni: node instance
     #
-    logContents = 'Start Branch and Pricing from the root\n'
-    write_log(etcSetting['LogFile'], logContents)
     is_terminated = rootNode.ni.startCG()
     #
     if is_terminated:
@@ -59,39 +75,50 @@ def run(problem, etcSetting, grbSetting):
         BnPgap = abs(incumRes['objVal'] - bbRes['objVal']) / incumRes['objVal']
     else:
         BnPgap = None
-    chosenB = [incumProb['C'][c] for c in range(len(incumProb['C'])) if incumRes['q_c'][c] > 0.5]
-    endCpuTimeBnP, endWallTimeBnP = time.clock(), time.time()
-    eliCpuTimeBnP, eliWallTimeBnP = endCpuTimeBnP - startCpuTimeBnP, endWallTimeBnP - startWallTimeBnP
-    #
-    logContents = 'End Branch and Pricing from the root\n'
-    logContents += 'Summary\n'
-    logContents += '\t Cpu Time\n'
-    logContents += '\t\t Sta.Time: %s\n' % str(startCpuTimeBnP)
-    logContents += '\t\t End.Time: %s\n' % str(endCpuTimeBnP)
-    logContents += '\t\t Eli.Time: %f\n' % eliCpuTimeBnP
-    logContents += '\t Wall Time\n'
-    logContents += '\t\t Sta.Time: %s\n' % str(startWallTimeBnP)
-    logContents += '\t\t End.Time: %s\n' % str(endWallTimeBnP)
-    logContents += '\t\t Eli.Time: %f\n' % eliWallTimeBnP
-    logContents += '\t ObjV: %.3f\n' % incumRes['objVal']
-    if type(BnPgap) == float:
-        logContents += '\t Gap: %.3f\n' % BnPgap
-    else:
-        assert BnPgap is None
-        logContents += '\t Gap: NA\n'
-    logContents += '\t chosen B.: %s\n' % str(chosenB)
-    write_log(etcSetting['LogFile'], logContents)
-    res2file(etcSetting['ResFile'], incumRes['objVal'], BnPgap, eliCpuTimeBnP, eliWallTimeBnP)
+
+    if 'solFileCSV' in etc:
+        assert 'solFilePKL' in etc
+        assert 'solFileTXT' in etc
+        endCpuTime, endWallTime = time.clock(), time.time()
+        eliCpuTime = endCpuTime - etc['startCpuTime']
+        eliWallTime = endWallTime - etc['startWallTime']
+        #
+        chosenB = [incumProb['C'][c] for c in range(len(incumProb['C'])) if incumRes['q_c'][c] > 0.5]
+        #
+        with open(etc['solFileTXT'], 'w') as f:
+            logContents = 'End Branch and Pricing from the root\n'
+            logContents += 'Summary\n'
+            logContents += '\t Cpu Time: %f\n' % eliCpuTime
+            logContents += '\t Wall Time: %f\n' % eliWallTime
+            logContents += '\t ObjV: %.3f\n' % incumRes['objVal']
+            if type(BnPgap) == float:
+                logContents += '\t Gap: %.3f\n' % BnPgap
+            else:
+                assert BnPgap is None
+                logContents += '\t Gap: NA\n'
+            logContents += '\t chosen B.: %s\n' % str(chosenB)
+            f.write(logContents)
+            f.write('\n')
+        res2file(etc['solFileCSV'], incumRes['objVal'], BnPgap, eliCpuTime, eliWallTime)
+        #
+        _q_c = {{c: incumRes['q_c'][c] for c in range(len(incumProb['C']))}}
+        sol = {
+            'C': incumProb['C'], 'p_c': incumProb['p_c'], 'e_ci': incumProb['e_ci'],
+            'q_c': _q_c
+        }
+        with open(etc['solFilePKL'], 'wb') as fp:
+            pickle.dump(sol, fp)
 
 
 def branching(bnpTree, curNode):
-    etcSetting, grbSetting = curNode.ni.etcSetting, curNode.ni.grbSetting
+    etc = curNode.ni.etc
     bestBound, incumbent = bnpTree.bestBound, bnpTree.incumbent
     #
     logContents = 'Try Branching; bnbNode(%s)\n' % curNode.identifier
-    write_log(etcSetting['LogFile'], logContents)
-    bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
-                                     None, None, 'TB', None])
+    write_log(etc['logFile'], logContents)
+    itr2file(etc['itrFileCSV'], [curNode.identifier,
+                                 None, None,
+                                 'TB', None])
     #
     curProb = curNode.ni.bnp_inputs
     curRes = curNode.ni.res
@@ -102,9 +129,10 @@ def branching(bnpTree, curNode):
         incumRes = incumbent.ni.res
         if curRes['objVal'] < incumRes['objVal']:
             logContents = 'bnbNode(%s) was pruned\n' % curNode.identifier
-            write_log(etcSetting['LogFile'], logContents)
-            bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
-                                             None, None, 'PR', None])
+            write_log(etc['logFile'], logContents)
+            itr2file(etc['itrFileCSV'], [curNode.identifier,
+                                         None, None,
+                                         'PR', None])
             branching_dfs_lcp(bnpTree)
             return None
     #
@@ -121,33 +149,37 @@ def branching(bnpTree, curNode):
         # Integral solution
         #
         logContents = 'Found a integral solution\n'
-        write_log(etcSetting['LogFile'], logContents)
-        bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
-                                         None, None, 'INT', None])
+        write_log(etc['logFile'], logContents)
+        itr2file(etc['itrFileCSV'], [curNode.identifier,
+                                     None, None,
+                                     'INT',
+                                     None])
         if incumbent is None:
             logContents = 'The first incumbent, bnbNode(%s)\n' % curNode.identifier
-            write_log(etcSetting['LogFile'], logContents)
-            bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
-                                             None, None, 'IC', 'First'])
+            write_log(etc['logFile'], logContents)
+            itr2file(etc['itrFileCSV'], [curNode.identifier,
+                                         None, None,
+                                         'INT',
+                                         'First'])
             bnpTree.incumbent = curNode
         else:
             incumRes = incumbent.ni.res
             if incumRes['objVal'] < curRes['objVal']:
                 logContents = 'The incumbent was changed\n'
                 logContents += 'bnbNode(%s) -> bnbNode(%s)\n' % (incumbent.identifier, curNode.identifier)
-                write_log(etcSetting['LogFile'], logContents)
-                bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
-                                                        None, None,
-                                                        'IC',
-                                                        '%s -> %s' % (incumbent.identifier, curNode.identifier)])
+                write_log(etc['logFile'], logContents)
+                itr2file(etc['itrFileCSV'], [curNode.identifier,
+                                             None, None,
+                                             'IC',
+                                             '%s -> %s' % (incumbent.identifier, curNode.identifier)])
                 bnpTree.incumbent = curNode
             else:
                 logContents = 'No change about the incumbent\n'
-                write_log(etcSetting['LogFile'], logContents)
-                bpt2file(etcSetting['bptFile'], [curNode.identifier, datetime.datetime.now(),
-                                                        None, None,
-                                                        'NI',
-                                                        None])
+                write_log(etc['logFile'], logContents)
+                itr2file(etc['itrFileCSV'], [curNode.identifier,
+                                             None, None,
+                                             'NI',
+                                             None])
         branching_dfs_lcp(bnpTree)
     else:
         #
@@ -166,13 +198,13 @@ def branching(bnpTree, curNode):
                 break
         else:
             logContents = 'No suitable pairs\n'
-            write_log(etcSetting['LogFile'], logContents)
+            write_log(etc['logFile'], logContents)
             assert False
         logContents = 'Start Branching; bnbNode(%s)\n' % curNode.identifier
         logContents += '\t All bundles %s\n' % str(curProb['C'])
         logContents += '\t Chosen bundle %s\n' % str(candiBundle)
         logContents += '\t Chosen tasks %s\n' % str((i0, i1))
-        write_log(etcSetting['LogFile'], logContents)
+        write_log(etc['logFile'], logContents)
         #
         # Left child
         #
@@ -181,7 +213,7 @@ def branching(bnpTree, curNode):
         lBNP_inputs['inclusiveC'] += [(i0, i1)]
         bnpTree.create_node(lTag, lIndentifier, parent=pIdentifier)
         lcNode = bnpTree.get_node(lIndentifier)
-        lcNode.ni = bnpNode(lIndentifier, pOri_inputs, lBNP_inputs, etcSetting, grbSetting)
+        lcNode.ni = bnpNode(lIndentifier, pOri_inputs, lBNP_inputs, etc)
         is_terminated = lcNode.ni.startCG()
         if is_terminated:
             handle_termination(bnpTree, lcNode)
@@ -195,7 +227,7 @@ def branching(bnpTree, curNode):
         rBNP_inputs['exclusiveC'] += [(i0, i1)]
         bnpTree.create_node(rTag, rIndentifier, parent=pIdentifier)
         rcNode = bnpTree.get_node(rIndentifier)
-        rcNode.ni = bnpNode(rIndentifier, pOri_inputs, rBNP_inputs, etcSetting, grbSetting)
+        rcNode.ni = bnpNode(rIndentifier, pOri_inputs, rBNP_inputs, etc)
         is_terminated = rcNode.ni.startCG()
         if is_terminated:
             handle_termination(bnpTree, rcNode)
@@ -250,10 +282,10 @@ def handle_termination(bnpTree, curNode):
 
 
 class bnpNode(object):
-    def __init__(self, nid, ori_inputs, bnp_inputs, etcSetting, grbSetting):
+    def __init__(self, nid, prmt, bnp_inputs, etc):
         self.nid = nid
-        self.ori_inputs, self.bnp_inputs = ori_inputs, bnp_inputs
-        self.etcSetting, self.grbSetting = etcSetting, grbSetting
+        self.prmt, self.bnp_inputs = prmt, bnp_inputs
+        self.etc = etc
         if self.nid == '*':
             for cond in ['inclusiveC', 'exclusiveC']:
                 assert not self.bnp_inputs[cond]
@@ -272,14 +304,13 @@ class bnpNode(object):
         #
         # Generate initial singleton bundles
         #
-        T = self.ori_inputs['T']
+        T = self.prmt['T']
         C, p_c, e_ci = [], [], []
         for i in T:
             Ts = [i]
             C.append(Ts)
             #
-            ep = calc_expectedProfit(self.ori_inputs, grbSetting, Ts)
-            p_c.append(ep)
+            p_c.append(0)
             #
             vec = [0 for _ in range(len(T))]
             vec[i] = 1
@@ -290,27 +321,28 @@ class bnpNode(object):
     def startCG(self):
         startCpuTimeCG, startWallTimeCG = time.clock(), time.time()
         logContents = 'Start column generation of bnbNode(%s)\n' % self.nid
-        write_log(self.etcSetting['LogFile'], logContents)
+        write_log(self.etc['logFile'], logContents)
         #
-        T = self.ori_inputs['T']
+        T = self.prmt['T']
         C = self.bnp_inputs['C']
-        RMP, q_c, taskAC, numBC = generate_RMP(self.ori_inputs, self.bnp_inputs)
+        RMP, q_c, taskAC, numBC = generate_RMP(self.prmt, self.bnp_inputs)
         #
         counter, is_terminated = 0, False
         while True:
             if len(C) == len(T) ** 2 - 1:
                 break
             LRMP = RMP.relax()
-            set_grbSettings(LRMP, self.grbSetting)
+            LRMP.setParam('Threads', NUM_CORES)
+            LRMP.setParam('OutputFlag', False)
             LRMP.optimize()
             if LRMP.status == GRB.Status.INFEASIBLE:
                 logContents = 'Relaxed model is infeasible!!\n'
                 logContents += 'No solution!\n'
-                write_log(self.etcSetting['LogFile'], logContents)
+                write_log(self.etc['logFile'], logContents)
+                #
+                LRMP.write('%s.lp' % self.prmt['problemName'])
                 LRMP.computeIIS()
-                import os.path as opath
-                LRMP.write('%s.ilp' % opath.basename(self.etcSetting['LogFile']).split('.')[0])
-                LRMP.write('%s.lp' % opath.basename(self.etcSetting['LogFile']).split('.')[0])
+                LRMP.write('%s.ilp' % self.prmt['problemName'])
                 assert False
             #
             counter += 1
@@ -319,51 +351,49 @@ class bnpNode(object):
             self.bnp_inputs['pi_i'] = pi_i
             self.bnp_inputs['mu'] = mu
             #
-            startCpuTimeP, startWallTimeP = time.clock(), time.time()
-            logContents = 'Start %dth iteration of bnbNode(%s)\n' % (counter, self.nid)
-            logContents += '\t Columns\n'
-            logContents += '\t\t # of columns %d\n' % len(self.bnp_inputs['C'])
-            logContents += '\t\t %s\n' % str(self.bnp_inputs['C'])
-            logContents += '\t\t %s\n' % str(self.bnp_inputs['p_c'])
-            logContents += '\t Relaxed objVal\n'
-            logContents += '\t\t z: %.2f\n' % LRMP.objVal
-            logContents += '\t\t RC: %s\n' % str(['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
-            logContents += '\t Dual V\n'
-            logContents += '\t\t Pi: %s\n' % str(['%.2f' % v for v in pi_i])
-            logContents += '\t\t mu: %.2f\n' % mu
-            write_log(self.etcSetting['LogFile'], logContents)
+            if LOG_INTER_RESULTS:
+                logContents = 'Start %dth iteration\n' % counter
+                logContents += '\t Columns\n'
+                logContents += '\t\t # of columns %d\n' % len(self.bnp_inputs['C'])
+                logContents += '\t\t %s\n' % str(self.bnp_inputs['C'])
+                logContents += '\t\t %s\n' % str(['%.2f' % v for v in self.bnp_inputs['p_c']])
+                logContents += '\t Relaxed objVal\n'
+                logContents += '\t\t z: %.2f\n' % LRMP.objVal
+                logContents += '\t\t RC: %s\n' % str(
+                    ['%.2f' % LRMP.getVarByName("q[%d]" % c).RC for c in range(len(C))])
+                logContents += '\t Dual V\n'
+                logContents += '\t\t Pi: %s\n' % str(['%.2f' % v for v in pi_i])
+                logContents += '\t\t mu: %.2f\n' % mu
+                write_log(self.etc['logFile'], logContents)
             #
-            objV_newC = SP_run(self.ori_inputs, self.bnp_inputs, self.etcSetting, self.grbSetting)
+            objV_newC = SP_run(self.prmt, self.bnp_inputs, self.etc)
             if objV_newC == 'terminated':
                 logContents = '%dth iteration of bnbNode(%s)\n' % (counter, self.nid)
                 logContents += 'Terminated because of the time limit!\n'
-                write_log(self.etcSetting['LogFile'], logContents)
+                write_log(self.etc['logFile'], logContents)
                 is_terminated = True
                 break
             elif objV_newC is None:
                 logContents = '%dth iteration of bnbNode(%s)\n' % (counter, self.nid)
                 logContents += 'No solution!\n'
-                write_log(self.etcSetting['LogFile'], logContents)
+                write_log(self.etc['logFile'], logContents)
                 break
-            endCpuTimeP, endWallTimeP = time.clock(), time.time()
-            eliCpuTimeP, eliWallTimeP = endCpuTimeP - startCpuTimeP, endWallTimeP - startWallTimeP
-            #
-            logContents = '%dth iteration (%s)\n' % (counter, str(datetime.datetime.now()))
-            logContents += '\t Cpu Time: %f\n' % eliCpuTimeP
-            logContents += '\t Wall Time: %f\n' % eliWallTimeP
+            eliCpuTimeP, eliWallTimeP = time.clock() - etc['startCpuTime'], time.time() - etc['startWallTime']
+            itr2file(etc['itrFileCSV'], [self.nid,
+                                         '%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP,
+                                         'S',
+                                         {'numIter': counter, 'objV_newC': objV_newC}])
             #
             objV, newC = objV_newC
             if objV < 0:
-                logContents += '\n'
-                logContents += 'The reduced cost of the generated column is a negative number\n'
-                write_log(self.etcSetting['LogFile'], logContents)
+                logContents = 'The reduced cost of the generated column is a negative number\n'
+                write_log(self.etc['LogFile'], logContents)
                 break
             else:
-                logContents += '\n'
-                logContents += '\t New column\n'
+                logContents = '\t New column\n'
                 logContents += '\t\t Tasks %s\n' % str(newC)
                 logContents += '\t\t red. C. %.3f\n' % objV
-                write_log(self.etcSetting['LogFile'], logContents)
+                write_log(self.etc['LogFile'], logContents)
                 vec = [0 for _ in range(len(T))]
                 for i in newC:
                     vec[i] = 1
@@ -381,14 +411,11 @@ class bnpNode(object):
                 q_c[len(C)] = RMP.addVar(obj=p_c[len(C)], vtype=GRB.BINARY, name="q[%d]" % len(C), column=col)
                 C.append(newC)
                 RMP.update()
-                bpt2file(self.etcSetting['bptFile'], [self.nid,
-                                             datetime.datetime.fromtimestamp(startWallTimeP),
-                                             eliWallTimeP, eliCpuTimeP,
-                                             'S',
-                                             {'numIter': counter, 'bc': newC}])
+        #
         if not is_terminated:
             LRMP = RMP.relax()
-            set_grbSettings(LRMP, self.grbSetting)
+            LRMP.setParam('Threads', NUM_CORES)
+            LRMP.setParam('OutputFlag', False)
             LRMP.optimize()
             C, p_c, e_ci = list(map(self.bnp_inputs.get, ['C', 'p_c', 'e_ci']))
             q_c = [LRMP.getVarByName("q[%d]" % c).x for c in range(len(C))]
@@ -402,7 +429,7 @@ class bnpNode(object):
             logContents += '\t Wall Time: %f\n' % eliWallTimeCG
             logContents += '\t ObjV: %.3f\n' % LRMP.objVal
             logContents += '\t chosen B.: %s\n' % str(chosenC)
-            write_log(self.etcSetting['LogFile'], logContents)
+            write_log(self.etc['LogFile'], logContents)
             #
             self.bnp_inputs['C'] = C
             self.bnp_inputs['p_c'] = p_c
@@ -411,32 +438,28 @@ class bnpNode(object):
             self.res['objVal'] = LRMP.objVal
             self.res['q_c'] = q_c
             #
-            bpt2file(self.etcSetting['bptFile'], [self.nid,
-                                                    datetime.datetime.fromtimestamp(startWallTimeCG),
-                                                    eliWallTimeCG, eliCpuTimeCG,
-                                                    'M',
-                                                    {'objVal': LRMP.objVal,
-                                                     'inclusiveC': str(self.bnp_inputs['inclusiveC']),
-                                                     'exclusiveC': str(self.bnp_inputs['exclusiveC'])}])
+            itr2file(etc['itrFileCSV'], [self.nid,
+                                         '%.2f' % eliCpuTimeCG, '%.2f' % eliWallTimeCG,
+                                         'M',
+                                        {'objVal': LRMP.objVal,
+                                         'inclusiveC': str(self.bnp_inputs['inclusiveC']),
+                                         'exclusiveC': str(self.bnp_inputs['exclusiveC'])}])
         #
         return is_terminated
 
 
 if __name__ == '__main__':
-    import os.path as opath
-    from problems import paperExample, ex1
+    from mrtScenario import mrtS1, mrtS2
     #
-    problem = paperExample()
-    # problem = ex1()
-    problemName = problem[0]
-    log_fpath = opath.join('_temp', '%s_BNP.log' % problemName)
-    res_fpath = opath.join('_temp', '%s_BNP.csv' % problemName)
-    bpt_fpath = opath.join('_temp', '%s_bnpTree.csv' % problemName)
-    etcSetting = {'LogFile': log_fpath,
-                  'ResFile': res_fpath,
-                  'bptFile': bpt_fpath,
-                  # 'TimeLimit': 1
-                  }
-    grbSetting = {'LogFile': log_fpath}
+    prmt = mrtS1()
+    # prmt = mrtS2()
+    problemName = prmt['problemName']
     #
-    run(problem, etcSetting, grbSetting)
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_BNP.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_BNP.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_BNP.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_BNP.log' % problemName),
+           'itrFileCSV': opath.join('_temp', '%s_itrBNP.csv' % problemName),
+           }
+    #
+    run(prmt, etc)

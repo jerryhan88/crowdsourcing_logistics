@@ -2,7 +2,7 @@ import os.path as opath
 import time
 import pickle
 #
-from _util import res2file
+from _util_logging import res2file
 from PD_IH import run as PD_IH_run
 
 

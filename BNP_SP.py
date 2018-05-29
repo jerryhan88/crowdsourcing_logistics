@@ -1,10 +1,13 @@
 import time
+import multiprocessing
 from gurobipy import *
 #
-from _util import write_log
+from _util_logging import write_log
+
+NUM_CORES = multiprocessing.cpu_count()
 
 
-def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
+def run(prmt, bnp_inputs, etc):
     def callbackF(m, where):
         if where == GRB.callback.MIPSOL:
             selectedTasks = [i for i in m._T if m.cbGetSolution(m._z_i[i]) > 0.5]
@@ -13,51 +16,48 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
                     m.cbLazy(quicksum(m._z_i[i] for i in c) <= len(c) - 1)
         #
         if where == GRB.Callback.MIP:
-            if time.clock() - etcSetting['startTS'] > etcSetting['TimeLimit']:
+            if time.clock() - etc['startTS'] > etc['TimeLimit']:
                 logContents = 'Interrupted by time limit\n'
-                write_log(etcSetting['LogFile'], logContents)
+                write_log(etc['LogFile'], logContents)
                 m._is_terminated = True
                 m.terminate()
     #
-    T, r_i, v_i, _lambda = [ori_inputs.get(k) for k in ['T', 'r_i', 'v_i', '_lambda']]
-    P, D, N = [ori_inputs.get(k) for k in ['P', 'D', 'N']]
-    K, w_k, t_ij, _delta = [ori_inputs.get(k) for k in ['K', 'w_k', 't_ij', '_delta']]
+    T, _lambda = [prmt.get(k) for k in ['T', '_lambda']]
+    P, D, N = [prmt.get(k) for k in ['P', 'D', 'N']]
+    K, w_k, t_ij, _delta = [prmt.get(k) for k in ['K', 'w_k', 't_ij', '_delta']]
+    cB_M, cB_P, cW = [prmt.get(k) for k in ['cB_M', 'cB_P', 'cW']]
     #
     C = bnp_inputs['C']
     pi_i, mu = [bnp_inputs.get(k) for k in ['pi_i', 'mu']]
     inclusiveC, exclusiveC = [bnp_inputs.get(k) for k in ['inclusiveC', 'exclusiveC']]
     #
-    bigM1 = sum(r_i)
-    bigM2 = len(N) + 2
-    bigM3 = len(N) * max(t_ij.values())
+    bigM1 = len(N) + 2
+    bigM2 = len(N) * max(t_ij.values())
     #
     # Define decision variables
     #
     SP = Model('SP')
-    z_i, y_k, a_k, o_ki, x_kij, s_PN = {}, {}, {}, {}, {}, {}
-    for i in T:
-        z_i[i] = SP.addVar(vtype=GRB.BINARY, name='z[%d]' % i)
-    for k in K:
-        y_k[k] = SP.addVar(vtype=GRB.BINARY, name='y[%d]' % k)
-        a_k[k] = SP.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % k)
+    z_i = {i: SP.addVar(vtype=GRB.BINARY, name='z[%d]' % i) for i in T}
+    y_k = {k: SP.addVar(vtype=GRB.BINARY, name='y[%d]' % k) for k in K}
+    o_ki, x_kij = {}, {}
     for k in K:
         kN = N.union({'ori%d' % k, 'dest%d' % k})
         for i in kN:
             o_ki[k, i] = SP.addVar(vtype=GRB.INTEGER, name='o[%d,%s]' % (k, i))
             for j in kN:
                 x_kij[k, i, j] = SP.addVar(vtype=GRB.BINARY, name='x[%d,%s,%s]' % (k, i, j))
+    s_PN = {}
     for s in range(len(inclusiveC)):
         sP, sN = 'sP[%d]' % s, 'sN[%d]' % s
         s_PN[sP] = SP.addVar(vtype=GRB.BINARY, name=sP)
         s_PN[sN] = SP.addVar(vtype=GRB.BINARY, name=sN)
-    R = SP.addVar(vtype=GRB.CONTINUOUS, name='R')
     SP.update()
     #
     # Define objective
     #
     obj = LinExpr()
-    for k in K:
-        obj += w_k[k] * a_k[k]
+    for i in T:  # eq:ObjF
+        obj += z_i[i]
     for i in T:
         obj -= pi_i[i] * z_i[i]
     obj -= mu
@@ -79,31 +79,27 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
         #  eq:pExclusiveC
         SP.addConstr(z_i[i0] + z_i[i1] <= 1, name='eC[%d]' % i)
     #
-    #  Linearization
-    #
-    for k in K:  # eq:linAlpha
-        SP.addConstr(a_k[k] <= bigM1 * y_k[k],
-                    name='la1[%d]' % k)
-        SP.addConstr(a_k[k] <= R,
-                    name='la2[%d]' % k)
-    #
     #  Bundle
     #
-    #  # eq:sumReward
-    SP.addConstr(quicksum(r_i[i] * z_i[i] for i in T) == R, name='sr')
-    #  # eq:volTh
-    SP.addConstr(quicksum(v_i[i] * z_i[i] for i in T) <= _lambda, name='vt')
+    SP.addConstr(quicksum(z_i[i] for i in T) >= cB_M,
+                 name='minTB1')
+    SP.addConstr(quicksum(z_i[i] for i in T) <= cB_P,
+                 name='minTB2')
     #
     #  Routing_Flow
     #
     for k in K:
         kN = N.union({'ori%d' % k, 'dest%d' % k})
         #  # eq:initFlow
-        SP.addConstr(quicksum(x_kij[k, 'ori%d' % k, j] for j in kN) == 1, name='pPDo[%d]' % k)
-        SP.addConstr(quicksum(x_kij[k, j, 'dest%d' % k] for j in kN) == 1, name='pPDi[%d]' % k)
+        SP.addConstr(quicksum(x_kij[k, 'ori%d' % k, j] for j in kN) == 1,
+                     name='pPDo[%d]' % k)
+        SP.addConstr(quicksum(x_kij[k, j, 'dest%d' % k] for j in kN) == 1,
+                     name='pPDi[%d]' % k)
         #  # eq:noInFlowOutFlow
-        SP.addConstr(quicksum(x_kij[k, j, 'ori%d' % k] for j in kN) == 0, name='XpPDo[%d]' % k)
-        SP.addConstr(quicksum(x_kij[k, 'dest%d' % k, j] for j in kN) == 0, name='XpPDi[%d]' % k)
+        SP.addConstr(quicksum(x_kij[k, j, 'ori%d' % k] for j in kN) == 0,
+                     name='XpPDo[%d]' % k)
+        SP.addConstr(quicksum(x_kij[k, 'dest%d' % k, j] for j in kN) == 0,
+                     name='XpPDi[%d]' % k)
         for i in T:
             #  # eq:taskOutFlow
             SP.addConstr(quicksum(x_kij[k, 'p%d' % i, j] for j in kN) == z_i[i],
@@ -121,15 +117,17 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
         N_kM = N.union({'dest%d' % k})
         for i in N_kM:
             #  # eq:initOrder
-            SP.addConstr(2 <= o_ki[k, i], name='initO1[%d,%s]' % (k, i))
-            SP.addConstr(o_ki[k, i] <= bigM2, name='initO2[%d,%s]' % (k, i))
+            SP.addConstr(2 <= o_ki[k, i],
+                         name='initO1[%d,%s]' % (k, i))
+            SP.addConstr(o_ki[k, i] <= bigM1,
+                         name='initO2[%d,%s]' % (k, i))
             for j in N_kM:
                 #  # eq:subEli
-                SP.addConstr(o_ki[k, i] + 1 <= o_ki[k, j] + bigM2 * (1 - x_kij[k, i, j]),
+                SP.addConstr(o_ki[k, i] + 1 <= o_ki[k, j] + bigM1 * (1 - x_kij[k, i, j]),
                      name='subEli[%d,%s,%s]' % (k, i, j))
         for i in T:
             #  # eq:pdSequence
-            SP.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM2 * (1 - z_i[i]),
+            SP.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM1 * (1 - z_i[i]),
                          name='pdS[%d,%d]' % (k, i))
     #
     # Detour feasibility
@@ -142,12 +140,10 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
             for j in kN:
                 LRS += t_ij[i, j] * x_kij[k, i, j]
         LRS -= t_ij['ori%d' % k, 'dest%d' % k]
-        SP.addConstr(LRS <= _delta + bigM3 * (1 - y_k[k]), name='df[%d]' % k)
-    #
-    # Number of tasks limit
-    #
-    #  # eq:moreThanTwo
-    SP.addConstr(quicksum(z_i[i] for i in T) >= 2, name='mTT')
+        SP.addConstr(LRS <= _delta + bigM2 * (1 - y_k[k]),
+                    name='df[%d]' % k)
+    SP.addConstr(quicksum(w_k[k] * y_k[k] for k in K) >= cW,
+                 name='bg')
     #
     # For callback function
     #
@@ -158,11 +154,8 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
     #
     # Run Gurobi (Optimization)
     #
+    SP.setParam('Threads', NUM_CORES)
     SP.setParam('OutputFlag', False)
-    for k, v in grbSetting.items():
-        if k.startswith('Log'):
-            continue
-        SP.setParam(k, v)
     SP.optimize(callbackF)
     #
     if SP._is_terminated:
@@ -171,7 +164,7 @@ def run(ori_inputs, bnp_inputs, etcSetting, grbSetting):
         logContents = '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
         logContents += '!!!!!!!!Pricing infeasible!!!!!!!!'
         logContents += '\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-        write_log(etcSetting['LogFile'], logContents)
+        write_log(etc['logFile'], logContents)
         return None
     else:
         return SP.objVal, [i for i in T if z_i[i].x > 0.5]

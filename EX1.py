@@ -4,7 +4,7 @@ import time
 import pickle, csv
 from gurobipy import *
 #
-from _util import log2file, res2file
+from _util_logging import log2file, res2file
 
 NUM_CORES = multiprocessing.cpu_count()
 LOGGING_INTERVAL = 20
