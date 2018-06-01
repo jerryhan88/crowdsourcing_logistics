@@ -156,6 +156,7 @@ def run(prmt, bnp_inputs, etc):
     #
     SP.setParam('Threads', NUM_CORES)
     SP.setParam('OutputFlag', False)
+    SP.setParam('LogFile', etc['logFile'])
     SP.optimize(callbackF)
     #
     if SP._is_terminated:

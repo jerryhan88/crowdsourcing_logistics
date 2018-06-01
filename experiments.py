@@ -97,7 +97,7 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # CWL
-        for cwl_no in range(4, 6):
+        for cwl_no in range(3, 6):
             etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL%d.pkl' % (problemName, cwl_no)),
                    'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL%d.csv' % (problemName, cwl_no)),
                    'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL%d.txt' % (problemName, cwl_no)),
@@ -146,18 +146,22 @@ def run_experiments(machine_num):
 
 def summary1():
     sum_fpath = reduce(opath.join, [exp_dpath, '_summary', 'experiment_summary.csv'])
-    aprcs = ['GH'] + ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]    
+    aprcs = ['GH'] + ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]
     with open(sum_fpath, 'w') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
         header = ['pn', 'numPaths', 'numTasks', 'minTB', 'maxTB', 'thDetour', 'thWS']
         for aprc in aprcs:
-            header += ['%s_objV' % aprc, '%s_cpuT' % aprc]
+            header += ['%s_objV' % aprc]
+        for aprc in aprcs:
+            header += ['%s_cpuT' % aprc]
         writer.writerow(header)    
     #
     prmts_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmts'])
     sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])    
     log_dpath = reduce(opath.join, [exp_dpath, '_summary', 'log'])    
-    for fn in os.listdir(prmts_dpath):        
+    for fn in os.listdir(prmts_dpath):
+        if fn == 'prmts_mrtS1_dt80.pkl':
+            continue
         if not fn.endswith('.pkl'): continue    
         _, prefix = fn[:-len('.pkl')].split('_')
         #
@@ -166,8 +170,9 @@ def summary1():
             prmt = pickle.load(fp)        
         K, T, cB_M, cB_P, _delta, cW = [prmt.get(k) for k in ['K', 'T', 'cB_M', 'cB_P', '_delta', 'cW']]
         new_row = [prefix, len(K), len(T), cB_M, cB_P, _delta, cW]
-        #                
-        for aprc in aprcs:
+        #
+        aprc_row = ['-' for _ in range(len(aprcs) * 2)]
+        for i, aprc in enumerate(aprcs):
             sol_fpath = opath.join(sol_dpath, 'sol_%s_%s.csv' % (prefix, aprc))
             log_fpath = opath.join(log_dpath, '%s_itr%s.csv' % (prefix, aprc))
             if opath.exists(sol_fpath):
@@ -175,16 +180,17 @@ def summary1():
                     reader = csv.DictReader(r_csvfile)
                     for row in reader:                
                         objV, eliCpuTime = [row [cn] for cn in ['objV', 'eliCpuTime']]
-                    new_row += [objV, eliCpuTime]  
+                    aprc_row[i] = objV
+                    aprc_row[i + len(aprcs)] = eliCpuTime
             elif opath.exists(log_fpath):
                 with open(log_fpath) as r_csvfile:
                     reader = csv.DictReader(r_csvfile)
                     for row in reader:                
                         pass
                     relObjV, eliCpuTime = [row[cn] for cn in ['relObjV', 'eliCpuTime']]
-                new_row += ['[%s]' % relObjV, '[%s]' % eliCpuTime]
-            else:                
-                new_row += ['-', '-']
+                aprc_row[i] = '[%s]' % relObjV
+                aprc_row[i + len(aprcs)] = '[%s]' % eliCpuTime
+        new_row += aprc_row
         #
         with open(sum_fpath, 'a') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')

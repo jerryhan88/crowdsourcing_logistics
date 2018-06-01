@@ -27,6 +27,7 @@ def itr2file(fpath, contents=[]):
             writer = csv.writer(w_csvfile, lineterminator='\n')
             header = ['nid',
                       'eliCpuTime', 'eliWallTime',
+                      'objVal',
                       'eventType',
                       'contents']
             writer.writerow(header)
@@ -118,6 +119,7 @@ def branching(bnpTree, curNode):
     write_log(etc['logFile'], logContents)
     itr2file(etc['itrFileCSV'], [curNode.identifier,
                                  None, None,
+                                 curNode.ni.res['objVal'],
                                  'TB', None])
     #
     curProb = curNode.ni.bnp_inputs
@@ -132,6 +134,7 @@ def branching(bnpTree, curNode):
             write_log(etc['logFile'], logContents)
             itr2file(etc['itrFileCSV'], [curNode.identifier,
                                          None, None,
+                                         None,
                                          'PR', None])
             branching_dfs_lcp(bnpTree)
             return None
@@ -152,6 +155,7 @@ def branching(bnpTree, curNode):
         write_log(etc['logFile'], logContents)
         itr2file(etc['itrFileCSV'], [curNode.identifier,
                                      None, None,
+                                     None,
                                      'INT',
                                      None])
         if incumbent is None:
@@ -159,6 +163,7 @@ def branching(bnpTree, curNode):
             write_log(etc['logFile'], logContents)
             itr2file(etc['itrFileCSV'], [curNode.identifier,
                                          None, None,
+                                         None,
                                          'INT',
                                          'First'])
             bnpTree.incumbent = curNode
@@ -170,6 +175,7 @@ def branching(bnpTree, curNode):
                 write_log(etc['logFile'], logContents)
                 itr2file(etc['itrFileCSV'], [curNode.identifier,
                                              None, None,
+                                             None,
                                              'IC',
                                              '%s -> %s' % (incumbent.identifier, curNode.identifier)])
                 bnpTree.incumbent = curNode
@@ -178,6 +184,7 @@ def branching(bnpTree, curNode):
                 write_log(etc['logFile'], logContents)
                 itr2file(etc['itrFileCSV'], [curNode.identifier,
                                              None, None,
+                                             None,
                                              'NI',
                                              None])
         branching_dfs_lcp(bnpTree)
@@ -268,7 +275,7 @@ def duplicate_BNP_inputs(pBNP_inputs):
 def handle_termination(bnpTree, curNode):
     etcSetting = curNode.ni.etcSetting
     logContents = 'BNP model reach to the time limit, while solving node %s\n' % curNode.identifier
-    write_log(etcSetting['LogFile'], logContents)
+    write_log(etcSetting['logFile'], logContents)
     endCpuTimeBnP, endWallTimeBnP = time.clock(), time.time()
     eliCpuTimeBnP = endCpuTimeBnP - etcSetting['startCpuTimeBnP']
     eliWallTimeBnP = endWallTimeBnP - etcSetting['startWallTimeBnP']
@@ -378,22 +385,23 @@ class bnpNode(object):
                 logContents += 'No solution!\n'
                 write_log(self.etc['logFile'], logContents)
                 break
-            eliCpuTimeP, eliWallTimeP = time.clock() - etc['startCpuTime'], time.time() - etc['startWallTime']
-            itr2file(etc['itrFileCSV'], [self.nid,
+            eliCpuTimeP, eliWallTimeP = time.clock() - self.etc['startCpuTime'], time.time() - self.etc['startWallTime']
+            itr2file(self.etc['itrFileCSV'], [self.nid,
                                          '%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP,
+                                         None,
                                          'S',
                                          {'numIter': counter, 'objV_newC': objV_newC}])
             #
             objV, newC = objV_newC
             if objV < 0:
                 logContents = 'The reduced cost of the generated column is a negative number\n'
-                write_log(self.etc['LogFile'], logContents)
+                write_log(self.etc['logFile'], logContents)
                 break
             else:
                 logContents = '\t New column\n'
                 logContents += '\t\t Tasks %s\n' % str(newC)
                 logContents += '\t\t red. C. %.3f\n' % objV
-                write_log(self.etc['LogFile'], logContents)
+                write_log(self.etc['logFile'], logContents)
                 vec = [0 for _ in range(len(T))]
                 for i in newC:
                     vec[i] = 1
@@ -429,7 +437,7 @@ class bnpNode(object):
             logContents += '\t Wall Time: %f\n' % eliWallTimeCG
             logContents += '\t ObjV: %.3f\n' % LRMP.objVal
             logContents += '\t chosen B.: %s\n' % str(chosenC)
-            write_log(self.etc['LogFile'], logContents)
+            write_log(self.etc['logFile'], logContents)
             #
             self.bnp_inputs['C'] = C
             self.bnp_inputs['p_c'] = p_c
@@ -440,6 +448,7 @@ class bnpNode(object):
             #
             itr2file(etc['itrFileCSV'], [self.nid,
                                          '%.2f' % eliCpuTimeCG, '%.2f' % eliWallTimeCG,
+                                         self.res['objVal'],
                                          'M',
                                         {'objVal': LRMP.objVal,
                                          'inclusiveC': str(self.bnp_inputs['inclusiveC']),

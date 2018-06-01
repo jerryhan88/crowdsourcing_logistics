@@ -241,9 +241,9 @@ if __name__ == '__main__':
     from __path_organizer import exp_dpath
     dplym_fpath = opath.join('_temp', 'dplym_euclideanDistEx0.pkl')
     prmts_fpath = opath.join('_temp', 'prmts_euclideanDistEx0.pkl')
-    sol_fpath = opath.join('_temp', 'sol_euclideanDistEx0_EX0.pkl')
+    sol_fpath = opath.join('_temp', 'sol_euclideanDistEx0_EX1.pkl')
     #
-    img_fpath = opath.join('_temp', 'euclideanDistEx0_EX0.png')
+    img_fpath = opath.join('_temp', 'euclideanDistEx0_EX1.png')
 
     # dplym_fpath = opath.join(exp_dpath, 'tempProb/dplym_nt0006-nb0002-np005-dt0.80-vt3.pkl')
     # prmts_fpath = opath.join('_temp', 'prmts_nt0006-nb0002-np005.pkl')

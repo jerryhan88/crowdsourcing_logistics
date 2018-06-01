@@ -268,8 +268,8 @@ if __name__ == '__main__':
     from problems import euclideanDistEx0
     from mrtScenario import mrtS1
     #
-    # prmt = euclideanDistEx0()
-    prmt = mrtS1()
+    prmt = euclideanDistEx0()
+    # prmt = mrtS1()
     problemName = prmt['problemName']
     #
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX1.pkl' % problemName),

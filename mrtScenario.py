@@ -338,6 +338,33 @@ def mrtS2(pkl_dir='_temp'):
     return prmt
 
 
+def mrtS3(pkl_dir='_temp'):
+    from sgMRT import get_coordMRT
+    coordMRT = get_coordMRT()
+    stations = list(coordMRT.keys())
+    numTasks = 30
+    min_durPD = 30
+    detourPER, flowPER = PER50, PER75
+    minTB, maxTB = 2, 4
+    numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
+    problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % ('whole', numTasks, min_durPD, maxTB, detourPER, flowPER)
+    #
+    flow_oridest, task_ppdp, \
+    flows, tasks, \
+    numLocs, travel_time, thDetour, \
+    minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
+    problem = [problemName,
+               flows, tasks,
+               numBundles, minTB, maxTB,
+               numLocs, travel_time, thDetour,
+               minWS]
+    prmt = inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir)
+    #
+    return prmt
+
+
+
 if __name__ == '__main__':
     # mrtS1()
-    mrtS2()
+    # mrtS2()
+    mrtS3()
