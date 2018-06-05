@@ -446,7 +446,7 @@ class bnpNode(object):
             self.res['objVal'] = LRMP.objVal
             self.res['q_c'] = q_c
             #
-            itr2file(etc['itrFileCSV'], [self.nid,
+            itr2file(self.etc['itrFileCSV'], [self.nid,
                                          '%.2f' % eliCpuTimeCG, '%.2f' % eliWallTimeCG,
                                          self.res['objVal'],
                                          'M',
