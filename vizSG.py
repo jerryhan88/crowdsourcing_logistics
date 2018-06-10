@@ -47,13 +47,14 @@ lat_gap = max_lat - min_lat
 
 mrt_coords = get_coordMRT()
 locationPD = get_locationPD()
+mrtNetNX = get_mrtNetNX()
 
 WIDTH = 1800.0
 HEIGHT = lat_gap * (WIDTH / lng_gap)
 
 FRAME_ORIGIN = (60, 100)
 
-SHOW_ALL_PD = True
+SHOW_ALL_PD = False
 SHOW_MRT_LINE = False
 SHOW_LABEL = False
 SAVE_IMAGE = True
@@ -156,12 +157,10 @@ class Viz(QWidget):
             for i, (STN, (lat, lng)) in enumerate(mrt_coords.items()):
                 cx, cy = convert_GPS2xy(lng, lat)
                 self.objForDrawing.append(Station(i, STN, cx, cy))
-
         if SHOW_ALL_PD:
             from random import shuffle, sample
             shuffle(locationPD)
             numTasks = 0
-
             while numTasks < 15:
                 pLoc, dLoc = sample(locationPD, 2)
                 _, lat, lng, _, _, _, _ = pLoc
@@ -173,11 +172,10 @@ class Viz(QWidget):
                 numTasks += 1
 
     def init_prmtsDrawing(self):
-        flow_oridest, task_ppdp = self.drawingInfo['dplym']
+        self.flow_oridest, task_ppdp = self.drawingInfo['dplym']
         w_k = self.drawingInfo['prmts']['w_k']
-        mrtNetNX = get_mrtNetNX()
         mrts = set()
-        for k, (mrt0, mrt1) in enumerate(flow_oridest):
+        for k, (mrt0, mrt1) in enumerate(self.flow_oridest):
             route = get_route(mrtNetNX, mrt0, mrt1)
             points = []
             for mrt in route:
@@ -208,21 +206,61 @@ class Viz(QWidget):
 
     def init_solDrawing(self, pkl_files):
         if 'CWL' in pkl_files['sol']:
-            C, q_c = [self.drawingInfo['sol'].get(k) for k in ['C', 'q_c']]
-            generatedBundles = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
+            sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
+            if 'scFP' in pkl_files:
+                scFP_fpath = pkl_files['scFP']
+
+
+
+
+
+                selBndsFP_dpath = opath.join(sol_dpath, 'selBndsFP')
+                fn = opath.basename(pkl_files['sol'])
+                _, prefix, cwl_name = fn[:-len('.csv')].split('_')
+                selBndsFP_fpath = opath.join(selBndsFP_dpath, 'selBndsFP_%s_%s.pkl' % (prefix, cwl_name))
+                with open(selBndsFP_fpath, 'rb') as fp:
+                    selBndsFP = pickle.load(fp)
+                C, q_c = [self.drawingInfo['sol'].get(k) for k in ['C', 'q_c']]
+                selBundles0 = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
+                selBundles1 = [o[0] for o in selBndsFP]
+                assert selBundles0 == selBundles1
         else:
             assert 'GH' in pkl_files['sol']
             cB_M = self.drawingInfo['prmts']['cB_M']
             bc = self.drawingInfo['sol']['bc']
-            generatedBundles = [o for o in bc if cB_M <= len(o)]
-        for bid, bc in enumerate(generatedBundles):
-            points = []
+            selBundles0 = [o for o in bc if cB_M <= len(o)]
+
+            # TODO
+
+            selBndsFP = None
+            assert selBndsFP
+
+        for bid, (bc, fp) in enumerate(selBndsFP):
+            if bid != 0:
+                continue
+            bndlPoly = []
             for tid in bc:
                 (pcx, pcy), (dcx, dcy) = self.task_pdO[tid]
-                points.append([pcx, pcy])
-                points.append([dcx, dcy])
-            points = sort_clockwise(points)
-            self.objForDrawing.append(Bundle(bid, bc, points))
+                bndlPoly.append([pcx, pcy])
+                bndlPoly.append([dcx, dcy])
+            bndlPoly = sort_clockwise(bndlPoly)
+            edgeFeasiblity = {}
+            print(fp)
+            for k in fp:
+                print(self.flow_oridest[k])
+                mrt0, mrt1 = self.flow_oridest[k]
+                route = get_route(mrtNetNX, mrt0, mrt1)
+                print(route)
+                for i in range(len(route) - 1):
+                    lat, lng = mrt_coords[route[i]]
+                    x0, y0 = convert_GPS2xy(lng, lat)
+                    lat, lng = mrt_coords[route[i + 1]]
+                    x1, y1 = convert_GPS2xy(lng, lat)
+                    k = (x0, y0, x1, y1)
+                    if k not in edgeFeasiblity:
+                        edgeFeasiblity[k] = 0
+                    edgeFeasiblity[k] += 1
+            self.objForDrawing.append(Bundle(bid, bc, bndlPoly, edgeFeasiblity))
 
     def mousePressEvent(self, QMouseEvent):
         if self.mousePressed:
@@ -275,7 +313,6 @@ class Viz(QWidget):
         painter.drawPixmap(0, 0, pixmap)
         painter.end()
 
-
     def drawCanvas(self, qp):
         for o in self.objForDrawing:
             o.draw(qp)
@@ -285,26 +322,24 @@ class Viz(QWidget):
             qp.translate(-self.px, -self.py)
 
 
-def testSingle():
+def runSingle():
     dplym_dpath = reduce(opath.join, [exp_dpath, '_summary', 'dplym'])
     prmts_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmts'])
     sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
     #
-    prefix = 'mrtS1_dt80'
+    prefix = 'mrtS1-dt80'
     aprc = 'CWL1'
-    # pkl_files = {
-    #     'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
-    #     'prmts': opath.join(prmts_dpath, 'prmts_%s.pkl' % prefix),
-    #     'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
-    # }
-
-    pkl_files = {}
-
+    pkl_files = {
+        'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
+        'prmts': opath.join(prmts_dpath, 'prmts_%s.pkl' % prefix),
+        'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
+    }
+    #
     app = QApplication(sys.argv)
     viz = Viz(pkl_files)
     if SAVE_IMAGE:
-        # viz.save_img('%s_%s.png' % (prefix, aprc))
-        viz.save_img('SG.png')
+        viz.save_img('%s_%s.png' % (prefix, aprc))
+        # viz.save_img('SG.png')
     sys.exit(app.exec_())
 
 
@@ -318,7 +353,7 @@ def gen_imgs():
     #
     aprcs = ['GH'] + ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]
     for fn in os.listdir(prmts_dpath):
-        if fn == 'prmts_mrtS1_dt80.pkl':
+        if fn == 'prmts_mrtS1-dt80.pkl':
             continue
         if not fn.endswith('.pkl'): continue
         _, prefix = fn[:-len('.pkl')].split('_')
@@ -344,8 +379,21 @@ def gen_imgs():
             app.quit()
             del app
 
+            selColFP_dpath = opath.join(sol_dpath, 'selColFP')
+            scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
+            for fn in os.listdir(scFP_dpath):
+                scFP_fpath = opath.join(scFP_dpath, fn)
+                pkl_files['scFP'] = scFP_fpath
+                app = QApplication(sys.argv)
+                viz = Viz(pkl_files)
+                viz.save_img(viz_fpath)
+                app.quit()
+                del app
+
+
+
+
 
 if __name__ == '__main__':
-    testSingle()
+    runSingle()
     # gen_imgs()
-

@@ -15,7 +15,7 @@ from mrtScenario import PER25, PER50, PER75, STATIONS
 def gen_problems(problem_dpath):
     if not opath.exists(problem_dpath):
         os.mkdir(problem_dpath)
-        for dname in ['dplym', 'prmts']:
+        for dname in ['dplym', 'prmt']:
             os.mkdir(opath.join(problem_dpath, dname))
     #
 
@@ -68,8 +68,8 @@ def run_experiments(machine_num):
     #
     _TimeLimit = 10 * 60 * 60
     machine_dpath = opath.join(exp_dpath, 'm%d' % machine_num)
-    problem_dpath = opath.join(machine_dpath, 'prmts')
-    for path in [machine_dpath, problem_dpath]:
+    prmt_dpath = opath.join(machine_dpath, 'prmt')
+    for path in [machine_dpath, prmt_dpath]:
         assert opath.exists(path), path
     log_dpath = opath.join(machine_dpath, 'log')
     sol_dpath = opath.join(machine_dpath, 'sol')
@@ -77,7 +77,7 @@ def run_experiments(machine_num):
         if opath.exists(path):
             shutil.rmtree(path)
         os.mkdir(path)
-    problems_ifpathes = [opath.join(problem_dpath, fn) for fn in os.listdir(problem_dpath)
+    problems_ifpathes = [opath.join(prmt_dpath, fn) for fn in os.listdir(prmt_dpath)
                          if fn.endswith('.pkl')]
     problems_ifpathes.sort()
     for i, ifpath in enumerate(problems_ifpathes):
@@ -302,7 +302,6 @@ def read_result(resF,logF):
         else:
             objV, cpuTh, cpuTs, mipG = None, None, None, None
     return objV, mipG, cpuTh, cpuTs
-
 
 
 if __name__ == '__main__':

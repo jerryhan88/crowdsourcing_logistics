@@ -41,21 +41,12 @@ def convert_prob2prmt(problemName,
     # Path
     #
     c_k, temp_OD = [], []
-    if type(flows) == list:
-        for i in range(numLocs):
-            for j in range(numLocs):
-                if flows[i][j] == 0:
-                    continue
-                c = flows[i][j]
-                temp_OD.append((i, j))
-                c_k.append(c)
-    else:
-        assert type(flows) == dict
-        for (i, j), c in flows.items():
-            if c == 0:
-                continue
-            temp_OD.append((i, j))
-            c_k.append(c)
+    assert type(flows) == list, type(flows)
+    for (i, j), c in flows:
+        if c == 0:
+            continue
+        temp_OD.append((i, j))
+        c_k.append(c)
     sumC = sum(c_k)
     K = list(range(len(c_k)))
     w_k = [c_k[k] / float(sumC) for k in K]
@@ -119,16 +110,19 @@ def gen_instance(stations, numTasks, min_durPD, detourPER, flowPER):
                                - travel_time[iori][idest])
     thDetour = np.percentile(detourTimes, detourPER)
     #
-    flows = {}
+    flow_count = {}
     with open(aDay_EZ_fpath) as r_csvfile:
         reader = csv.DictReader(r_csvfile)
         for row in reader:
             fSTN, tSTN = [row[cn] for cn in ['fSTN', 'tSTN']]
             count = eval(row['count'])
             if (fSTN, tSTN) in flow_oridest:
-                flows[loc_lid[fSTN], loc_lid[tSTN]] = count
+                flow_count[loc_lid[fSTN], loc_lid[tSTN]] = count
+    flows = []
+    for fSTN, tSTN in flow_oridest:
+        flows.append([(loc_lid[fSTN], loc_lid[tSTN]), flow_count[loc_lid[fSTN], loc_lid[tSTN]]])
     assert len(flows) == len(flow_oridest)
-    counts = np.array(list(flows.values()))
+    counts = np.array([count for _, count in flows])
     weights = counts / counts.sum()
     minWS = np.percentile(weights, flowPER)
     tasks = []
@@ -238,7 +232,7 @@ def handle_locNtt_MRT(flow_oridest, task_ppdp):
 
 def mrtS1(pkl_dir='_temp'):
     thDetour = 80
-    problemName = 'mrtS1_dt%d' % thDetour
+    problemName = 'mrtS1-dt%d' % thDetour
     numBundles, minTB, maxTB = 4, 2, 3
     minWS = 0.1
     
@@ -286,14 +280,17 @@ def mrtS1(pkl_dir='_temp'):
     #
     (numLocs, lid_loc, loc_lid), travel_time = handle_locNtt_MRT(flow_oridest, task_ppdp)
     #
-    flows = {}
-    with open(aDayNight_EZ_fpath) as r_csvfile:
+    flow_count = {}
+    with open(aDay_EZ_fpath) as r_csvfile:
         reader = csv.DictReader(r_csvfile)
         for row in reader:
             fSTN, tSTN = [row[cn] for cn in ['fSTN', 'tSTN']]
             count = eval(row['count'])
             if (fSTN, tSTN) in flow_oridest:
-                flows[loc_lid[fSTN], loc_lid[tSTN]] = count
+                flow_count[loc_lid[fSTN], loc_lid[tSTN]] = count
+    flows = []
+    for fSTN, tSTN in flow_oridest:
+        flows.append([(loc_lid[fSTN], loc_lid[tSTN]), flow_count[loc_lid[fSTN], loc_lid[tSTN]]])
     assert len(flows) == len(flow_oridest)
     tasks = []
     for i, (loc0, loc1) in enumerate(task_ppdp):
@@ -314,57 +311,5 @@ def mrtS1(pkl_dir='_temp'):
     return prmt
 
 
-def mrtS2(pkl_dir='_temp'):
-    stationSel = '5out'
-    stations = STATIONS[stationSel]
-    numTasks = 50
-    min_durPD = 30
-    detourPER, flowPER = PER50, PER75
-    minTB, maxTB = 2, 4
-    numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
-    problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
-    #
-    flow_oridest, task_ppdp, \
-    flows, tasks, \
-    numLocs, travel_time, thDetour, \
-    minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
-    problem = [problemName,
-               flows, tasks,
-               numBundles, minTB, maxTB,
-               numLocs, travel_time, thDetour,
-               minWS]
-    prmt = inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir)
-    #
-    return prmt
-
-
-def mrtS3(pkl_dir='_temp'):
-    from sgMRT import get_coordMRT
-    coordMRT = get_coordMRT()
-    stations = list(coordMRT.keys())
-    numTasks = 30
-    min_durPD = 30
-    detourPER, flowPER = PER50, PER75
-    minTB, maxTB = 2, 4
-    numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
-    problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % ('whole', numTasks, min_durPD, maxTB, detourPER, flowPER)
-    #
-    flow_oridest, task_ppdp, \
-    flows, tasks, \
-    numLocs, travel_time, thDetour, \
-    minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
-    problem = [problemName,
-               flows, tasks,
-               numBundles, minTB, maxTB,
-               numLocs, travel_time, thDetour,
-               minWS]
-    prmt = inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir)
-    #
-    return prmt
-
-
-
 if __name__ == '__main__':
-    # mrtS1()
-    # mrtS2()
-    mrtS3()
+    mrtS1()

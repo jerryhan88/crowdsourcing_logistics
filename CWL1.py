@@ -247,10 +247,9 @@ def run(prmt, etc=None):
 
 
 if __name__ == '__main__':
-    from mrtScenario import mrtS1, mrtS2
+    from mrtScenario import mrtS1
     #
     prmt = mrtS1()
-    # prmt = mrtS2()
     problemName = prmt['problemName']
     #
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL1.pkl' % problemName),

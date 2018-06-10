@@ -89,5 +89,55 @@ def run(prmt, pd_inputs):
     return PD.objVal, route
 
 
+def find_all_feasible_paths(prmts_fpath, sol_fpath, colFP_dpath):
+    import os.path as opath
+    import pickle
+    #
+    with open(prmts_fpath, 'rb') as fp:
+        prmt = pickle.load(fp)
+    with open(sol_fpath, 'rb') as fp:
+        sol = pickle.load(fp)
+    C, q_c = [sol.get(k) for k in ['C', 'q_c']]
+    selCols = [(c, C[c]) for c in range(len(C)) if q_c[c] > 0.5]
+    for c, Ts in selCols:
+        fp = []
+        for k in prmt['K']:
+            detourTime, route = run(prmt, {'k': k, 'Ts': Ts})
+            if detourTime <= prmt['_delta']:
+                fp.append(k)
+        colFP_fpath = opath.join(colFP_dpath, 'C%d.pkl' % c)
+        #
+        with open(colFP_fpath, 'wb') as fp:
+            pickle.dump([Ts, fp], fp)
+
+
+def handle_all_instances():
+    import os.path as opath
+    import os
+    from functools import reduce
+    #
+    from __path_organizer import exp_dpath
+    #
+    prmts_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmts'])
+    sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
+    selColFP_dpath = opath.join(sol_dpath, 'selColFP')
+    if not opath.exists(selColFP_dpath):
+        os.mkdir(selColFP_dpath)
+    #
+    for fn in sorted(os.listdir(sol_dpath)):
+        if 'CWL' not in fn:
+            continue
+        if not fn.endswith('.pkl'):
+            continue
+        print(fn)
+        _, prefix, aprc = fn[:-len('.csv')].split('_')
+        scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
+        if opath.exists(scFP_dpath):
+            continue
+        prmts_fpath = opath.join(prmts_dpath, 'prmts_%s.pkl' % prefix)
+        sol_fpath = opath.join(sol_dpath, fn)
+        find_all_feasible_paths(prmts_fpath, sol_fpath, scFP_dpath)
+
+
 if __name__ == '__main__':
-    pass
+    handle_all_instances()

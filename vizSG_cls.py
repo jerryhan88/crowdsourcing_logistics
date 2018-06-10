@@ -43,7 +43,9 @@ pallet += list(colors.values())
 Station_markSize = 20
 LocPD_dotSize = 20
 SHOW_LABEL = False
-
+SHOW_PD = True
+SHOW_PD_ARROW = False
+SHOW_FLOW = False
 
 def drawLabel(qp, label, cx, cy, w, h):
     if SHOW_LABEL:
@@ -59,7 +61,6 @@ class Singapore(object):
         self.sgDistrictPolyXY = {}
         for dist_name, points in self.sgDistrictXY.items():
             self.sgDistrictPolyXY[dist_name] = Polygon(points)
-
 
     def get_distName(self, x, y):
         p0 = Point(x, y)
@@ -145,12 +146,13 @@ class Flow(object):
         self.points = [QPoint(x, y) for x, y in points]
 
     def draw(self, qp):
-        pen = QPen(Qt.black, self.weight * Flow.lineProp, Qt.SolidLine)
-        qp.setPen(pen)
-        for i in range(len(self.points) - 1):
-            p0 = self.points[i]
-            p1 = self.points[i + 1]
-            qp.drawLine(p0, p1)
+        if SHOW_FLOW:
+            pen = QPen(Qt.black, self.weight * Flow.lineProp, Qt.SolidLine)
+            qp.setPen(pen)
+            for i in range(len(self.points) - 1):
+                p0 = self.points[i]
+                p1 = self.points[i + 1]
+                qp.drawLine(p0, p1)
 
 
 class Task(object):
@@ -174,22 +176,19 @@ class Task(object):
         dLabel.setHtml("%d<sup>-</sup>" % tid)
         dLabel.setDefaultFont(Task.font)
         self.label_info.append([dLabel, self.pcx, self.pcy])
-
-
-
-
+        #
         x0, y0, x1, y1 = self.pcx, self.pcy, self.dcx, self.dcy
-        self.lines = [[x0, y0, x1, y1]]
+        self.arrowLine = [[x0, y0, x1, y1]]
         ax, ay = x1 - x0, y1 - y0
         la = np.sqrt(ax ** 2 + ay ** 2)
         ux, uy = ax / la, ay / la
         px, py = -uy, ux
-        self.lines.append([x1, y1,
-                           x1 - (ux * Task.arrow_HS) + (px * Task.arrow_VS),
-                           y1 - (uy * Task.arrow_HS) + (py * Task.arrow_VS)])
-        self.lines.append([x1, y1,
-                           x1 - (ux * Task.arrow_HS) - (px * Task.arrow_VS),
-                           y1 - (uy * Task.arrow_HS) - (py * Task.arrow_VS)])
+        self.arrowLine.append([x1, y1,
+                               x1 - (ux * Task.arrow_HS) + (px * Task.arrow_VS),
+                               y1 - (uy * Task.arrow_HS) + (py * Task.arrow_VS)])
+        self.arrowLine.append([x1, y1,
+                               x1 - (ux * Task.arrow_HS) - (px * Task.arrow_VS),
+                               y1 - (uy * Task.arrow_HS) - (py * Task.arrow_VS)])
 
 
     def draw(self, qp):
@@ -201,14 +200,14 @@ class Task(object):
         pen = QPen(QColor(pallet[self.tid]), 2, Qt.SolidLine)
         qp.setPen(pen)
         qp.setBrush(Qt.NoBrush)
-        qp.drawEllipse(self.pcx - LocPD_dotSize / 2, self.pcy - LocPD_dotSize / 2,
-                         LocPD_dotSize, LocPD_dotSize)
-
-        qp.drawRect(self.dcx - LocPD_dotSize / 2, self.dcy - LocPD_dotSize / 2,
-                       LocPD_dotSize, LocPD_dotSize)
-
-        for x0, y0, x1, y1 in self.lines:
-            qp.drawLine(x0, y0, x1, y1)
+        if SHOW_PD:
+            qp.drawEllipse(self.pcx - LocPD_dotSize / 2, self.pcy - LocPD_dotSize / 2,
+                             LocPD_dotSize, LocPD_dotSize)
+            qp.drawRect(self.dcx - LocPD_dotSize / 2, self.dcy - LocPD_dotSize / 2,
+                           LocPD_dotSize, LocPD_dotSize)
+        if SHOW_PD_ARROW:
+            for x0, y0, x1, y1 in self.arrowLine:
+                qp.drawLine(x0, y0, x1, y1)
 
 
 class Bundle(object):
@@ -216,30 +215,40 @@ class Bundle(object):
     labelH = 30
     unit_labelW = 15
     polyLineTH = 4
+    maxFP_TH = 4
 
-    def __init__(self, bid, assTaskIDs, points):
+    def __init__(self, bid, bc, bndlPoly, edgeFeasiblity=None):
         self.bid = bid
         #
         self.label = QTextDocument()
-        _assTaskIDs = str(assTaskIDs)
+        _assTaskIDs = str(bc)
         self.label.setHtml("b<sub>%d</sub>: %s" % (self.bid, _assTaskIDs))
         self.label.setDefaultFont(Bundle.font)
         self.labelW = (len("bx: ") + len(_assTaskIDs)) * Bundle.unit_labelW
         #
-        self.points = points
-        c = np.array(list(map(sum, zip(*points)))) / len(points)
+        self.bnldPoly = bndlPoly
+        c = np.array(list(map(sum, zip(*bndlPoly)))) / len(bndlPoly)
         self.lx, self.ly = c[0], c[1]
+        if edgeFeasiblity:
+            maxCount = np.array(list(edgeFeasiblity.values())).max()
+            self.edgeFeasiblity = {}
+            for k, numCount in edgeFeasiblity.items():
+                self.edgeFeasiblity[k] = numCount / float(maxCount) * Bundle.maxFP_TH
 
     def draw(self, qp):
-        # drawLabel(qp, self.label,
-        #           self.lx, self.ly, self.labelW, Bundle.labelH)
-
-        pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH, Qt.DashDotDotLine)
+        drawLabel(qp, self.label,
+                  self.lx, self.ly, self.labelW, Bundle.labelH)
+        pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH)
         qp.setPen(pen)
-        for i in range(len(self.points) - 1):
-            x0, y0 = self.points[i]
-            x1, y1 = self.points[i + 1]
+        for i in range(len(self.bnldPoly) - 1):
+            x0, y0 = self.bnldPoly[i]
+            x1, y1 = self.bnldPoly[i + 1]
             qp.drawLine(x0, y0, x1, y1)
-        x0, y0 = self.points[len(self.points) - 1]
-        x1, y1 = self.points[0]
+        x0, y0 = self.bnldPoly[len(self.bnldPoly) - 1]
+        x1, y1 = self.bnldPoly[0]
         qp.drawLine(x0, y0, x1, y1)
+
+        for (x0, y0, x1, y1), thickness in self.edgeFeasiblity.items():
+            pen = QPen(Qt.black, thickness)
+            qp.setPen(pen)
+            qp.drawLine(x0, y0, x1, y1)
