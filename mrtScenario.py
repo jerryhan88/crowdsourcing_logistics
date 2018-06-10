@@ -135,7 +135,7 @@ def gen_instance(stations, numTasks, min_durPD, detourPER, flowPER):
 def inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir):
     problemName = problem[0]
     prmt = convert_prob2prmt(*problem)
-    with open(reduce(opath.join, [pkl_dir, 'prmts', 'prmts_%s.pkl' % problemName]), 'wb') as fp:
+    with open(reduce(opath.join, [pkl_dir, 'prmt', 'prmt_%s.pkl' % problemName]), 'wb') as fp:
         pickle.dump(prmt, fp)
     vizInputs = [flow_oridest, task_ppdp]
     with open(reduce(opath.join, [pkl_dir, 'dplym', 'dplym_%s.pkl' % problemName]), 'wb') as fp:
@@ -302,7 +302,7 @@ def mrtS1(pkl_dir='_temp'):
                numLocs, travel_time, thDetour,
                minWS]
     prmt = convert_prob2prmt(*problem)
-    with open(opath.join(pkl_dir, 'prmts_%s.pkl' % problemName), 'wb') as fp:
+    with open(opath.join(pkl_dir, 'prmt_%s.pkl' % problemName), 'wb') as fp:
         pickle.dump(prmt, fp)
     vizInputs = [flow_oridest, task_ppdp]
     with open(opath.join(pkl_dir, 'dplym_%s.pkl' % problemName), 'wb') as fp:

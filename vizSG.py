@@ -98,8 +98,8 @@ class Viz(QWidget):
             for k, fpath in pkl_files.items():
                 with open(fpath, 'rb') as fp:
                     self.drawingInfo[k] = pickle.load(fp)
-            self.app_name += '-%s' % self.drawingInfo['prmts']['problemName']
-            self.init_prmtsDrawing()
+            self.app_name += '-%s' % self.drawingInfo['prmt']['problemName']
+            self.init_prmtDrawing()
             self.init_solDrawing(pkl_files)
         #
         self.mousePressed = False
@@ -171,9 +171,9 @@ class Viz(QWidget):
                                                [pcx, pcy], [dcx, dcy]))
                 numTasks += 1
 
-    def init_prmtsDrawing(self):
+    def init_prmtDrawing(self):
         self.flow_oridest, task_ppdp = self.drawingInfo['dplym']
-        w_k = self.drawingInfo['prmts']['w_k']
+        w_k = self.drawingInfo['prmt']['w_k']
         mrts = set()
         for k, (mrt0, mrt1) in enumerate(self.flow_oridest):
             route = get_route(mrtNetNX, mrt0, mrt1)
@@ -205,39 +205,29 @@ class Viz(QWidget):
             self.task_pdO.append([[pcx, pcy], [dcx, dcy]])
 
     def init_solDrawing(self, pkl_files):
-        if 'CWL' in pkl_files['sol']:
-            sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
-            if 'scFP' in pkl_files:
-                scFP_fpath = pkl_files['scFP']
-
-
-
-
-
-                selBndsFP_dpath = opath.join(sol_dpath, 'selBndsFP')
-                fn = opath.basename(pkl_files['sol'])
-                _, prefix, cwl_name = fn[:-len('.csv')].split('_')
-                selBndsFP_fpath = opath.join(selBndsFP_dpath, 'selBndsFP_%s_%s.pkl' % (prefix, cwl_name))
-                with open(selBndsFP_fpath, 'rb') as fp:
-                    selBndsFP = pickle.load(fp)
+        if not 'scFP' in pkl_files:
+            if 'CWL' in pkl_files['sol']:
                 C, q_c = [self.drawingInfo['sol'].get(k) for k in ['C', 'q_c']]
-                selBundles0 = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
-                selBundles1 = [o[0] for o in selBndsFP]
-                assert selBundles0 == selBundles1
+                selBundles = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
+            else:
+                assert 'GH' in pkl_files['sol']
+                cB_M = self.drawingInfo['prmt']['cB_M']
+                bc = self.drawingInfo['sol']['bc']
+                selBundles = [o for o in bc if cB_M <= len(o)]
+            #
+            for bid, bc in enumerate(selBundles):
+                bndlPoly = []
+                for tid in bc:
+                    (pcx, pcy), (dcx, dcy) = self.task_pdO[tid]
+                    bndlPoly.append([pcx, pcy])
+                    bndlPoly.append([dcx, dcy])
+                bndlPoly = sort_clockwise(bndlPoly)
+                self.objForDrawing.append(Bundle(bid, bc, bndlPoly))
         else:
-            assert 'GH' in pkl_files['sol']
-            cB_M = self.drawingInfo['prmts']['cB_M']
-            bc = self.drawingInfo['sol']['bc']
-            selBundles0 = [o for o in bc if cB_M <= len(o)]
-
-            # TODO
-
-            selBndsFP = None
-            assert selBndsFP
-
-        for bid, (bc, fp) in enumerate(selBndsFP):
-            if bid != 0:
-                continue
+            scFP_fpath = pkl_files['scFP']
+            bid = int(opath.basename(scFP_fpath)[len('bid'):-len('.pkl')])
+            with open(pkl_files['scFP'], 'rb') as fp:
+                _, bc, feasiblePath = pickle.load(fp)
             bndlPoly = []
             for tid in bc:
                 (pcx, pcy), (dcx, dcy) = self.task_pdO[tid]
@@ -245,12 +235,9 @@ class Viz(QWidget):
                 bndlPoly.append([dcx, dcy])
             bndlPoly = sort_clockwise(bndlPoly)
             edgeFeasiblity = {}
-            print(fp)
-            for k in fp:
-                print(self.flow_oridest[k])
+            for k in feasiblePath:
                 mrt0, mrt1 = self.flow_oridest[k]
                 route = get_route(mrtNetNX, mrt0, mrt1)
-                print(route)
                 for i in range(len(route) - 1):
                     lat, lng = mrt_coords[route[i]]
                     x0, y0 = convert_GPS2xy(lng, lat)
@@ -298,20 +285,22 @@ class Viz(QWidget):
             qp.end()
 
     def save_img(self, img_fpath):
-        self.image.save(img_fpath, 'png')
-        printer = QPrinter(QPrinter.HighResolution)
-        # printer.setPageSize(QPrinter.A4)
-        printer.setPageSizeMM(QSizeF(WIDTH / 15, HEIGHT / 15))
-        printer.setFullPage(True)
-        printer.setPageMargins(0.0, 0.0, 0.0, 0.0, QPrinter.Millimeter)
-        printer.setColorMode(QPrinter.Color)
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(img_fpath[:-len('.png')] + '.pdf')
-        pixmap = self.grab().scaledToHeight(
-            printer.pageRect(QPrinter.DevicePixel).size().toSize().height() * 2)
-        painter = QPainter(printer)
-        painter.drawPixmap(0, 0, pixmap)
-        painter.end()
+        if img_fpath.endswith('.png'):
+            self.image.save(img_fpath, 'png')
+        else:
+            assert img_fpath.endswith('.pdf')
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setPageSizeMM(QSizeF(WIDTH / 15, HEIGHT / 15))
+            printer.setFullPage(True)
+            printer.setPageMargins(0.0, 0.0, 0.0, 0.0, QPrinter.Millimeter)
+            printer.setColorMode(QPrinter.Color)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(img_fpath)
+            pixmap = self.grab().scaledToHeight(
+                printer.pageRect(QPrinter.DevicePixel).size().toSize().height() * 2)
+            painter = QPainter(printer)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
 
     def drawCanvas(self, qp):
         for o in self.objForDrawing:
@@ -324,42 +313,61 @@ class Viz(QWidget):
 
 def runSingle():
     dplym_dpath = reduce(opath.join, [exp_dpath, '_summary', 'dplym'])
-    prmts_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmts'])
+    prmt_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmt'])
     sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
+    viz_dpath = reduce(opath.join, [exp_dpath, '_summary', 'viz'])
+    if not opath.exists(viz_dpath):
+        os.mkdir(viz_dpath)
     #
     prefix = 'mrtS1-dt80'
     aprc = 'CWL1'
     pkl_files = {
         'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
-        'prmts': opath.join(prmts_dpath, 'prmts_%s.pkl' % prefix),
+        'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
         'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
     }
+    viz_fpath = opath.join(viz_dpath, '%s_%s.png' % (prefix, aprc))
     #
     app = QApplication(sys.argv)
     viz = Viz(pkl_files)
-    if SAVE_IMAGE:
-        viz.save_img('%s_%s.png' % (prefix, aprc))
-        # viz.save_img('SG.png')
-    sys.exit(app.exec_())
+    viz.save_img(viz_fpath)
+    #
+    # # viz.save_img('SG.png')
+    # # sys.exit(app.exec_())
+    #
+    #
+    del app
+    #
+    selColFP_dpath = opath.join(sol_dpath, 'selColFP')
+    scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
+    for i, fn in enumerate(os.listdir(scFP_dpath)):
+        scFP_fpath = opath.join(scFP_dpath, fn)
+        viz_fpath = opath.join(viz_dpath, '%s_%s_bid%d.png' % (prefix, aprc, i))
+        pkl_files['scFP'] = scFP_fpath
+        app = QApplication(sys.argv)
+        viz = Viz(pkl_files)
+        viz.save_img(viz_fpath)
+        app.quit()
+        del app
 
 
 def gen_imgs():
     dplym_dpath = reduce(opath.join, [exp_dpath, '_summary', 'dplym'])
-    prmts_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmts'])
+    prmt_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmt'])
     sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
     viz_dpath = reduce(opath.join, [exp_dpath, '_summary', 'viz'])
     if not opath.exists(viz_dpath):
         os.mkdir(viz_dpath)
     #
     aprcs = ['GH'] + ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]
-    for fn in os.listdir(prmts_dpath):
-        if fn == 'prmts_mrtS1-dt80.pkl':
+    for fn in os.listdir(prmt_dpath):
+        if fn == 'prmt_mrtS1-dt80.pkl':
             continue
         if not fn.endswith('.pkl'): continue
         _, prefix = fn[:-len('.pkl')].split('_')
         #
         dplym_fpath = opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix)
-        prmts_fpath = opath.join(prmts_dpath, fn)
+        prmt_fpath = opath.join(prmt_dpath, fn)
         for i, aprc in enumerate(aprcs):
             print(aprc, prefix)
             sol_fpath = opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
@@ -370,7 +378,7 @@ def gen_imgs():
                 continue
             pkl_files = {
                 'dplym': dplym_fpath,
-                'prmts': prmts_fpath,
+                'prmt': prmt_fpath,
                 'sol': sol_fpath
             }
             app = QApplication(sys.argv)
@@ -382,6 +390,8 @@ def gen_imgs():
             selColFP_dpath = opath.join(sol_dpath, 'selColFP')
             scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
             for fn in os.listdir(scFP_dpath):
+                viz_fpath
+
                 scFP_fpath = opath.join(scFP_dpath, fn)
                 pkl_files['scFP'] = scFP_fpath
                 app = QApplication(sys.argv)

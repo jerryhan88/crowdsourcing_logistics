@@ -229,16 +229,16 @@ class Bundle(object):
         self.bnldPoly = bndlPoly
         c = np.array(list(map(sum, zip(*bndlPoly)))) / len(bndlPoly)
         self.lx, self.ly = c[0], c[1]
+        self.edgeFeasiblity = {}
         if edgeFeasiblity:
             maxCount = np.array(list(edgeFeasiblity.values())).max()
-            self.edgeFeasiblity = {}
             for k, numCount in edgeFeasiblity.items():
                 self.edgeFeasiblity[k] = numCount / float(maxCount) * Bundle.maxFP_TH
 
     def draw(self, qp):
         drawLabel(qp, self.label,
                   self.lx, self.ly, self.labelW, Bundle.labelH)
-        pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH)
+        pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH, Qt.DashDotLine)
         qp.setPen(pen)
         for i in range(len(self.bnldPoly) - 1):
             x0, y0 = self.bnldPoly[i]
@@ -247,7 +247,7 @@ class Bundle(object):
         x0, y0 = self.bnldPoly[len(self.bnldPoly) - 1]
         x1, y1 = self.bnldPoly[0]
         qp.drawLine(x0, y0, x1, y1)
-
+        #
         for (x0, y0, x1, y1), thickness in self.edgeFeasiblity.items():
             pen = QPen(Qt.black, thickness)
             qp.setPen(pen)

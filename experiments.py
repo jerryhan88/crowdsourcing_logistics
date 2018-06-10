@@ -19,27 +19,28 @@ def gen_problems(problem_dpath):
             os.mkdir(opath.join(problem_dpath, dname))
     #
 
-    #  '4small', '5out', '7inter', '11interOut'
+    #  '4small', '5out', '7inter', '11interOut
 
-    stationSel = '7inter'
+    stationSel = '5out'
+
+
     stations = STATIONS[stationSel]
     min_durPD = 20
     minTB, maxTB = 2, 4
     flowPER, detourPER = PER75, PER25
 
     for numTasks in [
-                    # 10,
                     # 50,
                     # 100,
                     # 200,
-                    # 400,
-                    # 800,
-                    1600,
+                    400,
+                    800,
+                    # 1600,
                      ]:
         numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
         problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d' % (stationSel, numTasks, min_durPD, maxTB, detourPER, flowPER)
         #
-        seed(0)
+        seed(10)
         flow_oridest, task_ppdp, \
         flows, tasks, \
         numLocs, travel_time, thDetour, \
@@ -97,7 +98,7 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # CWL
-        for cwl_no in range(3, 6):
+        for cwl_no in range(1, 6):
             etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL%d.pkl' % (problemName, cwl_no)),
                    'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL%d.csv' % (problemName, cwl_no)),
                    'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL%d.txt' % (problemName, cwl_no)),
@@ -305,8 +306,8 @@ def read_result(resF,logF):
 
 
 if __name__ == '__main__':
-    # gen_problems(opath.join(exp_dpath, 'm114'))
+    gen_problems(opath.join(exp_dpath, 'm11'))
     # run_experiments(101)
-    summary1()
+    # summary1()
     # gen_mrtProblems(opath.join(dpath['experiment'], 'tempProb'))
     # summary()
