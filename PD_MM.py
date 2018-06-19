@@ -134,9 +134,9 @@ def handle_all_instances():
         scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
         if not opath.exists(scFP_dpath):
             os.mkdir(scFP_dpath)
-        prmt_fpath = opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix)
-        sol_fpath = opath.join(sol_dpath, fn)
-        find_all_feasible_paths(prmt_fpath, sol_fpath, scFP_dpath)
+            prmt_fpath = opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix)
+            sol_fpath = opath.join(sol_dpath, fn)
+            find_all_feasible_paths(prmt_fpath, sol_fpath, scFP_dpath)
 
 
 if __name__ == '__main__':

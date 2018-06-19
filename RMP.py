@@ -30,9 +30,6 @@ def generate_RMP(prmt, add_inputs):
                                   name="taskAC[%d]" % i)
     numBC = RMP.addConstr(quicksum(q_c[c] for c in range(len(C))) <= bB,
                               name="numBC")
-
-
-    # TODO
     if includeBNB:
         inclusiveC, exclusiveC = list(map(add_inputs.get, ['inclusiveC', 'exclusiveC']))
         C_i0i1 = {}

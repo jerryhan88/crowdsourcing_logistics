@@ -102,7 +102,7 @@ def run(prmt, etc=None):
             f.write('\n')
         res2file(etc['solFileCSV'], incumRes['objVal'], BnPgap, eliCpuTime, eliWallTime)
         #
-        _q_c = {{c: incumRes['q_c'][c] for c in range(len(incumProb['C']))}}
+        _q_c = {c: incumRes['q_c'][c] for c in range(len(incumProb['C']))}
         sol = {
             'C': incumProb['C'], 'p_c': incumProb['p_c'], 'e_ci': incumProb['e_ci'],
             'q_c': _q_c
@@ -193,7 +193,7 @@ def branching(bnpTree, curNode):
         # Choose branching criteria
         #
         pTag, pIdentifier = curNode.tag, curNode.identifier
-        pOri_inputs, pBNP_inputs = curNode.ni.ori_inputs, curNode.ni.bnp_inputs
+        pOri_prmt, pBNP_inputs = curNode.ni.prmt, curNode.ni.bnp_inputs
         chosenTaskPairs = set(pBNP_inputs['inclusiveC']).union(pBNP_inputs['exclusiveC'])
         for _, candiBundle in fracOrdered:
             foundPairs = False
@@ -220,12 +220,13 @@ def branching(bnpTree, curNode):
         lBNP_inputs['inclusiveC'] += [(i0, i1)]
         bnpTree.create_node(lTag, lIndentifier, parent=pIdentifier)
         lcNode = bnpTree.get_node(lIndentifier)
-        lcNode.ni = bnpNode(lIndentifier, pOri_inputs, lBNP_inputs, etc)
+        lcNode.ni = bnpNode(lIndentifier, pOri_prmt, lBNP_inputs, etc)
         is_terminated = lcNode.ni.startCG()
         if is_terminated:
             handle_termination(bnpTree, lcNode)
             return None
-        heappush(bnpTree.leafNodes, (-(bnpTree.depth(lcNode) + 0.1), lcNode))
+        if lcNode.ni.res['objVal'] is not None:
+            heappush(bnpTree.leafNodes, (-(bnpTree.depth(lcNode) + 0.1), lcNode))
         #
         # Right child
         #
@@ -234,12 +235,13 @@ def branching(bnpTree, curNode):
         rBNP_inputs['exclusiveC'] += [(i0, i1)]
         bnpTree.create_node(rTag, rIndentifier, parent=pIdentifier)
         rcNode = bnpTree.get_node(rIndentifier)
-        rcNode.ni = bnpNode(rIndentifier, pOri_inputs, rBNP_inputs, etc)
+        rcNode.ni = bnpNode(rIndentifier, pOri_prmt, rBNP_inputs, etc)
         is_terminated = rcNode.ni.startCG()
         if is_terminated:
             handle_termination(bnpTree, rcNode)
             return None
-        heappush(bnpTree.leafNodes, (-bnpTree.depth(rcNode), rcNode))
+        if rcNode.ni.res['objVal'] is not None:
+            heappush(bnpTree.leafNodes, (-bnpTree.depth(rcNode), rcNode))
         #
         if bnpTree.bestBound == curNode:
             #
@@ -346,11 +348,12 @@ class bnpNode(object):
                 logContents = 'Relaxed model is infeasible!!\n'
                 logContents += 'No solution!\n'
                 write_log(self.etc['logFile'], logContents)
+                break
                 #
-                LRMP.write('%s.lp' % self.prmt['problemName'])
-                LRMP.computeIIS()
-                LRMP.write('%s.ilp' % self.prmt['problemName'])
-                assert False
+                # LRMP.write('%s.lp' % self.prmt['problemName'])
+                # LRMP.computeIIS()
+                # LRMP.write('%s.ilp' % self.prmt['problemName'])
+                # assert False
             #
             counter += 1
             pi_i = [LRMP.getConstrByName("taskAC[%d]" % i).Pi for i in T]
@@ -425,34 +428,45 @@ class bnpNode(object):
             LRMP.setParam('Threads', NUM_CORES)
             LRMP.setParam('OutputFlag', False)
             LRMP.optimize()
-            C, p_c, e_ci = list(map(self.bnp_inputs.get, ['C', 'p_c', 'e_ci']))
-            q_c = [LRMP.getVarByName("q[%d]" % c).x for c in range(len(C))]
-            #
             endCpuTimeCG, endWallTimeCG = time.clock(), time.time()
             eliCpuTimeCG, eliWallTimeCG = endCpuTimeCG - startCpuTimeCG, endWallTimeCG - startWallTimeCG
-            chosenC = [(C[c], '%.2f' % q_c[c]) for c in range(len(C)) if q_c[c] > 0]
-            #
-            logContents = 'Column generation summary\n'
-            logContents += '\t Cpu Time: %f\n' % eliCpuTimeCG
-            logContents += '\t Wall Time: %f\n' % eliWallTimeCG
-            logContents += '\t ObjV: %.3f\n' % LRMP.objVal
-            logContents += '\t chosen B.: %s\n' % str(chosenC)
-            write_log(self.etc['logFile'], logContents)
-            #
-            self.bnp_inputs['C'] = C
-            self.bnp_inputs['p_c'] = p_c
-            self.bnp_inputs['e_ci'] = e_ci
-            #
-            self.res['objVal'] = LRMP.objVal
-            self.res['q_c'] = q_c
-            #
-            itr2file(self.etc['itrFileCSV'], [self.nid,
-                                         '%.2f' % eliCpuTimeCG, '%.2f' % eliWallTimeCG,
-                                         self.res['objVal'],
-                                         'M',
-                                        {'objVal': LRMP.objVal,
-                                         'inclusiveC': str(self.bnp_inputs['inclusiveC']),
-                                         'exclusiveC': str(self.bnp_inputs['exclusiveC'])}])
+            if LRMP.status == GRB.Status.INFEASIBLE:
+                logContents = 'Infeasible, skip this node'
+                write_log(self.etc['logFile'], logContents)
+                self.res['objVal'] = None
+                itr2file(self.etc['itrFileCSV'], [self.nid,
+                                                  '%.2f' % eliCpuTimeCG, '%.2f' % eliWallTimeCG,
+                                                  self.res['objVal'],
+                                                  'M',
+                                                  {'objVal': 'infeasible',
+                                                   'inclusiveC': str(self.bnp_inputs['inclusiveC']),
+                                                   'exclusiveC': str(self.bnp_inputs['exclusiveC'])}])
+            else:
+                C, p_c, e_ci = list(map(self.bnp_inputs.get, ['C', 'p_c', 'e_ci']))
+                q_c = [LRMP.getVarByName("q[%d]" % c).x for c in range(len(C))]
+                chosenC = [(C[c], '%.2f' % q_c[c]) for c in range(len(C)) if q_c[c] > 0]
+                #
+                logContents = 'Column generation summary\n'
+                logContents += '\t Cpu Time: %f\n' % eliCpuTimeCG
+                logContents += '\t Wall Time: %f\n' % eliWallTimeCG
+                logContents += '\t ObjV: %.3f\n' % LRMP.objVal
+                logContents += '\t chosen B.: %s\n' % str(chosenC)
+                write_log(self.etc['logFile'], logContents)
+                #
+                self.bnp_inputs['C'] = C
+                self.bnp_inputs['p_c'] = p_c
+                self.bnp_inputs['e_ci'] = e_ci
+                #
+                self.res['objVal'] = LRMP.objVal
+                self.res['q_c'] = q_c
+                #
+                itr2file(self.etc['itrFileCSV'], [self.nid,
+                                             '%.2f' % eliCpuTimeCG, '%.2f' % eliWallTimeCG,
+                                             self.res['objVal'],
+                                             'M',
+                                            {'objVal': LRMP.objVal,
+                                             'inclusiveC': str(self.bnp_inputs['inclusiveC']),
+                                             'exclusiveC': str(self.bnp_inputs['exclusiveC'])}])
         #
         return is_terminated
 

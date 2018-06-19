@@ -25,6 +25,31 @@ def itr2file(fpath, contents=[]):
             writer.writerow(contents)
 
 
+def get_routeFromOri(edges, nodes):
+    visited, adj = {}, {}
+    for i in nodes:
+        visited[i] = False
+        adj[i] = []
+    for i, j in edges:
+        adj[i].append(j)
+    route = []
+    cNode = None
+    for n in nodes:
+        if n.startswith('ori'):
+            cNode = n
+            break
+    else:
+        assert False
+    while not cNode.startswith('dest'):
+        visited[cNode] = True
+        neighbors = [j for j in adj[cNode] if not visited[j]]
+        route.append((cNode, neighbors[0]))
+        cNode = neighbors[0]
+        if visited[cNode]:
+            break
+    return route
+
+
 def run(prmt, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     if 'TimeLimit' not in etc:
@@ -50,6 +75,56 @@ def run(prmt, etc=None):
                 gap = abs(objbst - objbnd) / (0.000001 + abs(objbst))
                 itr2file(etc['itrFileCSV'], ['%.2f' % eliCpuTimeP, '%.2f' % eliWallTimeP,
                                              '%.2f' % objbst, '%.2f' % objbnd, '%.2f' % gap])
+        if where == GRB.callback.MIPSOL:
+
+            for b in m._B:
+                if m.cbGetSolution(m._g_b[b]) > 0.5:
+                    m.cbLazy(quicksum(m._w_k[k] * m._y_bk[b, k] for k in m._K) >= m._cW)
+
+
+            # for b in m._B:
+            #     selectedTasks, tNodes = [], []
+            #     for i in m._T:
+            #         if m.cbGetSolution(m._z_bi[b, i]) > 0.5:
+            #             selectedTasks.append(i)
+            #             tNodes.append('p%d' % i)
+            #             tNodes.append('d%d' % i)
+            #     if len(tNodes) == 0:
+            #         continue
+            #     for k in m._K:
+            #         ptNodes = tNodes[:] + ['ori%d' % k, 'dest%d' % k]
+            #         selectedEdges = [(i, j) for j in ptNodes for i in ptNodes if
+            #                          m.cbGetSolution(m._x_bkij[b, k, i, j]) > 0.5]
+            #         route = get_routeFromOri(selectedEdges, ptNodes)
+            #         if len(route) != len(ptNodes) - 1:
+            #             expr = 0
+            #             for i, j in route:
+            #                 expr += m._x_bkij[b, k, i, j]
+            #             m.cbLazy(expr <= len(route) - 1)  # eq:subTourElim
+
+                    # else:
+                    #     for i, j in selectedEdges:
+                    #         m.cbLazy(m._o_ki[k, i] + 1 <= m._o_ki[k, j])
+                    #     for i in selectedTasks:
+                    #         m.cbLazy(m._o_ki[k, 'p%d' % i] <= m._o_ki[k, 'd%d' % i])
+
+
+
+
+
+                        # bigM1 = m._bigM1
+                        # ptNodes.pop(ptNodes.index('ori%d' % k))
+                        # for i in ptNodes:
+                        #     #  # eq:initOrder
+                        #     m.cbLazy(2 <= o_ki[k, i])
+                        #     m.cbLazy(o_ki[k, i] <= bigM1)
+                        #     for j in ptNodes:
+                        #         if m.cbGetSolution(m._x_bkij[b, k, i, j]) > 0.5:
+                        #             m.cbLazy(o_ki[k, i] + 1 <= o_ki[k, j])
+                        # for i in T:
+                        #     if m.cbGetSolution(m._z_bi[b, i]) > 0.5:
+                        #         m.cbLazy(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i])
+
     #
     B, cB_M, cB_P = list(map(prmt.get, ['B', 'cB_M', 'cB_P']))
     T, P, D, N = list(map(prmt.get, ['T', 'P', 'D', 'N']))
@@ -127,9 +202,8 @@ def run(prmt, etc=None):
             for i in N:  # eq:flowCon
                 EX.addConstr(quicksum(x_bkij[b, k, i, j] for j in kN) == quicksum(x_bkij[b, k, j, i] for j in kN),
                             name='fc[%d,%d,%s]' % (b, k, i))
-    #
-    #  Routing_Ordering
-    #
+
+
     for k in K:
         N_kM = N.union({'dest%d' % k})
         for i in N_kM:
@@ -148,6 +222,8 @@ def run(prmt, etc=None):
                 #  # eq:pdSequence
                 EX.addConstr(o_ki[k, 'p%d' % i] <= o_ki[k, 'd%d' % i] + bigM1 * (1 - z_bi[b, i]),
                              name='pdS[%d,%d,%d]' % (b, k, i))
+
+
     #
     # Detour feasibility
     #
@@ -162,8 +238,8 @@ def run(prmt, etc=None):
             LRS -= t_ij['ori%d' % k, 'dest%d' % k]
             EX.addConstr(LRS <= _delta + bigM2 * (1 - y_bk[b, k]),
                         name='df[%d,%d]' % (b, k))
-        EX.addConstr(quicksum(w_k[k] * y_bk[b, k] for k in K) >= cW * g_b[b],
-                     name='bg[%d]' % b)
+    #     EX.addConstr(quicksum(w_k[k] * y_bk[b, k] for k in K) >= cW * g_b[b],
+    #                  name='bg[%d]' % b)
 
 
     # for b in B:
@@ -185,6 +261,18 @@ def run(prmt, etc=None):
     #
     # Run Gurobi (Optimization)
     #
+
+    EX._B, EX._T, EX._K, EX._w_k, EX._cW = B, T, K, w_k, cW
+    EX._z_bi, EX._x_bkij, EX._y_bk, EX._g_b = z_bi, x_bkij, y_bk, g_b
+
+
+
+
+
+
+
+
+
     EX.setParam('LazyConstraints', True)
     EX.setParam('Threads', NUM_CORES)
     if etc['logFile']:
@@ -266,18 +354,17 @@ def run(prmt, etc=None):
 
 if __name__ == '__main__':
     from problems import euclideanDistEx0
-    from mrtScenario import mrtS1, mrtS2, mrtS3
+    from mrtScenario import mrtS1
     #
     # prmt = euclideanDistEx0()
-    # prmt = mrtS1()
-    prmt = mrtS3()
+    prmt = mrtS1()
     problemName = prmt['problemName']
     #
-    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX2.pkl' % problemName),
-           'solFileCSV': opath.join('_temp', 'sol_%s_EX2.csv' % problemName),
-           'solFileTXT': opath.join('_temp', 'sol_%s_EX2.txt' % problemName),
-           'logFile': opath.join('_temp', '%s_EX2.log' % problemName),
-           'itrFileCSV': opath.join('_temp', '%s_itrEX2.csv' % problemName),
+    etc = {'solFilePKL': opath.join('_temp', 'sol_%s_EX21.pkl' % problemName),
+           'solFileCSV': opath.join('_temp', 'sol_%s_EX21.csv' % problemName),
+           'solFileTXT': opath.join('_temp', 'sol_%s_EX21.txt' % problemName),
+           'logFile': opath.join('_temp', '%s_EX21.log' % problemName),
+           'itrFileCSV': opath.join('_temp', '%s_itrEX21.csv' % problemName),
            }
     #
     run(prmt, etc)

@@ -40,12 +40,13 @@ colors = {
 }
 pallet += list(colors.values())
 
-Station_markSize = 20
-LocPD_dotSize = 20
+Station_markSize = 30
+LocPD_dotSize = 10
 SHOW_LABEL = False
-SHOW_PD = True
+SHOW_PD = False
 SHOW_PD_ARROW = False
 SHOW_FLOW = False
+
 
 def drawLabel(qp, label, cx, cy, w, h):
     if SHOW_LABEL:
@@ -161,52 +162,63 @@ class Task(object):
     unit_labelW = 20
     labelH = 30
 
-    def __init__(self, tid, pXY, dXY):
+    def __init__(self, tid, pXY, dXY, randomPair=False):
         self.tid = tid
         self.pcx, self.pcy = pXY
         self.dcx, self.dcy = dXY
-
-        self.labelW = (len("%dx" % tid)) * Task.unit_labelW
-        self.label_info = []
-        pLabel = QTextDocument()
-        pLabel.setHtml("%d<sup>+</sup>" % tid)
-        pLabel.setDefaultFont(Task.font)
-        self.label_info.append([pLabel, self.pcx, self.pcy])
-        dLabel = QTextDocument()
-        dLabel.setHtml("%d<sup>-</sup>" % tid)
-        dLabel.setDefaultFont(Task.font)
-        self.label_info.append([dLabel, self.pcx, self.pcy])
-        #
-        x0, y0, x1, y1 = self.pcx, self.pcy, self.dcx, self.dcy
-        self.arrowLine = [[x0, y0, x1, y1]]
-        ax, ay = x1 - x0, y1 - y0
-        la = np.sqrt(ax ** 2 + ay ** 2)
-        ux, uy = ax / la, ay / la
-        px, py = -uy, ux
-        self.arrowLine.append([x1, y1,
-                               x1 - (ux * Task.arrow_HS) + (px * Task.arrow_VS),
-                               y1 - (uy * Task.arrow_HS) + (py * Task.arrow_VS)])
-        self.arrowLine.append([x1, y1,
-                               x1 - (ux * Task.arrow_HS) - (px * Task.arrow_VS),
-                               y1 - (uy * Task.arrow_HS) - (py * Task.arrow_VS)])
-
+        self.randomPair = randomPair
+        if not self.randomPair:
+            self.labelW = (len("%dx" % tid)) * Task.unit_labelW
+            self.label_info = []
+            pLabel = QTextDocument()
+            pLabel.setHtml("%d<sup>+</sup>" % tid)
+            pLabel.setDefaultFont(Task.font)
+            self.label_info.append([pLabel, self.pcx, self.pcy])
+            dLabel = QTextDocument()
+            dLabel.setHtml("%d<sup>-</sup>" % tid)
+            dLabel.setDefaultFont(Task.font)
+            self.label_info.append([dLabel, self.pcx, self.pcy])
+            #
+            x0, y0, x1, y1 = self.pcx, self.pcy, self.dcx, self.dcy
+            self.arrowLine = [[x0, y0, x1, y1]]
+            ax, ay = x1 - x0, y1 - y0
+            la = np.sqrt(ax ** 2 + ay ** 2)
+            ux, uy = ax / la, ay / la
+            px, py = -uy, ux
+            self.arrowLine.append([x1, y1,
+                                   x1 - (ux * Task.arrow_HS) + (px * Task.arrow_VS),
+                                   y1 - (uy * Task.arrow_HS) + (py * Task.arrow_VS)])
+            self.arrowLine.append([x1, y1,
+                                   x1 - (ux * Task.arrow_HS) - (px * Task.arrow_VS),
+                                   y1 - (uy * Task.arrow_HS) - (py * Task.arrow_VS)])
 
     def draw(self, qp):
-        for label, x, y in self.label_info:
-            drawLabel(qp, label,
-                      x + LocPD_dotSize / 2, y,
-                      self.labelW, Task.labelH)
-        #
-        pen = QPen(QColor(pallet[self.tid]), 2, Qt.SolidLine)
-        qp.setPen(pen)
-        qp.setBrush(Qt.NoBrush)
-        if SHOW_PD:
-            qp.drawEllipse(self.pcx - LocPD_dotSize / 2, self.pcy - LocPD_dotSize / 2,
-                             LocPD_dotSize, LocPD_dotSize)
-            qp.drawRect(self.dcx - LocPD_dotSize / 2, self.dcy - LocPD_dotSize / 2,
-                           LocPD_dotSize, LocPD_dotSize)
-        if SHOW_PD_ARROW:
-            for x0, y0, x1, y1 in self.arrowLine:
+        if not self.randomPair:
+            for label, x, y in self.label_info:
+                drawLabel(qp, label,
+                          x + LocPD_dotSize / 2, y,
+                          self.labelW, Task.labelH)
+            #
+            pen = QPen(QColor(pallet[self.tid % len(pallet)]), 2, Qt.SolidLine)
+            qp.setPen(pen)
+            qp.setBrush(Qt.NoBrush)
+            if SHOW_PD:
+                qp.drawEllipse(self.pcx - LocPD_dotSize / 2, self.pcy - LocPD_dotSize / 2,
+                               LocPD_dotSize, LocPD_dotSize)
+                qp.drawRect(self.dcx - LocPD_dotSize / 2, self.dcy - LocPD_dotSize / 2,
+                            LocPD_dotSize, LocPD_dotSize)
+            if SHOW_PD_ARROW:
+                for x0, y0, x1, y1 in self.arrowLine:
+                    qp.drawLine(x0, y0, x1, y1)
+        else:
+            pen = QPen(Qt.black, 2, Qt.SolidLine)
+            qp.setPen(pen)
+            for x0, y0, x1, y1 in [
+                                    (self.pcx, self.pcy, self.pcx + LocPD_dotSize, self.pcy + LocPD_dotSize),
+                                    (self.pcx + LocPD_dotSize, self.pcy, self.pcx, self.pcy + LocPD_dotSize),
+                                    (self.dcx, self.dcy, self.dcx + LocPD_dotSize, self.dcy + LocPD_dotSize),
+                                    (self.dcx + LocPD_dotSize, self.dcy, self.dcx, self.dcy + LocPD_dotSize)
+                                ]:
                 qp.drawLine(x0, y0, x1, y1)
 
 

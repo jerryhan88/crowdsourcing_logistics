@@ -54,8 +54,8 @@ HEIGHT = lat_gap * (WIDTH / lng_gap)
 
 FRAME_ORIGIN = (60, 100)
 
-SHOW_ALL_PD = False
-SHOW_MRT_LINE = False
+SHOW_ALL_PD = True
+SHOW_MRT_LINE = True
 SHOW_LABEL = False
 SAVE_IMAGE = True
 
@@ -92,7 +92,7 @@ class Viz(QWidget):
         self.app_name = 'Viz'
         self.objForDrawing = []
         #
-        self.init_bgDrawing()
+        self.init_bgDrawing(True if not pkl_files else False)
         if pkl_files:
             self.drawingInfo = {}
             for k, fpath in pkl_files.items():
@@ -100,7 +100,8 @@ class Viz(QWidget):
                     self.drawingInfo[k] = pickle.load(fp)
             self.app_name += '-%s' % self.drawingInfo['prmt']['problemName']
             self.init_prmtDrawing()
-            self.init_solDrawing(pkl_files)
+            if 'sol' in self.drawingInfo:
+                self.init_solDrawing()
         #
         self.mousePressed = False
         self.px, self.py = -1, -1
@@ -115,16 +116,16 @@ class Viz(QWidget):
         self.setWindowTitle(self.app_name)
         self.setFixedSize(QSize(WIDTH, HEIGHT))
         #
-        if SAVE_IMAGE:
-            self.image = QImage(WIDTH, HEIGHT, QImage.Format_RGB32)
-            self.image.fill(Qt.white)  ## switch it to else
-            pal = self.palette()
-            pal.setColor(QPalette.Background, Qt.white)
-            self.setAutoFillBackground(True)
-            self.setPalette(pal)
+        self.image = QImage(WIDTH, HEIGHT, QImage.Format_RGB32)
+        self.image.fill(Qt.white)
+        pal = self.palette()
+        pal.setColor(QPalette.Background, Qt.white)
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
+        #
         self.show()
 
-    def init_bgDrawing(self):
+    def init_bgDrawing(self, bg_only=False):
         sgBoarderXY = []
         for poly in sgBorder:
             sgBorderPartial_xy = []
@@ -142,7 +143,7 @@ class Viz(QWidget):
         self.sg = Singapore(sgBoarderXY, sgDistrictXY)
         self.objForDrawing = [self.sg]
         #
-        if SHOW_MRT_LINE:
+        if bg_only:
             mrtNet = get_mrtNet()
             mrtLines = []
             for lineName, connections in mrtNet.items():
@@ -157,19 +158,16 @@ class Viz(QWidget):
             for i, (STN, (lat, lng)) in enumerate(mrt_coords.items()):
                 cx, cy = convert_GPS2xy(lng, lat)
                 self.objForDrawing.append(Station(i, STN, cx, cy))
-        if SHOW_ALL_PD:
-            from random import shuffle, sample
-            shuffle(locationPD)
-            numTasks = 0
-            while numTasks < 15:
-                pLoc, dLoc = sample(locationPD, 2)
+            #
+            halfNum = int(len(locationPD) / 2)
+            for i in range(halfNum):
+                pLoc, dLoc = locationPD[i], locationPD[halfNum + i]
                 _, lat, lng, _, _, _, _ = pLoc
                 pcx, pcy = convert_GPS2xy(lng, lat)
                 _, lat, lng, _, _, _, _ = dLoc
                 dcx, dcy = convert_GPS2xy(lng, lat)
-                self.objForDrawing.append(Task(numTasks,
-                                               [pcx, pcy], [dcx, dcy]))
-                numTasks += 1
+                self.objForDrawing.append(Task(i,
+                                               [pcx, pcy], [dcx, dcy], randomPair=True))
 
     def init_prmtDrawing(self):
         self.flow_oridest, task_ppdp = self.drawingInfo['dplym']
@@ -184,14 +182,12 @@ class Viz(QWidget):
                 points.append([x, y])
             self.objForDrawing.append(Flow(w_k[k], points))
             #
-            if mrt0 not in mrts:
-                lat0, lng0 = mrt_coords[mrt0]
-                self.objForDrawing.append(Station(len(mrts), mrt0, lat0, lng0))
-                mrts.add(mrt0)
-            if mrt1 not in mrts:
-                lat1, lng1 = mrt_coords[mrt1]
-                self.objForDrawing.append(Station(len(mrts), mrt1, lat1, lng1))
-                mrts.add(mrt1)
+            for mrt in [mrt0, mrt1]:
+                if mrt not in mrts:
+                    lat, lng = mrt_coords[mrt]
+                    cx, cy = convert_GPS2xy(lng, lat)
+                    self.objForDrawing.append(Station(len(mrts), mrt, cx, cy))
+                    mrts.add(mrt)
         #
         ln_locO = {o.Location: o for o in locationPD}
         self.task_pdO = []
@@ -204,13 +200,13 @@ class Viz(QWidget):
                                            [pcx, pcy], [dcx, dcy]))
             self.task_pdO.append([[pcx, pcy], [dcx, dcy]])
 
-    def init_solDrawing(self, pkl_files):
-        if not 'scFP' in pkl_files:
-            if 'CWL' in pkl_files['sol']:
+    def init_solDrawing(self):
+        if not 'scFP' in self.drawingInfo:
+            if 'CWL' in self.drawingInfo['sol']:
                 C, q_c = [self.drawingInfo['sol'].get(k) for k in ['C', 'q_c']]
                 selBundles = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
             else:
-                assert 'GH' in pkl_files['sol']
+                assert 'GH' in self.drawingInfo['sol']
                 cB_M = self.drawingInfo['prmt']['cB_M']
                 bc = self.drawingInfo['sol']['bc']
                 selBundles = [o for o in bc if cB_M <= len(o)]
@@ -224,10 +220,11 @@ class Viz(QWidget):
                 bndlPoly = sort_clockwise(bndlPoly)
                 self.objForDrawing.append(Bundle(bid, bc, bndlPoly))
         else:
-            scFP_fpath = pkl_files['scFP']
-            bid = int(opath.basename(scFP_fpath)[len('bid'):-len('.pkl')])
-            with open(pkl_files['scFP'], 'rb') as fp:
-                _, bc, feasiblePath = pickle.load(fp)
+            bid, bc, feasiblePath = self.drawingInfo['scFP']
+            # print(scFP_fpath)
+            # bid = int(opath.basename(scFP_fpath)[len('bid'):-len('.pkl')])
+            # with open(self.drawingInfo['scFP'], 'rb') as fp:
+            #     _, bc, feasiblePath = pickle.load(fp)
             bndlPoly = []
             for tid in bc:
                 (pcx, pcy), (dcx, dcy) = self.task_pdO[tid]
@@ -249,29 +246,6 @@ class Viz(QWidget):
                     edgeFeasiblity[k] += 1
             self.objForDrawing.append(Bundle(bid, bc, bndlPoly, edgeFeasiblity))
 
-    def mousePressEvent(self, QMouseEvent):
-        if self.mousePressed:
-            self.mousePressed = False
-            self.px, self.py = -1, -1
-            self.update()
-        else:
-            pos = QMouseEvent.pos()
-            x, y = [f() for f in [pos.x, pos.y]]
-            dist_name = self.sg.get_distName(x, y)
-            if dist_name:
-                self.mousePressed = True
-                self.selDistLabel = QTextDocument()
-                self.selDistLabel.setHtml(dist_name)
-                self.selDistLabel.setDefaultFont(Viz.font)
-                self.labelW = len(dist_name) * Viz.unit_labelW
-                self.px, self.py = x - self.labelW / 2, y - Viz.labelH
-                #
-                print(dist_name)
-                self.update()
-
-    # def mouseReleaseEvent(self, QMouseEvent):
-    #     cursor = QCursor()
-        # print(cursor.pos())
 
     def paintEvent(self, e):
         qp = QPainter()
@@ -310,45 +284,30 @@ class Viz(QWidget):
             self.selDistLabel.drawContents(qp, QRectF(0, 0, self.labelW, Viz.labelH))
             qp.translate(-self.px, -self.py)
 
+    def mousePressEvent(self, QMouseEvent):
+        if self.mousePressed:
+            self.mousePressed = False
+            self.px, self.py = -1, -1
+            self.update()
+        else:
+            pos = QMouseEvent.pos()
+            x, y = [f() for f in [pos.x, pos.y]]
+            dist_name = self.sg.get_distName(x, y)
+            if dist_name:
+                self.mousePressed = True
+                self.selDistLabel = QTextDocument()
+                self.selDistLabel.setHtml(dist_name)
+                self.selDistLabel.setDefaultFont(Viz.font)
+                self.labelW = len(dist_name) * Viz.unit_labelW
+                self.px, self.py = x - self.labelW / 2, y - Viz.labelH
+                #
+                print(dist_name)
+                self.update()
 
-def runSingle():
-    dplym_dpath = reduce(opath.join, [exp_dpath, '_summary', 'dplym'])
-    prmt_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmt'])
-    sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
-    viz_dpath = reduce(opath.join, [exp_dpath, '_summary', 'viz'])
-    if not opath.exists(viz_dpath):
-        os.mkdir(viz_dpath)
-    #
-    prefix = 'mrtS1-dt80'
-    aprc = 'CWL1'
-    pkl_files = {
-        'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
-        'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
-        'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
-    }
-    viz_fpath = opath.join(viz_dpath, '%s_%s.png' % (prefix, aprc))
-    #
-    app = QApplication(sys.argv)
-    viz = Viz(pkl_files)
-    viz.save_img(viz_fpath)
-    #
-    # # viz.save_img('SG.png')
-    # # sys.exit(app.exec_())
-    #
-    #
-    del app
-    #
-    selColFP_dpath = opath.join(sol_dpath, 'selColFP')
-    scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
-    for i, fn in enumerate(os.listdir(scFP_dpath)):
-        scFP_fpath = opath.join(scFP_dpath, fn)
-        viz_fpath = opath.join(viz_dpath, '%s_%s_bid%d.png' % (prefix, aprc, i))
-        pkl_files['scFP'] = scFP_fpath
-        app = QApplication(sys.argv)
-        viz = Viz(pkl_files)
-        viz.save_img(viz_fpath)
-        app.quit()
-        del app
+    # def mouseReleaseEvent(self, QMouseEvent):
+    #     cursor = QCursor()
+        # print(cursor.pos())
+
 
 
 def gen_imgs():
@@ -390,9 +349,8 @@ def gen_imgs():
             selColFP_dpath = opath.join(sol_dpath, 'selColFP')
             scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
             for fn in os.listdir(scFP_dpath):
-                viz_fpath
-
                 scFP_fpath = opath.join(scFP_dpath, fn)
+                viz_fpath = opath.join(viz_dpath, '%s_%s_bid%d.png' % (prefix, aprc, i))
                 pkl_files['scFP'] = scFP_fpath
                 app = QApplication(sys.argv)
                 viz = Viz(pkl_files)
@@ -400,6 +358,41 @@ def gen_imgs():
                 app.quit()
                 del app
 
+
+def runSingle():
+    dplym_dpath = reduce(opath.join, [exp_dpath, '_summary', 'dplym'])
+    prmt_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmt'])
+    sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
+    viz_dpath = reduce(opath.join, [exp_dpath, '_summary', 'viz'])
+    #
+    # pkl_files = {}
+    #
+    prefix = '11interOut-nt800-mDP20-mTB4-dp25-fp75'
+    aprc = 'CWL4'
+    pkl_files = {
+        'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
+        'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
+        'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
+    }
+    # viz_fpath = 'temp.pdf'
+    # #
+    # app = QApplication(sys.argv)
+    # viz = Viz(pkl_files)
+    # viz.save_img(viz_fpath)
+    # # sys.exit(app.exec_())
+    # del app
+    #
+    selColFP_dpath = opath.join(sol_dpath, 'selColFP')
+    scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
+    for i, fn in enumerate(os.listdir(scFP_dpath)):
+        scFP_fpath = opath.join(scFP_dpath, fn)
+        viz_fpath = opath.join(viz_dpath, '%s_%s_bid%d.png' % (prefix, aprc, i))
+        pkl_files['scFP'] = scFP_fpath
+        app = QApplication(sys.argv)
+        viz = Viz(pkl_files)
+        viz.save_img(viz_fpath)
+        app.quit()
+        del app
 
 
 
