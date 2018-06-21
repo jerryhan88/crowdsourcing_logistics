@@ -4,12 +4,13 @@ import shutil
 import pickle
 import csv
 import numpy as np
+import pandas as pd
 from random import seed
 from functools import reduce
 #
 from __path_organizer import exp_dpath
 from _util_cython import gen_cFile
-from mrtScenario import gen_instance, gen_instanceBasedOnRoute, inputConvertPickle
+from mrtScenario import gen_instance, inputConvertPickle
 from mrtScenario import PER25, PER50, PER75, STATIONS
 
 
@@ -21,8 +22,6 @@ def gen_problems(problem_dpath, seedNum=0):
     #
 
     #  '4small', '5out', '7inter', '11interOut'
-    # seedNum = 10
-    # seedNum = 29
     min_durPD = 20
     minTB, maxTB = 2, 4
     flowPER, detourPER = PER75, PER25
@@ -30,14 +29,13 @@ def gen_problems(problem_dpath, seedNum=0):
 
     stationSel = '5out'
     stations = STATIONS[stationSel]
-    for seedNum in range(25, 30):
+    for seedNum in range(20):
         for numTasks in [
-                        # 50,
+                        50,
                         # 100,
-
                         # 200,
                         # 400,
-                        800,
+                        # 800,
                          ]:
             numBundles = int(numTasks / ((minTB + maxTB) / 2)) + 1
             problemName = '%s-nt%d-mDP%d-mTB%d-dp%d-fp%d-sn%d' % (stationSel, numTasks,
@@ -48,7 +46,7 @@ def gen_problems(problem_dpath, seedNum=0):
             flow_oridest, task_ppdp, \
             flows, tasks, \
             numLocs, travel_time, thDetour, \
-            minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER)
+            minWS = gen_instance(stations, numTasks, min_durPD, detourPER, flowPER, False)
             problem = [problemName,
                        flows, tasks,
                        numBundles, minTB, maxTB,
@@ -57,7 +55,10 @@ def gen_problems(problem_dpath, seedNum=0):
             inputConvertPickle(problem, flow_oridest, task_ppdp, problem_dpath)
 
 
-def gen_problems_bRoute(problem_dpath):
+
+
+
+def gen_problems4EX(problem_dpath):
     if not opath.exists(problem_dpath):
         os.mkdir(problem_dpath)
         for dname in ['dplym', 'prmt']:
@@ -70,9 +71,9 @@ def gen_problems_bRoute(problem_dpath):
         ('Raffles Place', 'Bishan'),
         ('Raffles Place', 'Ang Mo Kio'),
         ('Jurong East', 'Yew Tee'),
-        ('Tanjong Pagar', 'Boon Lay'),
+        # ('Tanjong Pagar', 'Boon Lay'),
     ]
-    seedNum = 0
+    seedNum = 1
     numTasks = 10
 
     for numTasks in np.arange(10, 51, 5):
@@ -99,15 +100,15 @@ def run_experiments(machine_num):
     from EX1 import run as EX1_run
     from EX2 import run as EX2_run
     from CWL1 import run as CWL1_run
-    # for prefix in ['CWL2', 'CWL3', 'CWL4', 'CWL5', 'GH']:
-    #     gen_cFile(prefix)
-    # from CWL2 import run as CWL2_run
-    # from CWL3 import run as CWL3_run
-    # from CWL4 import run as CWL4_run
-    # from CWL5 import run as CWL5_run
+    for prefix in ['CWL2', 'CWL3', 'CWL4', 'CWL5', 'GH']:
+        gen_cFile(prefix)
+    from CWL2 import run as CWL2_run
+    from CWL3 import run as CWL3_run
+    from CWL4 import run as CWL4_run
+    from CWL5 import run as CWL5_run
     from GH import run as GH_run
     from BNP import run as BNP_run
-    # cwl_functions = [None, CWL1_run, CWL2_run, CWL3_run, CWL4_run, CWL5_run]
+    cwl_functions = [None, CWL1_run, CWL2_run, CWL3_run, CWL4_run, CWL5_run]
     #
     _TimeLimit = 10 * 60 * 60
     machine_dpath = opath.join(exp_dpath, 'm%d' % machine_num)
@@ -130,24 +131,24 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # GH
-        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_GH.pkl' % problemName),
-        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_GH.csv' % problemName),
-        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_GH.txt' % problemName),
-        #        'logFile': opath.join(log_dpath, '%s_GH.log' % problemName),
-        #        }
-        # GH_run(prmt, etc)
+        etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_GH.pkl' % problemName),
+               'solFileCSV': opath.join(sol_dpath, 'sol_%s_GH.csv' % problemName),
+               'solFileTXT': opath.join(sol_dpath, 'sol_%s_GH.txt' % problemName),
+               'logFile': opath.join(log_dpath, '%s_GH.log' % problemName),
+               }
+        GH_run(prmt, etc)
         ###############################################################
         #
         ###############################################################
         # CWL
-        # for cwl_no in range(3, 4):
-        #     etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL%d.pkl' % (problemName, cwl_no)),
-        #            'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL%d.csv' % (problemName, cwl_no)),
-        #            'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL%d.txt' % (problemName, cwl_no)),
-        #            'logFile': opath.join(log_dpath, '%s_CWL%d.log' % (problemName, cwl_no)),
-        #            'itrFileCSV': opath.join(log_dpath, '%s_itrCWL%d.csv' % (problemName, cwl_no)),
-        #            }
-        #     cwl_functions[cwl_no](prmt, etc)
+        for cwl_no in range(2, 5):
+            etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_CWL%d.pkl' % (problemName, cwl_no)),
+                   'solFileCSV': opath.join(sol_dpath, 'sol_%s_CWL%d.csv' % (problemName, cwl_no)),
+                   'solFileTXT': opath.join(sol_dpath, 'sol_%s_CWL%d.txt' % (problemName, cwl_no)),
+                   'logFile': opath.join(log_dpath, '%s_CWL%d.log' % (problemName, cwl_no)),
+                   'itrFileCSV': opath.join(log_dpath, '%s_itrCWL%d.csv' % (problemName, cwl_no)),
+                   }
+            cwl_functions[cwl_no](prmt, etc)
         ###############################################################
         #
         ###############################################################
@@ -174,21 +175,22 @@ def run_experiments(machine_num):
         #
         ###############################################################
         # BNP
-        etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_BNP.pkl' % problemName),
-               'solFileCSV': opath.join(sol_dpath, 'sol_%s_BNP.csv' % problemName),
-               'solFileTXT': opath.join(sol_dpath, 'sol_%s_BNP.txt' % problemName),
-               'logFile': opath.join(log_dpath, '%s_BNP.log' % problemName),
-               'itrFileCSV': opath.join(log_dpath, '%s_itrBNP.csv' % problemName),
-               }
-        BNP_run(prmt, etc)
+        # etc = {'solFilePKL': opath.join(sol_dpath, 'sol_%s_BNP.pkl' % problemName),
+        #        'solFileCSV': opath.join(sol_dpath, 'sol_%s_BNP.csv' % problemName),
+        #        'solFileTXT': opath.join(sol_dpath, 'sol_%s_BNP.txt' % problemName),
+        #        'logFile': opath.join(log_dpath, '%s_BNP.log' % problemName),
+        #        'itrFileCSV': opath.join(log_dpath, '%s_itrBNP.csv' % problemName),
+        #        }
+        # BNP_run(prmt, etc)
         ###############################################################
 
         ###############################################################
         # os.remove(ifpath)
 
 
-def summary1():
-    sum_fpath = reduce(opath.join, [exp_dpath, '_summary', 'experiment_summary.csv'])
+def summaryScl():
+    summaryScl_dpath = opath.join(exp_dpath, '_summaryScl')
+    sum_fpath = reduce(opath.join, [summaryScl_dpath, 'experiment_summary.csv'])
     aprcs = ['GH'] + ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]
     with open(sum_fpath, 'w') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
@@ -197,18 +199,18 @@ def summary1():
             header += ['%s_objV' % aprc]
         for aprc in aprcs:
             header += ['%s_cpuT' % aprc]
-        writer.writerow(header)    
+        writer.writerow(header)
     #
-    prmt_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmt'])
-    sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])    
-    log_dpath = reduce(opath.join, [exp_dpath, '_summary', 'log'])    
+    prmt_dpath = reduce(opath.join, [summaryScl_dpath, 'prmt'])
+    sol_dpath = reduce(opath.join, [summaryScl_dpath, 'sol'])
+    log_dpath = reduce(opath.join, [summaryScl_dpath, 'log'])
     for fn in os.listdir(prmt_dpath):
-        if not fn.endswith('.pkl'): continue    
+        if not fn.endswith('.pkl'): continue
         _, prefix = fn[:-len('.pkl')].split('_')
         #
         prmt_fpath = opath.join(prmt_dpath, fn)
         with open(prmt_fpath, 'rb') as fp:
-            prmt = pickle.load(fp)        
+            prmt = pickle.load(fp)
         K, T, cB_M, cB_P, _delta, cW = [prmt.get(k) for k in ['K', 'T', 'cB_M', 'cB_P', '_delta', 'cW']]
         new_row = [prefix, len(K), len(T), cB_M, cB_P, _delta, cW]
         #
@@ -219,14 +221,14 @@ def summary1():
             if opath.exists(sol_fpath):
                 with open(sol_fpath) as r_csvfile:
                     reader = csv.DictReader(r_csvfile)
-                    for row in reader:                
+                    for row in reader:
                         objV, eliCpuTime = [row [cn] for cn in ['objV', 'eliCpuTime']]
                     aprc_row[i] = objV
                     aprc_row[i + len(aprcs)] = eliCpuTime
             elif opath.exists(log_fpath):
                 with open(log_fpath) as r_csvfile:
                     reader = csv.DictReader(r_csvfile)
-                    for row in reader:                
+                    for row in reader:
                         pass
                     relObjV, eliCpuTime = [row[cn] for cn in ['relObjV', 'eliCpuTime']]
                 aprc_row[i] = '[%s]' % relObjV
@@ -236,6 +238,10 @@ def summary1():
         with open(sum_fpath, 'a') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
             writer.writerow(new_row)
+
+    df = pd.read_csv(sum_fpath)
+    df = df.sort_values(by=['numPaths', 'numTasks', 'pn'])
+    df.to_csv(sum_fpath, index=False)
 
 
 def summary():
@@ -346,11 +352,11 @@ def read_result(resF,logF):
 
 
 if __name__ == '__main__':
-    # gen_problems(opath.join(exp_dpath, 'm11'))
-    gen_problems_bRoute(opath.join(exp_dpath, 'm105'))
+    gen_problems(opath.join(exp_dpath, 'm0'))
+    # gen_problems_bRoute(opath.join(exp_dpath, 'm204'))
     # for seedNum in range(1202, 1205):
     #     gen_problems(opath.join(exp_dpath, 'm%d' % seedNum), seedNum)
     #     gen_problems(opath.join(exp_dpath, 'm%d' % (seedNum + 100)), seedNum)
 
     # run_experiments(101)
-    # summary1()
+    # summaryScl()
