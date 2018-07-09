@@ -51,7 +51,7 @@ def LS_run(prmt, cwl_inputs):
         if len(Ts1) > cB_P:
             continue
         ws, seqs = estimate_WS(prmt, cwl_inputs, c0, i0)
-        if ws > cW:
+        if ws >= cW:
             vec = [0 for _ in range(len(T))]
             for i in Ts1:
                 vec[i] = 1

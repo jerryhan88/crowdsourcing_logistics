@@ -139,5 +139,30 @@ def handle_all_instances():
             find_all_feasible_paths(prmt_fpath, sol_fpath, scFP_dpath)
 
 
+def handle_aInstances():
+    import os.path as opath
+    import os
+    from functools import reduce
+    #
+    from __path_organizer import exp_dpath
+    #
+    prmt_dpath = reduce(opath.join, [exp_dpath, '_summaryScl', 'prmt'])
+    sol_dpath = reduce(opath.join, [exp_dpath, '_summaryScl', 'sol'])
+    selColFP_dpath = opath.join(sol_dpath, 'selColFP')
+    if not opath.exists(selColFP_dpath):
+        os.mkdir(selColFP_dpath)
+    #
+    fn = 'sol_11interOut-nt200-mDP20-mTB4-dp25-fp75-sn0_CWL4.pkl'
+    _, prefix, aprc = fn[:-len('.csv')].split('_')
+    scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
+    if not opath.exists(scFP_dpath):
+        os.mkdir(scFP_dpath)
+        prmt_fpath = opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix)
+        sol_fpath = opath.join(sol_dpath, fn)
+        find_all_feasible_paths(prmt_fpath, sol_fpath, scFP_dpath)
+
+
+
 if __name__ == '__main__':
-    handle_all_instances()
+    # handle_all_instances()
+    handle_aInstances()

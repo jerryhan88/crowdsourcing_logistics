@@ -50,6 +50,7 @@ locationPD = get_locationPD()
 mrtNetNX = get_mrtNetNX()
 
 WIDTH = 1800.0
+# WIDTH = 800.0
 HEIGHT = lat_gap * (WIDTH / lng_gap)
 
 FRAME_ORIGIN = (60, 100)
@@ -191,22 +192,27 @@ class Viz(QWidget):
         #
         ln_locO = {o.Location: o for o in locationPD}
         self.task_pdO = []
+        self.tasks = {}
         for tid, (pLoc, dLoc) in enumerate(task_ppdp):
             _, lat, lng, _, _, _, _ = ln_locO[pLoc]
             pcx, pcy = convert_GPS2xy(lng, lat)
             _, lat, lng, _, _, _, _ = ln_locO[dLoc]
             dcx, dcy = convert_GPS2xy(lng, lat)
-            self.objForDrawing.append(Task(tid,
-                                           [pcx, pcy], [dcx, dcy]))
+            task = Task(tid, [pcx, pcy], [dcx, dcy])
+            self.tasks[task.tid] = task
+            self.objForDrawing.append(task)
             self.task_pdO.append([[pcx, pcy], [dcx, dcy]])
 
     def init_solDrawing(self):
         if not 'scFP' in self.drawingInfo:
-            if 'CWL' in self.drawingInfo['sol']:
+            if 'C' in self.drawingInfo['sol']:
                 C, q_c = [self.drawingInfo['sol'].get(k) for k in ['C', 'q_c']]
                 selBundles = [C[c] for c in range(len(C)) if q_c[c] > 0.5]
+                for bc in selBundles:
+                    for tid in bc:
+                        self.tasks[tid].includedInBundle = True
             else:
-                assert 'GH' in self.drawingInfo['sol']
+                assert 'bc' in self.drawingInfo['sol']
                 cB_M = self.drawingInfo['prmt']['cB_M']
                 bc = self.drawingInfo['sol']['bc']
                 selBundles = [o for o in bc if cB_M <= len(o)]
@@ -365,28 +371,30 @@ def runSingle():
     sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
     viz_dpath = reduce(opath.join, [exp_dpath, '_summary', 'viz'])
     #
-    # pkl_files = {}
+    dplym_dpath, prmt_dpath, sol_dpath = '_temp', '_temp', '_temp'
     #
-    prefix = '11interOut-nt800-mDP20-mTB4-dp25-fp75'
+    prefix = '11interOut-nt200-mDP20-mTB4-dp25-fp75-sn0'
     aprc = 'CWL4'
     pkl_files = {
         'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
         'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
         'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
     }
-    # viz_fpath = 'temp.pdf'
+    # pkl_files = {}
+    viz_fpath = 'temp.png'
     # #
     # app = QApplication(sys.argv)
     # viz = Viz(pkl_files)
     # viz.save_img(viz_fpath)
-    # # sys.exit(app.exec_())
+    # sys.exit(app.exec_())
     # del app
     #
     selColFP_dpath = opath.join(sol_dpath, 'selColFP')
     scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
     for i, fn in enumerate(os.listdir(scFP_dpath)):
         scFP_fpath = opath.join(scFP_dpath, fn)
-        viz_fpath = opath.join(viz_dpath, '%s_%s_bid%d.png' % (prefix, aprc, i))
+        _bid = fn[:-len('.pkl')]
+        viz_fpath = opath.join(scFP_dpath, '%s_%s_%s.png' % (prefix, aprc, _bid))
         pkl_files['scFP'] = scFP_fpath
         app = QApplication(sys.argv)
         viz = Viz(pkl_files)

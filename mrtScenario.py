@@ -6,7 +6,6 @@ from functools import reduce
 from itertools import chain
 #
 from __path_organizer import ez_dpath, pf_dpath
-from sgMRT import get_mrtNetNX, get_route
 
 aDayNight_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801-H18H23.csv')
 aDay_EZ_fpath = opath.join(ez_dpath, 'EZ-MRT-D20130801.csv')
@@ -24,7 +23,7 @@ STATIONS = {
 def convert_prob2prmt(problemName,
                       flows, tasks,
                       numBundles, minTB, maxTB,
-                      numLocs, travel_time, thDetour,
+                      travel_time, thDetour,
                       minWS):
     B = list(range(numBundles))
     cB_M, cB_P = minTB, maxTB
@@ -81,7 +80,6 @@ def convert_prob2prmt(problemName,
             'cW': cW}
 
 
-
 def gen_taskPD_OriDest(flow_oridest, numTasks, min_durPD):
     target_stations = set(chain(*flow_oridest))
     locPD_durMRT = []
@@ -104,6 +102,7 @@ def gen_taskPD_OriDest(flow_oridest, numTasks, min_durPD):
 
 
 def gen_taskPD_onRoute(flow_oridest, numTasks, min_durPD):
+    from sgMRT import get_mrtNetNX, get_route
     mrtNetNX = get_mrtNetNX()
     flow_route, flow_pdLoc = {}, {}
     for ori, dest in flow_oridest:
@@ -174,20 +173,18 @@ def induce_otherInputs(flow_oridest, task_ppdp, detourPER, flowPER):
     for i, (loc0, loc1) in enumerate(task_ppdp):
         tasks.append((i, loc_lid[loc0], loc_lid[loc1]))
     #
-    return flows, tasks, numLocs, travel_time, thDetour, minWS
+    return flows, tasks, travel_time, thDetour, minWS
 
 
-def gen_instance(stations, numTasks, min_durPD, detourPER, flowPER, basedOnRoute=True):
-    flow_oridest = [(stations[i], stations[j])
-                    for i in range(len(stations)) for j in range(len(stations)) if i != j]
+def gen_instance(flow_oridest, numTasks, min_durPD, detourPER, flowPER, basedOnRoute=True):
     if basedOnRoute:
         task_ppdp = gen_taskPD_onRoute(flow_oridest, numTasks, min_durPD)
     else:
         task_ppdp = gen_taskPD_OriDest(flow_oridest, numTasks, min_durPD)
 
-    flows, tasks, numLocs, travel_time, thDetour, minWS = induce_otherInputs(flow_oridest, task_ppdp, detourPER, flowPER)
+    flows, tasks, travel_time, thDetour, minWS = induce_otherInputs(flow_oridest, task_ppdp, detourPER, flowPER)
     #
-    return flow_oridest, task_ppdp, flows, tasks, numLocs, travel_time, thDetour, minWS
+    return task_ppdp, tasks, flows, travel_time, thDetour, minWS
 
 
 def inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir):
@@ -195,9 +192,8 @@ def inputConvertPickle(problem, flow_oridest, task_ppdp, pkl_dir):
     prmt = convert_prob2prmt(*problem)
     with open(reduce(opath.join, [pkl_dir, 'prmt', 'prmt_%s.pkl' % problemName]), 'wb') as fp:
         pickle.dump(prmt, fp)
-    vizInputs = [flow_oridest, task_ppdp]
     with open(reduce(opath.join, [pkl_dir, 'dplym', 'dplym_%s.pkl' % problemName]), 'wb') as fp:
-        pickle.dump(vizInputs, fp)
+        pickle.dump([flow_oridest, task_ppdp], fp)
     #
     return prmt
 
@@ -357,7 +353,7 @@ def mrtS1(pkl_dir='_temp'):
     problem = [problemName,
                flows, tasks,
                numBundles, minTB, maxTB,
-               numLocs, travel_time, thDetour,
+               travel_time, thDetour,
                minWS]
     prmt = convert_prob2prmt(*problem)
     with open(opath.join(pkl_dir, 'prmt_%s.pkl' % problemName), 'wb') as fp:

@@ -264,6 +264,7 @@ def branching_dfs_lcp(bnpTree):
     else:
         bnpTree.bestBound = bnpTree.incumbent
 
+
 def duplicate_BNP_inputs(pBNP_inputs):
     cBNP_inputs = {}
     cBNP_inputs['C'] = [c[:] for c in pBNP_inputs['C']]

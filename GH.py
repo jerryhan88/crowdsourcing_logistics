@@ -39,7 +39,7 @@ def run(prmt, etc={}):
         for k in K:
             kP, kM = 'ori%d' % k, 'dest%d' % k
             detourTime = t_ij[kP, iP] + t_ij[iP, iM] + t_ij[iM, kM] - t_ij[kP, kM]
-            if detourTime < _delta:
+            if detourTime <= _delta:
                 a_i[i] += w_k[k]
     #
     B = list(range(bB))
@@ -58,13 +58,13 @@ def run(prmt, etc={}):
                     if max_a_t < a_i[i0]:
                         max_a_t, max_i = a_i[i0], i0
                 ws1, seqs1 = estimate_WS(prmt, gh_inputs, b, max_i)
-                if ws1 > cW:
+                if ws1 >= cW:
                     updated[b] = True
                     i0 = max_i
             else:
                 for i0 in T:
                     ws1, seqs1 = estimate_WS(prmt, gh_inputs, b, i0)
-                    if ws1 > cW:
+                    if ws1 >= cW:
                         updated[b] = True
                         break
             #

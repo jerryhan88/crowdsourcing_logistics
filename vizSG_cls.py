@@ -22,7 +22,7 @@ pallet = [
     Color('grey').get_hex_l(),
 ]
 colors = {
-    'cyan': "#00ffff", 'darkblue': "#00008b",'darkcyan': "#008b8b",
+    'cyan': "#00ffff", 'darkblue': "#00008b", #'darkcyan': "#008b8b",
     'darkmagenta': "#8b008b", 'darkolivegreen': "#556b2f", 'darkorange': "#ff8c00",
     'darkgrey': "#a9a9a9", 'darkgreen': "#006400", 'darkkhaki': "#bdb76b",
     'darkorchid': "#9932cc", 'darkred': "#8b0000", 'darksalmon': "#e9967a",
@@ -30,23 +30,24 @@ colors = {
     'aqua': "#00ffff", 'azure': "#f0ffff", 'beige': "#f5f5dc",
     'darkviolet': "#9400d3", 'fuchsia': "#ff00ff", 'gold': "#ffd700",
     'green': "#008000", 'indigo': "#4b0082", 'khaki': "#f0e68c",
-    'lightblue': "#add8e6", 'lightcyan': "#e0ffff", 'lightgreen': "#90ee90",
-    'lightgrey': "#d3d3d3", 'lightpink': "#ffb6c1", 'lightyellow': "#ffffe0",
+    # 'lightblue': "#add8e6", 'lightcyan': "#e0ffff", 'lightgreen': "#90ee90",
+    # 'lightgrey': "#d3d3d3", 'lightpink': "#ffb6c1", 'lightyellow': "#ffffe0",
     'lime': "#00ff00", 'magenta': "#ff00ff", 'maroon': "#800000",
     'navy': "#000080", 'olive': "#808000", 'orange': "#ffa500",
     'pink': "#ffc0cb", 'purple': "#800080", 'violet': "#800080",
-    'red': "#ff0000", 'silver': "#c0c0c0", 'white': "#ffffff",
-    'yellow': "#ffff00"
+    'red': "#ff0000", #'silver': "#c0c0c0", #'white': "#ffffff",
+    #'yellow': "#ffff00"
 }
 pallet += list(colors.values())
 
 Station_markSize = 30
 LocPD_dotSize = 10
 SHOW_LABEL = False
+SHOW_FLOW = False
+SHOW_BUNDLE_POLY = True
 SHOW_PD = False
 SHOW_PD_ARROW = False
-SHOW_FLOW = False
-
+SHOW_HT_XHT = True
 
 def drawLabel(qp, label, cx, cy, w, h):
     if SHOW_LABEL:
@@ -140,7 +141,7 @@ class Station(object):
 
 
 class Flow(object):
-    lineProp = 40
+    lineProp = 160
 
     def __init__(self, weight, points):
         self.weight = weight
@@ -166,6 +167,7 @@ class Task(object):
         self.tid = tid
         self.pcx, self.pcy = pXY
         self.dcx, self.dcy = dXY
+        self.includedInBundle = False
         self.randomPair = randomPair
         if not self.randomPair:
             self.labelW = (len("%dx" % tid)) * Task.unit_labelW
@@ -199,15 +201,23 @@ class Task(object):
                           x + LocPD_dotSize / 2, y,
                           self.labelW, Task.labelH)
             #
-            pen = QPen(QColor(pallet[self.tid % len(pallet)]), 2, Qt.SolidLine)
+            pen_color = QColor(pallet[self.tid % len(pallet)])
+            pen = QPen(pen_color, 2, Qt.SolidLine)
             qp.setPen(pen)
-            qp.setBrush(Qt.NoBrush)
-            if SHOW_PD:
+            if SHOW_HT_XHT and self.includedInBundle:
+                qp.setBrush(pen_color)
+            else:
+                qp.setBrush(Qt.NoBrush)
+            # if SHOW_PD:
+            # if SHOW_PD and not self.includedInBundle:
+            if SHOW_PD and self.includedInBundle:
                 qp.drawEllipse(self.pcx - LocPD_dotSize / 2, self.pcy - LocPD_dotSize / 2,
                                LocPD_dotSize, LocPD_dotSize)
                 qp.drawRect(self.dcx - LocPD_dotSize / 2, self.dcy - LocPD_dotSize / 2,
                             LocPD_dotSize, LocPD_dotSize)
-            if SHOW_PD_ARROW:
+            # if SHOW_PD_ARROW:
+            # if SHOW_PD_ARROW and not self.includedInBundle:
+            if SHOW_PD_ARROW and self.includedInBundle:
                 for x0, y0, x1, y1 in self.arrowLine:
                     qp.drawLine(x0, y0, x1, y1)
         else:
@@ -250,15 +260,16 @@ class Bundle(object):
     def draw(self, qp):
         drawLabel(qp, self.label,
                   self.lx, self.ly, self.labelW, Bundle.labelH)
-        pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH, Qt.DashDotLine)
-        qp.setPen(pen)
-        for i in range(len(self.bnldPoly) - 1):
-            x0, y0 = self.bnldPoly[i]
-            x1, y1 = self.bnldPoly[i + 1]
+        if SHOW_BUNDLE_POLY:
+            pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH, Qt.DashDotLine)
+            qp.setPen(pen)
+            for i in range(len(self.bnldPoly) - 1):
+                x0, y0 = self.bnldPoly[i]
+                x1, y1 = self.bnldPoly[i + 1]
+                qp.drawLine(x0, y0, x1, y1)
+            x0, y0 = self.bnldPoly[len(self.bnldPoly) - 1]
+            x1, y1 = self.bnldPoly[0]
             qp.drawLine(x0, y0, x1, y1)
-        x0, y0 = self.bnldPoly[len(self.bnldPoly) - 1]
-        x1, y1 = self.bnldPoly[0]
-        qp.drawLine(x0, y0, x1, y1)
         #
         for (x0, y0, x1, y1), thickness in self.edgeFeasiblity.items():
             pen = QPen(Qt.black, thickness)

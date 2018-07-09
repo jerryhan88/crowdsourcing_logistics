@@ -52,7 +52,7 @@ def LS_run(prmt, cwl_inputs):
         if len(Ts1) > cB_P:
             continue
         ws, seqs = estimate_WS(prmt, cwl_inputs, c0, i0)
-        if ws > cW:
+        if ws >= cW:
             vec = [0 for _ in range(len(T))]
             for i in Ts1:
                 vec[i] = 1
@@ -239,10 +239,9 @@ def run(prmt, etc=None):
 
 
 def test():
-    from mrtScenario import mrtS1, mrtS2
+    from mrtScenario import mrtS1
     #
     prmt = mrtS1()
-    # prmt = mrtS2()
     problemName = prmt['problemName']
     #
     etc = {'solFilePKL': opath.join('_temp', 'sol_%s_CWL2.pkl' % problemName),

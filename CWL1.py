@@ -43,7 +43,7 @@ def get_wsFeasiblity(prmt, cwl_inputs, Ts):
         detourTime, route = PD_MM_run(prmt, {'k': k, 'Ts': Ts})
         if detourTime <= _delta:
             ws += w_k[k]
-        if ws > cW:
+        if ws >= cW:
             feasiblity = True
             break
     return feasiblity

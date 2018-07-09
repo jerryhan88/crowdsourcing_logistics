@@ -132,5 +132,5 @@ def travelTime_MRT_NinjaLocation():
 
 
 if __name__ == '__main__':
-    # run()
-    travelTime_MRT_NinjaLocation()
+    crawl_NinjaBoxPoint()
+    # travelTime_MRT_NinjaLocation()
