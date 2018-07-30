@@ -21,8 +21,6 @@ xConsiderDist = [   'North-Eastern Islands',
                  ]
 
 
-
-
 def get_districtPopPoly():
     csv_fpath = opath.join(pf_dpath, 'DistrictsPopulation.csv')
     pop_fpath_PKL = opath.join(pf_dpath, 'DistrictsPopulation.pkl')

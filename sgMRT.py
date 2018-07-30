@@ -194,6 +194,24 @@ def get_districtMRTs():
     return distMRTs
 
 
+def get_MRT_district():
+    pkl_fpath = opath.join(pf_dpath, 'MRT_District.pkl')
+    if not opath.exists(pkl_fpath):
+        MRT_district = {}
+        distMRTs = get_districtMRTs()
+        for distName, MRTs in distMRTs.items():
+            for MRT in MRTs:
+                MRT_district[MRT] = distName
+        #
+        with open(pkl_fpath, 'wb') as fp:
+            pickle.dump(MRT_district, fp)
+    else:
+        with open(pkl_fpath, 'rb') as fp:
+            MRT_district = pickle.load(fp)
+    #
+    return MRT_district
+
+
 def get_inflowCBD():
     csv_fpath = opath.join(pf_dpath, 'inflowCBD.csv')
     pkl_fpath = opath.join(pf_dpath, 'inflowCBD.pkl')
@@ -451,9 +469,10 @@ if __name__ == '__main__':
     # viz_inflowCBD()
     # viz_outflowCBD()
     # get_travelTimeMRT_googlemap()
-    mrtNetNX = get_mrtNetNX()
+    # mrtNetNX = get_mrtNetNX()
+    get_MRT_district()
 
-    print(get_route(mrtNetNX, 'one-north', 'Dhoby Ghaut'))
+    # print(get_route(mrtNetNX, 'one-north', 'Dhoby Ghaut'))
 
 
 

@@ -228,8 +228,11 @@ def get_travelTimeSG():
     return MRTs_tt, locPD_MRT_tt
             
 
-def handle_locNtt_MRT(flow_oridest, task_ppdp):
-    MRTs_tt, locPD_MRT_tt = get_travelTimeSG()
+def handle_locNtt_MRT(flow_oridest, task_ppdp, locPD_MRT_tt=None):
+    if not locPD_MRT_tt:
+        MRTs_tt, locPD_MRT_tt = get_travelTimeSG()
+    else:
+        MRTs_tt, _ = get_travelTimeSG()
     lid_loc, loc_lid = {}, {}
     numLocs = 0
     for locs in flow_oridest + task_ppdp:

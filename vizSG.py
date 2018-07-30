@@ -55,7 +55,7 @@ HEIGHT = lat_gap * (WIDTH / lng_gap)
 
 FRAME_ORIGIN = (60, 100)
 
-SHOW_ALL_PD = True
+SHOW_ALL_PD = False
 SHOW_MRT_LINE = True
 SHOW_LABEL = False
 SAVE_IMAGE = True
@@ -145,30 +145,32 @@ class Viz(QWidget):
         self.objForDrawing = [self.sg]
         #
         if bg_only:
-            mrtNet = get_mrtNet()
-            mrtLines = []
-            for lineName, connections in mrtNet.items():
-                for paris in connections:
-                    points = []
-                    for mrt in paris:
-                        lat, lng = mrt_coords[mrt]
-                        x, y = convert_GPS2xy(lng, lat)
-                        points.append([x, y])
-                    mrtLines.append([lineName, points])
-            self.objForDrawing.append(Network(mrtLines))
-            for i, (STN, (lat, lng)) in enumerate(mrt_coords.items()):
-                cx, cy = convert_GPS2xy(lng, lat)
-                self.objForDrawing.append(Station(i, STN, cx, cy))
+            if SHOW_MRT_LINE:
+                mrtNet = get_mrtNet()
+                mrtLines = []
+                for lineName, connections in mrtNet.items():
+                    for paris in connections:
+                        points = []
+                        for mrt in paris:
+                            lat, lng = mrt_coords[mrt]
+                            x, y = convert_GPS2xy(lng, lat)
+                            points.append([x, y])
+                        mrtLines.append([lineName, points])
+                self.objForDrawing.append(Network(mrtLines))
+                for i, (STN, (lat, lng)) in enumerate(mrt_coords.items()):
+                    cx, cy = convert_GPS2xy(lng, lat)
+                    self.objForDrawing.append(Station(i, STN, cx, cy))
             #
-            halfNum = int(len(locationPD) / 2)
-            for i in range(halfNum):
-                pLoc, dLoc = locationPD[i], locationPD[halfNum + i]
-                _, lat, lng, _, _, _, _ = pLoc
-                pcx, pcy = convert_GPS2xy(lng, lat)
-                _, lat, lng, _, _, _, _ = dLoc
-                dcx, dcy = convert_GPS2xy(lng, lat)
-                self.objForDrawing.append(Task(i,
-                                               [pcx, pcy], [dcx, dcy], randomPair=True))
+            if SHOW_ALL_PD:
+                halfNum = int(len(locationPD) / 2)
+                for i in range(halfNum):
+                    pLoc, dLoc = locationPD[i], locationPD[halfNum + i]
+                    _, lat, lng, _, _, _, _ = pLoc
+                    pcx, pcy = convert_GPS2xy(lng, lat)
+                    _, lat, lng, _, _, _, _ = dLoc
+                    dcx, dcy = convert_GPS2xy(lng, lat)
+                    self.objForDrawing.append(Task(i,
+                                                   [pcx, pcy], [dcx, dcy], randomPair=True))
 
     def init_prmtDrawing(self):
         self.flow_oridest, task_ppdp = self.drawingInfo['dplym']
@@ -194,9 +196,15 @@ class Viz(QWidget):
         self.task_pdO = []
         self.tasks = {}
         for tid, (pLoc, dLoc) in enumerate(task_ppdp):
-            _, lat, lng, _, _, _, _ = ln_locO[pLoc]
+            if '_' in pLoc:
+                lat, lng = map(eval, pLoc.split('_'))
+            else:
+                _, lat, lng, _, _, _, _ = ln_locO[pLoc]
             pcx, pcy = convert_GPS2xy(lng, lat)
-            _, lat, lng, _, _, _, _ = ln_locO[dLoc]
+            if '_' in dLoc:
+                lat, lng = map(eval, dLoc.split('_'))
+            else:
+                _, lat, lng, _, _, _, _ = ln_locO[dLoc]
             dcx, dcy = convert_GPS2xy(lng, lat)
             task = Task(tid, [pcx, pcy], [dcx, dcy])
             self.tasks[task.tid] = task
@@ -366,41 +374,41 @@ def gen_imgs():
 
 
 def runSingle():
-    dplym_dpath = reduce(opath.join, [exp_dpath, '_summary', 'dplym'])
-    prmt_dpath = reduce(opath.join, [exp_dpath, '_summary', 'prmt'])
-    sol_dpath = reduce(opath.join, [exp_dpath, '_summary', 'sol'])
-    viz_dpath = reduce(opath.join, [exp_dpath, '_summary', 'viz'])
+    dplym_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'dplym'])
+    prmt_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'prmt'])
+    sol_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'sol'])
+    viz_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'viz'])
     #
-    dplym_dpath, prmt_dpath, sol_dpath = '_temp', '_temp', '_temp'
+    # dplym_dpath, prmt_dpath, sol_dpath = '_temp', '_temp', '_temp'
     #
-    prefix = '11interOut-nt200-mDP20-mTB4-dp25-fp75-sn0'
+    prefix = '11interOut-nt800-d2dR100-mDP20-sn17'
     aprc = 'CWL4'
     pkl_files = {
         'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
         'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
-        'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
+    #     'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
     }
     # pkl_files = {}
     viz_fpath = 'temp.png'
     # #
-    # app = QApplication(sys.argv)
-    # viz = Viz(pkl_files)
-    # viz.save_img(viz_fpath)
-    # sys.exit(app.exec_())
+    app = QApplication(sys.argv)
+    viz = Viz(pkl_files)
+    viz.save_img(viz_fpath)
+    sys.exit(app.exec_())
     # del app
     #
-    selColFP_dpath = opath.join(sol_dpath, 'selColFP')
-    scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
-    for i, fn in enumerate(os.listdir(scFP_dpath)):
-        scFP_fpath = opath.join(scFP_dpath, fn)
-        _bid = fn[:-len('.pkl')]
-        viz_fpath = opath.join(scFP_dpath, '%s_%s_%s.png' % (prefix, aprc, _bid))
-        pkl_files['scFP'] = scFP_fpath
-        app = QApplication(sys.argv)
-        viz = Viz(pkl_files)
-        viz.save_img(viz_fpath)
-        app.quit()
-        del app
+    # selColFP_dpath = opath.join(sol_dpath, 'selColFP')
+    # scFP_dpath = opath.join(selColFP_dpath, 'scFP_%s_%s' % (prefix, aprc))
+    # for i, fn in enumerate(os.listdir(scFP_dpath)):
+    #     scFP_fpath = opath.join(scFP_dpath, fn)
+    #     _bid = fn[:-len('.pkl')]
+    #     viz_fpath = opath.join(scFP_dpath, '%s_%s_%s.png' % (prefix, aprc, _bid))
+    #     pkl_files['scFP'] = scFP_fpath
+    #     app = QApplication(sys.argv)
+    #     viz = Viz(pkl_files)
+    #     viz.save_img(viz_fpath)
+    #     app.quit()
+    #     del app
 
 
 

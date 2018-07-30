@@ -40,13 +40,13 @@ colors = {
 }
 pallet += list(colors.values())
 
-Station_markSize = 30
-LocPD_dotSize = 10
+Station_markSize = 40
+LocPD_dotSize = 5
 SHOW_LABEL = False
-SHOW_FLOW = False
-SHOW_BUNDLE_POLY = True
-SHOW_PD = False
-SHOW_PD_ARROW = False
+SHOW_FLOW = True
+SHOW_BUNDLE_POLY = False
+SHOW_PD = True
+SHOW_PD_ARROW = True
 SHOW_HT_XHT = True
 
 def drawLabel(qp, label, cx, cy, w, h):
@@ -158,7 +158,7 @@ class Flow(object):
 
 
 class Task(object):
-    arrow_HS, arrow_VS = 10, 5
+    arrow_HS, arrow_VS = 15, 10
     font = QFont('Decorative', 12)
     unit_labelW = 20
     labelH = 30
@@ -205,12 +205,28 @@ class Task(object):
             pen = QPen(pen_color, 2, Qt.SolidLine)
             qp.setPen(pen)
             if SHOW_HT_XHT and self.includedInBundle:
-                qp.setBrush(pen_color)
+                qp.setBrush(Qt.NoBrush)
+                # qp.setBrush(pen_color)
             else:
                 qp.setBrush(Qt.NoBrush)
             # if SHOW_PD:
+            #     pen = QPen(Qt.black, 2, Qt.SolidLine)
+            #     qp.setPen(pen)
+            #     for x0, y0, x1, y1 in [
+            #         (self.pcx, self.pcy, self.pcx + LocPD_dotSize, self.pcy + LocPD_dotSize),
+            #         (self.pcx + LocPD_dotSize, self.pcy, self.pcx, self.pcy + LocPD_dotSize),
+            #         (self.dcx, self.dcy, self.dcx + LocPD_dotSize, self.dcy + LocPD_dotSize),
+            #         (self.dcx + LocPD_dotSize, self.dcy, self.dcx, self.dcy + LocPD_dotSize)
+            #     ]:
+            #         qp.drawLine(x0, y0, x1, y1)
+
+
+
             # if SHOW_PD and not self.includedInBundle:
             if SHOW_PD and self.includedInBundle:
+
+
+
                 qp.drawEllipse(self.pcx - LocPD_dotSize / 2, self.pcy - LocPD_dotSize / 2,
                                LocPD_dotSize, LocPD_dotSize)
                 qp.drawRect(self.dcx - LocPD_dotSize / 2, self.dcy - LocPD_dotSize / 2,
@@ -220,16 +236,16 @@ class Task(object):
             if SHOW_PD_ARROW and self.includedInBundle:
                 for x0, y0, x1, y1 in self.arrowLine:
                     qp.drawLine(x0, y0, x1, y1)
-        else:
-            pen = QPen(Qt.black, 2, Qt.SolidLine)
-            qp.setPen(pen)
-            for x0, y0, x1, y1 in [
-                                    (self.pcx, self.pcy, self.pcx + LocPD_dotSize, self.pcy + LocPD_dotSize),
-                                    (self.pcx + LocPD_dotSize, self.pcy, self.pcx, self.pcy + LocPD_dotSize),
-                                    (self.dcx, self.dcy, self.dcx + LocPD_dotSize, self.dcy + LocPD_dotSize),
-                                    (self.dcx + LocPD_dotSize, self.dcy, self.dcx, self.dcy + LocPD_dotSize)
-                                ]:
-                qp.drawLine(x0, y0, x1, y1)
+        # else:
+        pen = QPen(Qt.black, 2, Qt.SolidLine)
+        qp.setPen(pen)
+        for x0, y0, x1, y1 in [
+                                (self.pcx, self.pcy, self.pcx + LocPD_dotSize, self.pcy + LocPD_dotSize),
+                                (self.pcx + LocPD_dotSize, self.pcy, self.pcx, self.pcy + LocPD_dotSize),
+                                (self.dcx, self.dcy, self.dcx + LocPD_dotSize, self.dcy + LocPD_dotSize),
+                                (self.dcx + LocPD_dotSize, self.dcy, self.dcx, self.dcy + LocPD_dotSize)
+                            ]:
+            qp.drawLine(x0, y0, x1, y1)
 
 
 class Bundle(object):

@@ -152,7 +152,10 @@ def run(prmt, etc=None):
                 vec = [0 for _ in range(len(T))]
                 for i in Ts1:
                     vec[i] = 1
-                p = rc + (np.array(vec) * np.array(pi_i)).sum() + mu
+                if sum(vec) < cB_M:
+                    p = 0
+                else:
+                    p = rc + (np.array(vec) * np.array(pi_i)).sum() + mu
                 C, p_c, e_ci, sC = list(map(cwl_inputs.get, ['C', 'p_c', 'e_ci', 'sC']))
                 e_ci.append(vec)
                 p_c.append(p)

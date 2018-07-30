@@ -10,6 +10,8 @@ from __path_organizer import exp_dpath
 from mrtScenario import gen_instance, inputConvertPickle
 from mrtScenario import PER50, PER75
 
+HOUR20 = 20 * 60 * 60
+
 
 def gen_problems4PC(problem_dpath):
     if not opath.exists(problem_dpath):
@@ -60,7 +62,7 @@ def gen_problems4PC(problem_dpath):
 
 
 def summaryRD():
-    summaryPC_dpath = opath.join(exp_dpath, '_PerformanceComparision')
+    summaryPC_dpath = opath.join(exp_dpath, '_PerformanceComparison')
     rd_fpath = reduce(opath.join, [summaryPC_dpath, 'rawDataPC.csv'])
     aprcs = ['EX2', 'BNP'] + ['GH'] + ['CWL1']
     with open(rd_fpath, 'w') as w_csvfile:
@@ -156,7 +158,7 @@ def summaryRD():
 
 
 def summaryPC():
-    summaryPC_dpath = opath.join(exp_dpath, '_PerformanceComparision')
+    summaryPC_dpath = opath.join(exp_dpath, '_PerformanceComparison')
     rd_fpath = reduce(opath.join, [summaryPC_dpath, 'rawDataPC.csv'])
     sum_fpath = reduce(opath.join, [summaryPC_dpath, 'summaryPC.csv'])
     odf = pd.read_csv(rd_fpath)
@@ -188,6 +190,10 @@ def summaryPC():
     df['BNP_sol'] = df.apply(lambda row: '%.2f' % row['BNP_objV'], axis=1)
     df['CWL_sol'] = df.apply(lambda row: '%.f%%' % (100 * (row['BNP_objV'] - row['CWL1_objV']) / row['BNP_objV']), axis=1)
     df['GH_sol'] = df.apply(lambda row: '%.f%%' % (100 * (row['BNP_objV'] - row['GH_objV']) / row['BNP_objV']), axis=1)
+    #
+    df = df[(df['BNP_cpuT'] <= HOUR20)]
+    df['EX2_cpuT_sd'] = np.where(df['EX2_cpuT'] > HOUR20, np.nan, df['EX2_cpuT_sd'])
+    df['EX2_cpuT'] = np.where(df['EX2_cpuT'] > HOUR20, np.nan, df['EX2_cpuT'])
     #
     df.to_csv(sum_fpath, index=False)
 

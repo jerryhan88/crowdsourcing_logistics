@@ -11,6 +11,8 @@ from __path_organizer import exp_dpath
 from mrtScenario import PER25, PER75, STATIONS
 from mrtScenario import gen_instance, inputConvertPickle
 
+HOUR5 = 5 * 60 * 60
+
 
 def gen_problems4PP(problem_dpath):
     if not opath.exists(problem_dpath):
@@ -135,7 +137,7 @@ def summaryRD_PP():
     df.to_csv(rd_fpath, index=False)
 
 
-def summaryPC():
+def summaryPP():
     summaryPP_dpath = opath.join(exp_dpath, '_PracticalProblems')
     rd_fpath = reduce(opath.join, [summaryPP_dpath, 'rawDataPP.csv'])
     sum_fpath = reduce(opath.join, [summaryPP_dpath, 'summaryPP.csv'])
@@ -148,14 +150,21 @@ def summaryPC():
     sdf = odf.groupby(['numPaths', 'numTasks']).std().reset_index()
     for aprc in aprcs:
         df['%s_cpuT_sd' % aprc] = sdf['%s_cpuT' % aprc]
-    for aprc in aprcs:
-        df['p_%s_cpuT' % aprc] = df.apply(lambda row: '%.f(%.f)' % (row['%s_cpuT' % aprc], row['%s_cpuT_sd' % aprc]), axis=1)
-    for aprc in aprcs:
-        df['p_%s_objV' % aprc] = df.apply(lambda row: '%.2f' % row['%s_objV' % aprc], axis=1)
+    # for aprc in aprcs:
+    #     df['p_%s_cpuT' % aprc] = df.apply(lambda row: '%.f(%.f)' % (row['%s_cpuT' % aprc], row['%s_cpuT_sd' % aprc]), axis=1)
+    # for aprc in aprcs:
+    #     df['p_%s_objV' % aprc] = df.apply(lambda row: '%.2f' % row['%s_objV' % aprc], axis=1)
     #
+    for aprc in aprcs:
+        df['%s_objV' % aprc] = np.where(df['%s_cpuT' % aprc] > HOUR5, np.nan, df['%s_objV' % aprc])
+        df['p_%s_objV' % aprc] = df.apply(lambda row: '%.2f' % row['%s_objV' % aprc], axis=1)
+        #
+        df['%s_cpuT_sd' % aprc] = np.where(df['%s_cpuT' % aprc] > HOUR5, np.nan, df['%s_cpuT_sd' % aprc])
+        df['%s_cpuT' % aprc] = np.where(df['%s_cpuT' % aprc] > HOUR5, np.nan, df['%s_cpuT' % aprc])
     df.to_csv(sum_fpath, index=False)
     
 
 if __name__ == '__main__':
     # gen_problems4PP(opath.join(exp_dpath, 'm18'))
-    summaryRD_PP()
+    # summaryRD_PP()
+    summaryPP()
