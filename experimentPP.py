@@ -12,6 +12,8 @@ from mrtScenario import PER25, PER75, STATIONS
 from mrtScenario import gen_instance, inputConvertPickle
 
 HOUR5 = 5 * 60 * 60
+HOUR_INF = 1e400
+TIME_LIMIT = HOUR_INF
 
 
 def gen_problems4PP(problem_dpath):
@@ -71,7 +73,6 @@ def summaryRD_PP():
             aprc_row = ['-' for _ in range(len(aprcs) * 2)]
             for i, aprc in enumerate(aprcs):
                 sol_fpath = opath.join(sol_dpath, 'sol_%s_%s.csv' % (prefix, aprc))
-                log_fpath = opath.join(log_dpath, '%s_itr%s.csv' % (prefix, aprc))
                 if opath.exists(sol_fpath):
                     with open(sol_fpath) as r_csvfile:
                         reader = csv.DictReader(r_csvfile)
@@ -79,25 +80,37 @@ def summaryRD_PP():
                             objV, eliCpuTime = [row[cn] for cn in ['objV', 'eliCpuTime']]
                         aprc_row[i] = objV
                         aprc_row[i + len(aprcs)] = eliCpuTime
-                # elif opath.exists(log_fpath):
-                #     with open(log_fpath) as r_csvfile:
-                #         reader = csv.DictReader(r_csvfile)
-                #         for row in reader:
-                #             pass
-                #         try:
-                #             relObjV, eliCpuTime = [row[cn] for cn in ['relObjV', 'eliCpuTime']]
-                #             aprc_row[i] = '[%s]' % relObjV
-                #             aprc_row[i + len(aprcs)] = '[%s]' % eliCpuTime
-                #         except:
-                #             aprc_row[i] = '[-]'
-                #             aprc_row[i + len(aprcs)] = '[-]'
             new_row += aprc_row
+            #
+            mip_comT_row = ['-' for _ in range(len(cwls))]
+            numCols_row = ['-' for _ in range(len(cwls))]
+            for i, aprc in enumerate(cwls):
+                sol_fpath = opath.join(sol_dpath, 'sol_%s_%s.csv' % (prefix, aprc))
+                log_fpath = opath.join(log_dpath, '%s_itr%s.csv' % (prefix, aprc))
+                if opath.exists(sol_fpath):
+                    with open(sol_fpath) as r_csvfile:
+                        reader = csv.DictReader(r_csvfile)
+                        for row in reader:
+                            w_eliCpuTime = eval(row['eliCpuTime'])
+                    with open(log_fpath) as r_csvfile:
+                        reader = csv.DictReader(r_csvfile)
+                        for row in reader:
+                            pass
+                        try:
+                            cg_eliCpuTime, numCols = map(eval, [row[cn] for cn in ['eliCpuTime', 'numCols']])
+                            mip_comT_row[i] = w_eliCpuTime - cg_eliCpuTime
+                            numCols_row[i] = numCols
+                        except:
+                            pass
+            new_row += mip_comT_row
+            new_row += numCols_row
             rows.append(new_row)
         wsDict[wid] = rows
     #
     summaryPP_dpath = opath.join(exp_dpath, '_PracticalProblems')
     rd_fpath = reduce(opath.join, [summaryPP_dpath, 'rawDataPP.csv'])
-    aprcs = ['GH'] + ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]
+    cwls = ['CWL%d' % cwl_no for cwl_no in range(5, 0, -1)]
+    aprcs = ['GH'] + cwls
     with open(rd_fpath, 'w') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
         header = ['pn', 'numPaths', 'numTasks', 'minTB', 'maxTB', 'thDetour', 'thWS']
@@ -105,6 +118,10 @@ def summaryRD_PP():
             header += ['%s_objV' % aprc]
         for aprc in aprcs:
             header += ['%s_cpuT' % aprc]
+        for aprc in cwls:
+            header += ['%s_MIP_T' % aprc]
+        for aprc in cwls:
+            header += ['%s_numCols' % aprc]
         writer.writerow(header)
     #
     prmt_dpath = reduce(opath.join, [summaryPP_dpath, 'prmt'])
@@ -156,11 +173,11 @@ def summaryPP():
     #     df['p_%s_objV' % aprc] = df.apply(lambda row: '%.2f' % row['%s_objV' % aprc], axis=1)
     #
     for aprc in aprcs:
-        df['%s_objV' % aprc] = np.where(df['%s_cpuT' % aprc] > HOUR5, np.nan, df['%s_objV' % aprc])
+        df['%s_objV' % aprc] = np.where(df['%s_cpuT' % aprc] > TIME_LIMIT, np.nan, df['%s_objV' % aprc])
         df['p_%s_objV' % aprc] = df.apply(lambda row: '%.2f' % row['%s_objV' % aprc], axis=1)
         #
-        df['%s_cpuT_sd' % aprc] = np.where(df['%s_cpuT' % aprc] > HOUR5, np.nan, df['%s_cpuT_sd' % aprc])
-        df['%s_cpuT' % aprc] = np.where(df['%s_cpuT' % aprc] > HOUR5, np.nan, df['%s_cpuT' % aprc])
+        df['%s_cpuT_sd' % aprc] = np.where(df['%s_cpuT' % aprc] > TIME_LIMIT, np.nan, df['%s_cpuT_sd' % aprc])
+        df['%s_cpuT' % aprc] = np.where(df['%s_cpuT' % aprc] > TIME_LIMIT, np.nan, df['%s_cpuT' % aprc])
     df.to_csv(sum_fpath, index=False)
     
 

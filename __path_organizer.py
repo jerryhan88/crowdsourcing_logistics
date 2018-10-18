@@ -1,6 +1,8 @@
 import os.path as opath
 import os
 from functools import reduce
+
+
 data_dpath = reduce(opath.join, ['..', '_data', 'crowdsourcing_logistics'])
 ef_dpath = opath.join(data_dpath, 'ExternalFiles')
 ez_dpath = opath.join(data_dpath, 'EZlinkData')

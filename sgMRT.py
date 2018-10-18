@@ -456,10 +456,6 @@ def get_travelTimeMRT_googlemap():
             print(MRT0, MRT1)
 
 
-
-
-
-
 if __name__ == '__main__':
     # get_mrtLines()
     # get_coordMRT()

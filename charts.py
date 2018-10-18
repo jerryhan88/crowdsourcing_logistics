@@ -2,13 +2,14 @@ import os.path as opath
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import math
 from functools import reduce
 #
 from __path_organizer import exp_dpath
 
 _rgb = lambda r, g, b: (r / float(255), g / float(255), b / float(255))
 clists = (
-    'blue', 'green', 'red', 'magenta', 'black', 'cyan',
+    'blue', 'green', 'red', 'magenta', 'black', #'cyan',
     _rgb(255, 165, 0), _rgb(238, 130, 238), _rgb(255, 228, 225),  # orange, violet, misty rose
     _rgb(127, 255, 212),  # aqua-marine
     'yellow',
@@ -236,6 +237,47 @@ def TT_objV():
     plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
 
 
+def PP_numCols():
+    aprcs = ['CWL%d' % cwl_no for cwl_no in range(1, 6)]
+    summaryPP_dpath = opath.join(exp_dpath, '_PracticalProblems')
+    sum_fpath = reduce(opath.join, [summaryPP_dpath, 'summaryPP.csv'])
+    odf = pd.read_csv(sum_fpath)    
+    for numPath in set(odf['numPaths']):
+        df = odf[(odf['numPaths'] == numPath)]
+        avgs = {}
+        num_tasks = set()
+        for nt, v_c1, v_c2, v_c3, v_c4, v_c5 in df[['numTasks'] + ['%s_numCols' % cn for cn in aprcs]].values:
+            for k, v in zip(aprcs, [v_c1, v_c2, v_c3, v_c4, v_c5]):
+#                avgs[nt, k] = v / HOUR1
+                avgs[nt, k] = v
+            num_tasks.add(nt)
+            
+        fig = plt.figure(figsize=FIGSIZE)
+        ax = fig.add_subplot(111)
+        ax.set_xlabel('# T', fontsize=FONT_SIZE)
+        ax.set_ylabel('# of columns', fontsize=FONT_SIZE)
+        tasks = list(np.arange(50, 801, 50))
+        xs = np.arange(len(tasks))
+        
+        labels = ['CwL%d' % cwl_no for cwl_no in range(1, 6)]
+        for i, cn in enumerate(aprcs):
+            y_data = np.array([avgs[nt, cn] if (nt, cn) in avgs else np.nan for nt in tasks])
+            ma_y = np.isfinite(y_data)
+            plt.plot(xs[ma_y], y_data[ma_y], color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
+#        ax.set_yscale('symlog')
+        plt.legend(labels, ncol=3, fontsize=FONT_SIZE,
+                   handletextpad=0.11, columnspacing=0.1, loc='upper center')
+        x_label = np.array([nt if nt in num_tasks else np.nan for nt in tasks]).astype(np.int)
+        plt.xticks(xs[ma_y], x_label[ma_y])
+        ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
+#        plt.ylim((-0.3, 5.0))
+        plt.ylim((0, 35000))
+        img_ofpath = 'PP_numCols_%d.pdf' % numPath
+        plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
+
+
+    
+
 def PP_comT():
     HOUR1 = 3600
     #
@@ -252,17 +294,18 @@ def PP_comT():
         num_tasks = set()
         for nt, v_c1, v_c2, v_c3, v_c4, v_c5, v_gh in df[['numTasks'] + ['%s_cpuT' % cn for cn in aprcs]].values:
             for k, v in zip(aprcs, [v_c1, v_c2, v_c3, v_c4, v_c5, v_gh]):
-                avgs[nt, k] = v / HOUR1
+#                avgs[nt, k] = v / HOUR1
+                avgs[nt, k] = v
             num_tasks.add(nt)
-        stds = {}
-        for nt, v_c1, v_c2, v_c3, v_c4, v_c5, v_gh in df[['numTasks'] + ['%s_cpuT_sd' % cn for cn in aprcs]].values:
-            for k, v in zip(aprcs, [v_c1, v_c2, v_c3, v_c4, v_c5, v_gh]):
-                stds[nt, k] = v / HOUR1                   
+#        stds = {}
+#        for nt, v_c1, v_c2, v_c3, v_c4, v_c5, v_gh in df[['numTasks'] + ['%s_cpuT_sd' % cn for cn in aprcs]].values:
+#            for k, v in zip(aprcs, [v_c1, v_c2, v_c3, v_c4, v_c5, v_gh]):
+#                stds[nt, k] = v / HOUR1                   
         #
         fig = plt.figure(figsize=FIGSIZE)
         ax = fig.add_subplot(111)
         ax.set_xlabel('# T', fontsize=FONT_SIZE)
-        ax.set_ylabel('Computation time (hour)', fontsize=FONT_SIZE)
+        ax.set_ylabel('Computation time (sec.)', fontsize=FONT_SIZE)
         tasks = list(np.arange(50, 801, 50))
         xs = np.arange(len(tasks))
         
@@ -270,18 +313,23 @@ def PP_comT():
         for i, cn in enumerate(aprcs):
             y_data = np.array([avgs[nt, cn] if (nt, cn) in avgs else np.nan for nt in tasks])
             ma_y = np.isfinite(y_data)
-            y_error = np.array([stds[nt, cn] if (nt, cn) in avgs else np.nan for nt in tasks])
-            ax.errorbar(xs[ma_y], y_data[ma_y], yerr=y_error[ma_y], elinewidth=1.0, capsize=4, # fmt='-o', 
-                        color=clists[i], marker=mlists[i], markersize=MARKER_SIZE, label=labels[i])
-            
-        handles, labels = ax.get_legend_handles_labels()
-        handles = [h[0] for h in handles]
-        plt.legend(handles, labels, ncol=1, fontsize=FONT_SIZE)
+#            y_error = np.array([stds[nt, cn] if (nt, cn) in avgs else np.nan for nt in tasks])
+#            ax.errorbar(xs[ma_y], y_data[ma_y], yerr=y_error[ma_y], elinewidth=1.0, capsize=4, # fmt='-o', 
+#                        color=clists[i], marker=mlists[i], markersize=MARKER_SIZE, label=labels[i])
+            plt.plot(xs[ma_y], y_data[ma_y], color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
+        ax.set_yscale('symlog')
+        
+#        handles, labels = ax.get_legend_handles_labels()
+#        handles = [h[0] for h in handles]
+#        plt.legend(handles, labels, ncol=1, fontsize=FONT_SIZE)
+        plt.legend(labels, ncol=3, fontsize=FONT_SIZE,
+                   handletextpad=0.11, columnspacing=0.1, loc='upper center')
 
         x_label = np.array([nt if nt in num_tasks else np.nan for nt in tasks]).astype(np.int)
         plt.xticks(xs[ma_y], x_label[ma_y])
         ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
-        plt.ylim((-0.3, 5.0))
+#        plt.ylim((-0.3, 5.0))
+        plt.ylim((0, 1500000000))
         img_ofpath = 'PP_comT_%d.pdf' % numPath
         plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
 
@@ -301,23 +349,26 @@ def PC_comT_fixPath():
     fig = plt.figure(figsize=FIGSIZE)
     ax = fig.add_subplot(111)
     ax.set_xlabel('# T', fontsize=FONT_SIZE)
-    ax.set_ylabel('Computation time (hour)', fontsize=FONT_SIZE)
+    ax.set_ylabel('Computation time (sec.)', fontsize=FONT_SIZE)
 
-    labels = ['Gurobi', 'BnP', 'CwL', 'GH']
+    labels = ['ILP', 'BnP', 'CwL', 'GH']
     
     for i, cn in enumerate(['EX2_cpuT', 'BNP_cpuT', 'CWL1_cpuT', 'GH_cpuT']):
         sd_cn = cn + '_sd'
-        ax.errorbar(range(len(df)), df[cn] / HOUR1, yerr=df[sd_cn] / HOUR1, elinewidth=1.0, capsize=4,
-                 color=clists[i], marker=mlists[i], markersize=MARKER_SIZE,
-                 label=labels[i])
+#        ax.errorbar(range(len(df)), df[cn] / HOUR1, yerr=df[sd_cn] / HOUR1, elinewidth=1.0, capsize=4,
+#                 color=clists[i], marker=mlists[i], markersize=MARKER_SIZE,
+#                 label=labels[i])
+        plt.plot(range(len(df)), df[cn], color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
 #    ax.set_yscale('log', basey=10)
-#    ax.set_yscale('symlog')
-    handles, labels = ax.get_legend_handles_labels()
-    handles = [h[0] for h in handles]
-    plt.legend(handles, labels, ncol=1, fontsize=FONT_SIZE)
+    ax.set_yscale('symlog')
+#    handles, labels = ax.get_legend_handles_labels()
+#    handles = [h[0] for h in handles]
+#    plt.legend(handles, labels, ncol=1, fontsize=FONT_SIZE)
+    ax.legend(labels, loc=1, bbox_to_anchor=(1.0, 0.5), fontsize=FONT_SIZE)
     plt.xticks(range(len(df['numTasks'])), df['numTasks'])
     ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
-    plt.ylim((-1, 24))
+#    plt.ylim((-1, 24))
+    plt.ylim((-1, 150000))
     img_ofpath = 'PC_comT_FP.pdf'
     plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
 
@@ -336,21 +387,24 @@ def PC_comT_fixTask():
     fig = plt.figure(figsize=FIGSIZE)
     ax = fig.add_subplot(111)
     ax.set_xlabel('# P', fontsize=FONT_SIZE)
-    ax.set_ylabel('Computation time (hour)', fontsize=FONT_SIZE)
+    ax.set_ylabel('Computation time (sec.)', fontsize=FONT_SIZE)
     
-    labels = ['Gurobi', 'BnP', 'CwL', 'GH']
+    labels = ['ILP', 'BnP', 'CwL', 'GH']
     
     for i, cn in enumerate(['EX2_cpuT', 'BNP_cpuT', 'CWL1_cpuT', 'GH_cpuT']):
         sd_cn = cn + '_sd'
-        ax.errorbar(range(len(df)), df[cn] / HOUR1, yerr=df[sd_cn] / HOUR1, elinewidth=1.0, capsize=4,
-                     color=clists[i], marker=mlists[i], markersize=MARKER_SIZE,
-                     label=labels[i])
-    handles, labels = ax.get_legend_handles_labels()
-    handles = [h[0] for h in handles]
-    plt.legend(handles, labels, ncol=1, fontsize=FONT_SIZE)
+#        ax.errorbar(range(len(df)), df[cn] / HOUR1, yerr=df[sd_cn] / HOUR1, elinewidth=1.0, capsize=4,
+#                     color=clists[i], marker=mlists[i], markersize=MARKER_SIZE,
+#                     label=labels[i])
+        plt.plot(range(len(df)), df[cn], color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
+    ax.set_yscale('symlog')
+#    handles, labels = ax.get_legend_handles_labels()
+#    handles = [h[0] for h in handles]
+#    plt.legend(handles, labels, ncol=1, fontsize=FONT_SIZE)
+    plt.legend(labels, ncol=1, fontsize=FONT_SIZE)
     plt.xticks(range(len(df['numPaths'])), df['numPaths'])
     ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
-    plt.ylim((-1, 24))
+    plt.ylim((-1, 150000))
     img_ofpath = 'PC_comT_FT.pdf'
     plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
     
@@ -403,8 +457,134 @@ def PA_profit():
     plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
 
 
+def PR_objV():
+    summaryPR_dpath = opath.join(exp_dpath, '_ParticipationRate')
+    sum_fpath = reduce(opath.join, [summaryPR_dpath, 'summaryPR.csv'])
+    wdf = pd.read_csv(sum_fpath)
+    TOTAL_PASSENGER = 2349832
+    #
+    for numTasks in set(wdf['numTasks']):
+        odf = wdf[(wdf['numTasks'] == numTasks)]
+        fig = plt.figure(figsize=FIGSIZE)
+        ax = fig.add_subplot(111)
+        prs = sorted(list(set(odf['alpha'])))
+        thPs = sorted(list(set(odf['thP'])))
+        xs = np.arange(len(prs))
+        for i, thP in enumerate(thPs):
+            df = odf[(odf['thP'] == thP)]
+            plt.plot(xs, df['objV'] / numTasks, color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
+        plt.legend([r'P = %d%%' % (thP * 100) for thP in thPs], ncol=1, fontsize=FONT_SIZE - 3,
+               handletextpad=0.11, columnspacing=0.1, loc='upper left')
+        plt.xticks(xs, [r'$10^{%d}$' % math.log10(pr) for pr in prs])
+        plt.ylim((0.0, 1.0))
+        plt.text(1.8, 0.4, '# tasks: %d' % numTasks, fontsize=FONT_SIZE)
+        plt.text(1.8, 0.48, '# passengers: %s ' % "{:,}".format(TOTAL_PASSENGER), fontsize=FONT_SIZE)
+        ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
+        ax.set_xlabel('Participation probability', fontsize=FONT_SIZE)
+        ax.set_ylabel('Ratio', fontsize=FONT_SIZE)
+        #
+        img_ofpath = 'PR_objV_%d.pdf' % numTasks
+        plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
+
+
+def PC_perGap():
+    numTasks = [10, 15, 20, 25, 30]
+    
+    
+    ydata = [
+     [0, 0, 0 ,5 ,9],
+     [0, 0, 0, 0, 0],
+     [40, 40, 44, 40, 39],
+    ]
+    labels = ['ILP', 'CwL', 'GH']
+    
+    
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=FIGSIZE)
+    
+    for ax in [ax1, ax2]:    
+        ax.plot(range(len(numTasks)), ydata[0], color=clists[0], marker=mlists[0], markersize=MARKER_SIZE)
+        ax.plot(range(len(numTasks)), ydata[1], color=clists[2], marker=mlists[2], markersize=MARKER_SIZE)
+        ax.plot(range(len(numTasks)), ydata[2], color=clists[3], marker=mlists[3], markersize=MARKER_SIZE)
+    
+    ax1.set_ylim(35, 55)
+    ax2.set_ylim(-1, 14)
+    
+    ax1.spines['bottom'].set_visible(False)
+    ax2.spines['top'].set_visible(False)
+    ax1.xaxis.tick_top()
+    ax1.tick_params(labeltop='off')  # don't put tick labels at the top
+    ax2.xaxis.tick_bottom()
+    
+    
+    d = .015  # how big to make the diagonal lines in axes coordinates
+    # arguments to pass to plot, just so we don't keep repeating them
+    kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
+    ax1.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+    ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+    
+    kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+    ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
+    ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
+    
+    for ax in [ax1, ax2]:    
+        ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
+        ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
+    plt.xticks(range(len(numTasks)), numTasks)
+    
+    
+    fig.text(0.5, 0.04, '# T', ha='center', fontsize=FONT_SIZE)
+    fig.text(0.04, 0.5, 'Optimality gap (%)', va='center', rotation='vertical', fontsize=FONT_SIZE)
+    ax1.legend(labels, bbox_to_anchor=(0.01, 0.315), fontsize=FONT_SIZE)
+    fig.text(0.5, 0.5, '*Compared with BnP', ha='center', fontsize=FONT_SIZE)
+
+    img_ofpath = 'PC_objV_FP.pdf'
+    plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)
+
+
+def PP_perGap():
+    NUM_TASKS = 400
+    aprcs = ['CWL%d' % cwl_no for cwl_no in range(1, 6)] + ['GH']
+    summaryPP_dpath = opath.join(exp_dpath, '_PracticalProblems')
+    sum_fpath = reduce(opath.join, [summaryPP_dpath, 'summaryPP.csv'])
+    odf = pd.read_csv(sum_fpath)
+    odf = odf[['numPaths', 'numTasks'] + ['%s_objV' % aprc for aprc in aprcs]]    
+    odf = odf[(odf['numTasks'] == NUM_TASKS)]
+    for aprc in aprcs:        
+        odf['%s_gap' % aprc] = (odf['CWL1_objV'] - odf['%s_objV' % aprc]) / odf['CWL1_objV'] * 100
+    np_gap = {}
+    for _, row in odf.iterrows():
+        np_gap[row['numPaths']] = [(aprc, row['%s_gap' % aprc]) for aprc in aprcs[1:]]
+    
+    aprc_xy = {aprc: [] for aprc in aprcs[1:]}
+    for i, (num_path, aprc_gap) in enumerate(np_gap.items()):
+        for j, (aprc, gap) in enumerate(aprc_gap):
+            aprc_xy[aprc].append([0.25 + i + 0.1 * j, gap])
+            
+    fig = plt.figure(figsize=FIGSIZE)
+    ax = fig.add_subplot(111)
+    ax.set_ylabel('Solution quality gap (%)', fontsize=FONT_SIZE)
+    ax.set_xlabel('Scenario', fontsize=FONT_SIZE)
+    labels = ['CwL%d' % cwl_no for cwl_no in range(2, 6)] + ['GH']
+    for i, aprc in enumerate(aprcs[1:]):
+        x_data, y_data = zip(*aprc_xy[aprc])
+        plt.scatter(x_data, y_data, s=70, color=clists[i+1], marker=mlists[i+1], label=labels[i])
+    plt.legend(labels, ncol=5, fontsize=FONT_SIZE, 
+       handletextpad=0.11, columnspacing=0.05, bbox_to_anchor=(1.015, 0.6))
+
+    plt.xticks([0.45 + i for i in range(3)], [r'$FC$', r'$ST$', r'$ER$'])
+    ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
+    ax.set_xlim(-0.1, 3.1)
+    fig.text(0.18, 0.6, '*# tasks: %d\n**Compared with CwL1' % NUM_TASKS, ha='left', fontsize=FONT_SIZE)
+
+    img_ofpath = 'PP_perGap_%d.pdf' % NUM_TASKS
+    plt.savefig(img_ofpath, bbox_inches='tight', pad_inches=0)    
+    
+    
 if __name__ == '__main__':
-    TT_objV()
-    # PP_comT()
+    # TT_objV()
+    PP_comT()
     # PA_ratio()
     # PA_profit()
+    # PR_objV()
+    # PC_perGap()
+    # PP_perGap()

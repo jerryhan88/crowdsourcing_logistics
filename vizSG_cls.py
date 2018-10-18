@@ -40,7 +40,7 @@ colors = {
 }
 pallet += list(colors.values())
 
-Station_markSize = 40
+Station_markSize = 30
 LocPD_dotSize = 5
 SHOW_LABEL = False
 SHOW_FLOW = True
@@ -48,6 +48,9 @@ SHOW_BUNDLE_POLY = False
 SHOW_PD = True
 SHOW_PD_ARROW = True
 SHOW_HT_XHT = True
+MRT_MARK = False
+
+
 
 def drawLabel(qp, label, cx, cy, w, h):
     if SHOW_LABEL:
@@ -133,7 +136,21 @@ class Station(object):
         self.pixmap = QPixmap('mrtMark.png').scaledToWidth(Station_markSize)
 
     def draw(self, qp):
-        qp.drawPixmap(self.cPoint, self.pixmap)
+        if MRT_MARK:
+            qp.drawPixmap(self.cPoint, self.pixmap)
+        else:
+
+            # pen_color = QColor("#d3d3d3")
+            pen_color = QColor(Color('grey').get_hex_l())
+
+
+            pen = QPen(pen_color, 2, Qt.SolidLine)
+            qp.setPen(pen)
+            qp.setBrush(pen_color)
+            qp.drawRect(self.cPoint.x(),
+                        self.cPoint.y(),
+                        Station_markSize, Station_markSize)
+
 
         drawLabel(qp, self.label,
                   self.cPoint.x(),
@@ -141,7 +158,7 @@ class Station(object):
 
 
 class Flow(object):
-    lineProp = 160
+    lineProp = 100
 
     def __init__(self, weight, points):
         self.weight = weight
@@ -219,8 +236,6 @@ class Task(object):
             #         (self.dcx + LocPD_dotSize, self.dcy, self.dcx, self.dcy + LocPD_dotSize)
             #     ]:
             #         qp.drawLine(x0, y0, x1, y1)
-
-
 
             # if SHOW_PD and not self.includedInBundle:
             if SHOW_PD and self.includedInBundle:

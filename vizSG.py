@@ -174,23 +174,6 @@ class Viz(QWidget):
 
     def init_prmtDrawing(self):
         self.flow_oridest, task_ppdp = self.drawingInfo['dplym']
-        w_k = self.drawingInfo['prmt']['w_k']
-        mrts = set()
-        for k, (mrt0, mrt1) in enumerate(self.flow_oridest):
-            route = get_route(mrtNetNX, mrt0, mrt1)
-            points = []
-            for mrt in route:
-                lat, lng = mrt_coords[mrt]
-                x, y = convert_GPS2xy(lng, lat)
-                points.append([x, y])
-            self.objForDrawing.append(Flow(w_k[k], points))
-            #
-            for mrt in [mrt0, mrt1]:
-                if mrt not in mrts:
-                    lat, lng = mrt_coords[mrt]
-                    cx, cy = convert_GPS2xy(lng, lat)
-                    self.objForDrawing.append(Station(len(mrts), mrt, cx, cy))
-                    mrts.add(mrt)
         #
         ln_locO = {o.Location: o for o in locationPD}
         self.task_pdO = []
@@ -210,6 +193,26 @@ class Viz(QWidget):
             self.tasks[task.tid] = task
             self.objForDrawing.append(task)
             self.task_pdO.append([[pcx, pcy], [dcx, dcy]])
+        #
+        w_k = self.drawingInfo['prmt']['w_k']
+        mrts = set()
+        for k, (mrt0, mrt1) in enumerate(self.flow_oridest):
+            route = get_route(mrtNetNX, mrt0, mrt1)
+            points = []
+            for mrt in route:
+                lat, lng = mrt_coords[mrt]
+                x, y = convert_GPS2xy(lng, lat)
+                points.append([x, y])
+            self.objForDrawing.append(Flow(w_k[k], points))
+            mrts.add(mrt0)
+            mrts.add(mrt1)
+            #
+        for mrt in mrts:
+            lat, lng = mrt_coords[mrt]
+            cx, cy = convert_GPS2xy(lng, lat)
+            self.objForDrawing.append(Station(len(mrts), mrt, cx, cy))
+            mrts.add(mrt)
+
 
     def init_solDrawing(self):
         if not 'scFP' in self.drawingInfo:
@@ -374,18 +377,19 @@ def gen_imgs():
 
 
 def runSingle():
-    dplym_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'dplym'])
-    prmt_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'prmt'])
-    sol_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'sol'])
-    viz_dpath = reduce(opath.join, [exp_dpath, '_TaskType', 'viz'])
+    dplym_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'dplym'])
+    prmt_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'prmt'])
+    sol_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'sol'])
+    viz_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'viz'])
     #
     # dplym_dpath, prmt_dpath, sol_dpath = '_temp', '_temp', '_temp'
     #
-    prefix = '11interOut-nt800-d2dR100-mDP20-sn17'
+    prefix = '5out-nt800-mDP20-mTB4-dp25-fp75-sn11'
+
     aprc = 'CWL4'
     pkl_files = {
         'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
-        'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
+        # 'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
     #     'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
     }
     # pkl_files = {}
