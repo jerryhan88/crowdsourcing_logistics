@@ -40,13 +40,14 @@ colors = {
 }
 pallet += list(colors.values())
 
-Station_markSize = 30
+# Station_markSize = 30
+Station_markSize = 20
 LocPD_dotSize = 5
 SHOW_LABEL = False
 SHOW_FLOW = True
-SHOW_BUNDLE_POLY = False
+SHOW_BUNDLE_POLY = True
 SHOW_PD = True
-SHOW_PD_ARROW = True
+SHOW_PD_ARROW = False
 SHOW_HT_XHT = True
 MRT_MARK = False
 
@@ -158,7 +159,7 @@ class Station(object):
 
 
 class Flow(object):
-    lineProp = 100
+    lineProp = 50
 
     def __init__(self, weight, points):
         self.weight = weight
@@ -212,6 +213,8 @@ class Task(object):
                                    y1 - (uy * Task.arrow_HS) - (py * Task.arrow_VS)])
 
     def draw(self, qp):
+        return None
+
         if not self.randomPair:
             for label, x, y in self.label_info:
                 drawLabel(qp, label,
@@ -292,6 +295,8 @@ class Bundle(object):
         drawLabel(qp, self.label,
                   self.lx, self.ly, self.labelW, Bundle.labelH)
         if SHOW_BUNDLE_POLY:
+            if self.bid != 3:
+                return None
             pen = QPen(QColor(pallet[self.bid % len(pallet)]), Bundle.polyLineTH, Qt.DashDotLine)
             qp.setPen(pen)
             for i in range(len(self.bnldPoly) - 1):

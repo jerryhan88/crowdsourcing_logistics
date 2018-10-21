@@ -58,6 +58,7 @@ FIGSIZE = (8, 6)
 FONT_SIZE = 18
 MARKER_SIZE = 12
 
+
 def TT_DF_PF():
     labels = ['MCS%d' % dt for dt in [30, 60, 90]] + ['DF%d' % nv for nv in [5, 10, 15]]
     d2d_ratio = [0, 0.25, 0.5, 0.75, 1]        
@@ -169,11 +170,12 @@ def TT_profit_ratio():
           [85, 78, 73, 70, 68, 66, 66, 64, 62],
           [90, 81, 77, 74, 71, 69, 68, 66, 65],]        
     tasks = list(np.arange(100, 501, 50))    
-    labels = ['MCS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]]
+    labels = ['CS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]]
+    # labels = ['MCS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]]
     #
     fig = plt.figure(figsize=FIGSIZE)
     ax = fig.add_subplot(111)
-    ax.set_ylabel('Fraction', fontsize=FONT_SIZE)
+    ax.set_ylabel('Ratio', fontsize=FONT_SIZE)
     ax.set_xlabel('Profit ($)', fontsize=FONT_SIZE)
     mask_data = [True if tasks[i] in [100, 300, 500] else False for i in range(len(ratios[0]))]
     for i in range(len(ratios)):
@@ -420,11 +422,12 @@ def PA_ratio():
     fig = plt.figure(figsize=FIGSIZE)
     ax = fig.add_subplot(111)
     ax.set_xlabel('# T', fontsize=FONT_SIZE)
-    ax.set_ylabel('%', fontsize=FONT_SIZE)
+    ax.set_ylabel('Ratio (%)', fontsize=FONT_SIZE)
     for i, y in enumerate(ratios):
         plt.plot(range(len(tasks)), y, color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
 
-    plt.legend(['MCS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]], ncol=1, fontsize=FONT_SIZE)
+    plt.legend(['CS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]], ncol=1, fontsize=FONT_SIZE)
+    # plt.legend(['MCS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]], ncol=1, fontsize=FONT_SIZE)
     plt.xticks(range(len(tasks)), tasks)
     ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
     #
@@ -447,7 +450,8 @@ def PA_profit():
     for i, y in enumerate(profits):
         plt.plot(range(len(tasks)), y, color=clists[i], marker=mlists[i], markersize=MARKER_SIZE)
 
-    plt.legend(['MCS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]], ncol=1, fontsize=FONT_SIZE)
+    plt.legend(['CS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]], ncol=1, fontsize=FONT_SIZE)
+    # plt.legend(['MCS'] + ['DF%d' % nv for nv in [5, 10, 15, 20]], ncol=1, fontsize=FONT_SIZE)
     plt.xticks(range(len(tasks)), tasks)
     ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE)
     #
@@ -582,9 +586,10 @@ def PP_perGap():
     
 if __name__ == '__main__':
     # TT_objV()
-    PP_comT()
-    # PA_ratio()
-    # PA_profit()
+    # PP_comT()
+    PA_ratio()
+    PA_profit()
+    TT_profit_ratio()
     # PR_objV()
     # PC_perGap()
     # PP_perGap()

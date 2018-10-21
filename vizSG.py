@@ -377,20 +377,22 @@ def gen_imgs():
 
 
 def runSingle():
-    dplym_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'dplym'])
-    prmt_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'prmt'])
-    sol_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'sol'])
-    viz_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'viz'])
+    # dplym_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'dplym'])
+    # prmt_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'prmt'])
+    # sol_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'sol'])
+    # viz_dpath = reduce(opath.join, [exp_dpath, '_PracticalProblems', 'viz'])
     #
-    # dplym_dpath, prmt_dpath, sol_dpath = '_temp', '_temp', '_temp'
+    dplym_dpath, prmt_dpath, sol_dpath = '_temp', '_temp', '_temp'
     #
     prefix = '5out-nt800-mDP20-mTB4-dp25-fp75-sn11'
+    prefix = 'mrtS1-dt80'
 
     aprc = 'CWL4'
+    aprc = 'CWL1'
     pkl_files = {
         'dplym': opath.join(dplym_dpath, 'dplym_%s.pkl' % prefix),
-        # 'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
-    #     'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
+        'prmt': opath.join(prmt_dpath, 'prmt_%s.pkl' % prefix),
+        'sol': opath.join(sol_dpath, 'sol_%s_%s.pkl' % (prefix, aprc))
     }
     # pkl_files = {}
     viz_fpath = 'temp.png'
