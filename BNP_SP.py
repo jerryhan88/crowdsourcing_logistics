@@ -6,6 +6,9 @@ from _util_logging import write_log
 
 NUM_CORES = multiprocessing.cpu_count()
 
+#
+# For subproblems (pickup and delivery problems) of Branch and Price
+#
 
 def run(prmt, bnp_inputs, etc):
     def callbackF(m, where):

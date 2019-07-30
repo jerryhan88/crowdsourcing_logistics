@@ -21,6 +21,12 @@ LOG_INTER_RESULTS = False
 EPSILON = 0.00001
 
 
+#
+# Column generation with Local search
+# CWL4 = CWL2 + only concerns columns having the positive reduced cost
+#
+
+
 def estimate_WS(prmt, cwl_inputs, c, i0):
     K, w_k, _delta = list(map(prmt.get, ['K', 'w_k', '_delta']))
     s_ck = cwl_inputs['s_ck']

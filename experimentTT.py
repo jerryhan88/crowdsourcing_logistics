@@ -17,6 +17,9 @@ MIN20 = 20
 Meter1000 = 1000.0
 WALKING_SPEED = 5.0  # km/hour
 
+#
+# Task type (box-to-box vs. point-to-point)
+#
 
 def gen_instances4TT(problem_dpath):
     from mrtScenario import inputConvertPickle

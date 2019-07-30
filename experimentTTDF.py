@@ -23,6 +23,11 @@ bundleReward = {
 }
 
 
+#
+# Task type comparision with MCS and the dedicated fleet
+#
+
+
 def summaryRD():
     def process_files(fns, wid, wsDict):
         rows = []

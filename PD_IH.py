@@ -1,5 +1,10 @@
 
 
+#
+# Insertion Heuristic for the pickup and delivery problem
+#
+
+
 def run(prmt, pd_inputs):
     t_ij = prmt['t_ij']
     seq0, i0 = list(map(pd_inputs.get, ['seq0', 'i0']))

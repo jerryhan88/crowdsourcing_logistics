@@ -15,6 +15,11 @@ HOUR5 = 5 * 60 * 60
 HOUR_INF = 1e400
 TIME_LIMIT = HOUR_INF
 
+#
+# Practical Problem
+# compare CWLs and GH
+#
+
 
 def gen_problems4PP(problem_dpath):
     if not opath.exists(problem_dpath):

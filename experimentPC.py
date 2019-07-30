@@ -12,6 +12,10 @@ from mrtScenario import PER50, PER75
 
 HOUR20 = 20 * 60 * 60
 
+#
+# Performance Comparision (PC)
+#
+#
 
 def gen_problems4PC(problem_dpath):
     if not opath.exists(problem_dpath):

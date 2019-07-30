@@ -20,6 +20,12 @@ LOG_INTER_RESULTS = False
 EPSILON = 0.00001
 
 
+#
+# Column generation with Local search
+# CWL5 = CWL3 + only concerns columns having the positive reduced cost
+#
+
+
 def run(prmt, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     if 'TimeLimit' not in etc:

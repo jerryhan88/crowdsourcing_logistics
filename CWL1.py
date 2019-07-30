@@ -13,6 +13,11 @@ from _util_logging import write_log, res2file
 NUM_CORES = multiprocessing.cpu_count()
 LOG_INTER_RESULTS = False
 
+#
+# Column generation with Local search
+# CWL1 = Column generation and using the mathematical model for the routing problem (PD_MM)
+#
+
 
 def itr2file(fpath, contents=[]):
     if not contents:

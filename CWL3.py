@@ -19,6 +19,13 @@ NUM_CORES = multiprocessing.cpu_count()
 LOG_INTER_RESULTS = False
 
 
+#
+# Column generation with Local search
+# CWL3 = Column generation and using the insertion heuristics for the routing problem (PD_IH)
+#    with the greedy column initialization (GH)
+#
+
+
 def run(prmt, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     if 'TimeLimit' not in etc:

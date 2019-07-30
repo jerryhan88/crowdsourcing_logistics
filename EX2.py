@@ -164,24 +164,6 @@ def run(prmt, etc=None):
                         name='df[%d,%d]' % (b, k))
         EX.addConstr(quicksum(w_k[k] * y_bk[b, k] for k in K) >= cW * g_b[b],
                      name='bg[%d]' % b)
-
-
-    # for b in B:
-    #     for k in K:
-    #         EX.addConstr(y_bk[b, k] <= g_b[b],
-    #                      name='temp[%d,%d]' % (b, k))
-    #
-    #     for k in K:
-    #         kN = N.union({'ori%d' % k, 'dest%d' % k})
-    #         for i in kN:
-    #             for j in kN:
-    #                 EX.addConstr(x_bkij[b, k, i, j] + x_bkij[b, k, j, i] <= 1,
-    #                              name='temp2[%d,%d,%s,%s]' % (b, k, i, j))
-
-
-
-
-
     #
     # Run Gurobi (Optimization)
     #

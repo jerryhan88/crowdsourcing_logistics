@@ -3,6 +3,9 @@ from gurobipy import *
 #
 NUM_CORES = multiprocessing.cpu_count()
 
+#
+# Mathematical Model for the pickup and delivery problem
+#
 
 def run(prmt, pd_inputs):
     k, Ts = [pd_inputs.get(k) for k in ['k', 'Ts']]

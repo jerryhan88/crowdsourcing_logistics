@@ -20,6 +20,12 @@ NUM_CORES = multiprocessing.cpu_count()
 LOG_INTER_RESULTS = False
 
 
+#
+# Column generation with Local search
+# CWL2 = Column generation and using the insertion heuristics for the routing problem (PD_IH)
+#
+
+
 def estimate_WS(prmt, cwl_inputs, c, i0):
     K, w_k, _delta = list(map(prmt.get, ['K', 'w_k', '_delta']))
     s_ck = cwl_inputs['s_ck']
